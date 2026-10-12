@@ -1,3 +1,5 @@
+> **ARCHITECTURE CHANGE — 2026-10-12: PRIOR WINRM PLAN CANCELLED.** The 1C server user is explicitly non-administrator and will remain so. The test COM connection previously succeeded under this user; authenticated PowerShell remoting was rejected with AccessDenied. Do not escalate, modify administrative remoting or grant admin privileges. The prior WinRM-based GitHub workflow has been **disabled**. Historical instructions below are NOT an active runbook. The replacement design is a non-elevated user-session diagnostic worker on SRV that receives strictly allowlisted sandbox-only commands through a separately authenticated exchange with the Windows 10 GitHub executor. No production 1C, no network forwarding, no administrator rights on SRV. **NOT DEPLOYED OR ACCEPTED**; background operation requires independent testing.
+
 # GitHub ↔ Windows ↔ 1C sandbox diagnostics
 
 Status: **CODE PREPARED, NOT CONNECTED / NOT ACCEPTED**, 2026-10-12.
