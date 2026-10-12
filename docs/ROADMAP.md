@@ -1,29 +1,33 @@
-# Milestones and acceptance
+# Milestones — research first, deployment second
 
-## D0: skeleton — bootstrap
-- [x] Project layout, metadata inspector and offline unit tests.
-- [x] STDIO MCP diagnostics tools and fixed CLI operations.
-- [x] New public GitHub repository created and scaffold pushed.
+## D0: public source baseline — DONE
+- [x] Public repository created with initial diagnostic MCP/CLI code.
+- [x] Offline tests and GitHub CI bootstrap.
+- [x] Research-first workflow documented; no REMOTE or Hermes dependency.
 
-## D1: environment discovery (no data mutation)
-- [ ] Verify physical 1C location / file vs server infobase, OS, publication status.
-- [ ] Establish private TLS-reachable endpoint and service account.
-- [ ] Publish approved read-only OData subset if appropriate.
-- [ ] Add a *whitelisted* `onec-metadata-probe` action to private REMOTE bridge.
-- [ ] Verify `$metadata` response, no secrets in logs, no impact on existing services.
+## D1: locate and inspect real 1C host — NOT STARTED
+- [ ] Determine how user logs on (Windows desktop/RDP, 1C client, web UI, etc.).
+- [ ] Run the smallest approved read-only host/launcher configuration check.
+- [ ] Confirm where the infobase lives (file mode or server mode).
+- [ ] Assess safe execution environment adjacent to 1C and the required
+      private network route; avoid deploying any remote MCP.
 
-## D2: entity and semantic inventory
-- [ ] Discover published catalog/document/register names and field types.
-- [ ] Map UNF specific stock semantics, invoices, shipments, posting states.
-- [ ] Document permissions, constraints, required fields and relationships.
+## D2: diagnostic link from ChatGPT workflow — NOT STARTED
+- [ ] Select and validate a minimal trusted test executor reachable by 1C.
+- [ ] Configure permissions and secrets strictly outside public GitHub.
+- [ ] Prove read-only discovery and metadata requests with redacted results.
+- [ ] Inventory entity names, fields, relationships and UNF semantics.
 
-## D3: business tools on TEST base only
-- [ ] `onec_stocks` with reconciliation to 1C UI.
-- [ ] Create and read back an invoice, then verify UI and business effects.
-- [ ] Invoice posting if supported; verify registrations on TEST base.
-- [ ] Create/post shipment and verify TEST base stock movements.
+## D3: test business operations — NOT STARTED
+- [ ] Confirm separate TEST infobase with isolated credentials and data.
+- [ ] Verify stock read and cross-check values against 1C UI.
+- [ ] Create invoice on TEST base, read it back, verify form and fields.
+- [ ] Post invoice on TEST base if applicable; check resulting state.
+- [ ] Create/post sales delivery document on TEST base; check its movements.
+- [ ] Store accepted scripts, business semantics and tests in this repo.
 
-## D4: production handoff
-- [ ] Implement approved business tools in this MCP repo.
-- [ ] Integrate with REMOTE stack inventory and service, no changes to Hermes runtime.
-- [ ] Define permission levels, human approvals, audit and rollback strategy.
+## D4: MCP production implementation — FUTURE, AFTER D3
+- [ ] Convert accepted scripts into typed MCP tools.
+- [ ] Integrate with REMOTE `msp-server-stack` and Hermes if authorized.
+- [ ] Enforce permissions, approvals, idempotency and audit before
+      enabling any production write action.
