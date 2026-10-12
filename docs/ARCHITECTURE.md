@@ -18,6 +18,18 @@ Two distinct remote machines must not be conflated:
   may be PowerShell 2.0: use backward-compatible discovery commands, check
   the installed version, and avoid installing new components without approval.
 
+### Temporary research gateway (approved design; not configured)
+
+For development only, the user's Windows workstation may act as a **temporary**
+Tailscale subnet router between MSP REMOTE Ubuntu and the 1C Windows host.
+The workstation can be turned off: during those periods all 1C probing stops.
+The final always-on server-to-server route remains the production objective.
+
+The Tailscale pilot must advertise a host-specific /32 route, not a full office
+subnet; route approval and least-privilege access policy are mandatory.
+No Tailscale client is to be installed on the unsupported Windows Server 2008 R2.
+Details: [temporary gateway plan](TEMP_WORKSTATION_GATEWAY.md).
+
 ### Research execution path
 
 ChatGPT -> GitHub source `msp-1c-mcp`
