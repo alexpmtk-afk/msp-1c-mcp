@@ -30,7 +30,9 @@
 - [x] User completed Tailscale identity confirmation in browser (success page, 2026-10-12). This verifies web sign-in, **not yet** that local device UI entered `Managing` mode.
 - [x] After Tailscale identity verification, local Quad100 UI no longer displays `Viewing` and shows interactive controls (user screenshot, 2026-10-12). This suggests management UI authorization, but Windows CLI 401 resolution is NOT verified.
 - [x] Opened Windows Tailscale local `Subnet router` page (2026-10-12); it reports **Not advertising any routes**, CIDR entry and `Advertise routes` action available, no change performed.
-- [ ] Before advertising a host-specific `/32` route to the legacy 1C Windows server, inspect existing Tailscale Access controls / Grants to avoid unintentionally granting access to every tailnet peer (the default policy is allow-all).
+- [x] Inspected Tailscale admin Access controls → Policies (2026-10-12): effective displayed rule is **allow-all**, `src=["*"]`, `dst=["*"]`, `ip=["*"]`. Official wildcard semantics include all approved subnet routes; simply adding a narrower allow rule would NOT limit access. Do not advertise the 1C route yet.
+- [ ] Read the complete policy in the admin JSON editor (read-only; save a local copy with sensitive details redacted from screenshots), and map currently required peer-to-peer permissions before carefully replacing the broad rule with tested restricted policy.
+- [ ] Ensure policy tests prevent other peers from reaching the legacy 1C host while the intended MSP VPS can use only required ports. Policy tests are assertions, not deny rules. Verify continuing access to current VPS/Hermes services.
 - [ ] Check host Windows IP forwarding (read-only first); official Tailscale subnet router docs require forwarding, then advertise only host-specific route with route approval and policy restrictions.
 - [x] Identify actual VPS via read-only private bridge issue #203 (2026-10-08): self node `vm-817589`; matches online machine in current admin console.
 - [ ] Resolve Windows Tailscale unattended/server-mode 401 on management CLI without resetting or replacing current device connection.
