@@ -7,6 +7,8 @@
       no Hermes integration or active production MCP service during investigation.
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
+- [x] 2026-10-12: owner confirmed Windows login on legacy 1C SRV is **permanently non-administrator**. Remove all administrator-dependent SRV PowerShell Remoting assumptions. Prior private GitHub WinRM issue workflow is explicitly **DISABLED**. Replace with a locally launched, non-elevated COM agent in existing SRV user session, sandbox-only command allowlist and secure authenticated exchange with supported Windows 10 executor. New channel NOT YET DEPLOYED, no automatic job execution validated.
+
 - [x] 2026-10-12: GitHub-managed test-only Windows executor code prepared in private `msp-server-bridge` (`scripts/onec/`, owner-only `onec-sandbox-windows-bridge.yml`). Fixed issue commands: `[1C] sandbox-check`, `[1C] sandbox-metadata`. Both need an online Windows runner labeled `onec-win` and authenticated WinRM; code preparation **does not mean operational GitHub→1C access**.
 - [x] Windows 10 workstation: read-only `Test-WSMan` against the legacy 1C host succeeded (WSMan identity/HTTP response, Microsoft Stack 2.0). This confirms network listener reachability **only**, not authenticated PowerShell Remoting. IP forwarding remains off.
 - [ ] Next: authenticated, read-only `Invoke-Command` against 1C host from Windows 10 using existing RDP account, without changing TrustedHosts or SSH settings. Require command PASS before installing an isolated Windows GitHub runner.
