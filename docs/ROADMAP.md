@@ -26,7 +26,8 @@
 - [x] User checked Windows workstation Tailscale service **Running**, and Tailscale Machines console shows the Windows workstation online (2026-10-12).
 - [x] Tailscale web console: both Windows workstation and one Linux VPS online in the same tailnet (2026-10-12).
 - [x] Identify actual VPS via read-only private bridge issue #203 (2026-10-08): self node `vm-817589`; matches online machine in current admin console.
-- [ ] Resolve Windows Tailscale unattended/server-mode 401 on management CLI without resetting or replacing current device connection. Running as elevated Administrator (`True`) did not resolve. Verify owner and available local UI controls first.
+- [ ] Resolve Windows Tailscale unattended/server-mode 401 on management CLI without resetting or replacing current device connection.
+  - **Additional observation (Windows tray screenshot, 2026-10-12):** Tailscale menu shows `running in server mode (LOCAL SERVICE)` and only Log in, Update, About, Exit; no Preferences menu for current user. This is consistent with lacking ownership of the unattended session or enforced UI policy; no change has been made. Read-only check of local Tailscale `PreferencesMenu`/`UnattendedMode` system policy is the next diagnostic step; do not click Log in or Exit, reset state, or reinstall. Running as elevated Administrator (`True`) did not resolve. Verify owner and available local UI controls first.
 - [ ] Next, once authorized, advertise and approve **only /32 host route** for the legacy Windows 1C server, with strict tailnet access rules; leave rest of LAN unadvertised.
 - [ ] Configure host-only subnet route with local admin permission, approve in tailnet and restrict access (no full LAN or public RDP exposure).
 - [ ] Verify approved connectivity from REMOTE to old Windows host without changing the 1C server.
