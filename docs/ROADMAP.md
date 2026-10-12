@@ -25,6 +25,8 @@
 - [x] Decide provisional path: Windows workstation -> Tailscale host-only subnet route -> REMOTE Ubuntu, per [temporary gateway plan](TEMP_WORKSTATION_GATEWAY.md).
 - [x] User checked Windows workstation Tailscale service **Running**, and Tailscale Machines console shows the Windows workstation online (2026-10-12).
 - [x] Tailscale web console: both Windows workstation and one Linux VPS online in the same tailnet (2026-10-12).
+- [x] Read-only workstation ICMP probe to verified MSP VPS Tailscale IP: **3/3 replies, 0% loss**, 56–497 ms; this proves workstation-to-VPS ICMP only, **not** VPS-to-Windows-server reachability or subnet routing.
+- [ ] Inspect built-in local Tailscale web interface on workstation (`http://100.100.100.100`) in read-only mode as supported alternative to current Windows CLI 401; avoid service reset.
 - [x] Identify actual VPS via read-only private bridge issue #203 (2026-10-08): self node `vm-817589`; matches online machine in current admin console.
 - [ ] Resolve Windows Tailscale unattended/server-mode 401 on management CLI without resetting or replacing current device connection.
   - **Additional observation (Windows tray screenshot, 2026-10-12):** Tailscale menu shows `running in server mode (LOCAL SERVICE)` and only Log in, Update, About, Exit; no Preferences menu for current user. This is consistent with lacking ownership of the unattended session or enforced UI policy; no change has been made. Read-only check of local Tailscale `PreferencesMenu`/`UnattendedMode` system policy is the next diagnostic step; do not click Log in or Exit, reset state, or reinstall. Running as elevated Administrator (`True`) did not resolve. Verify owner and available local UI controls first.
