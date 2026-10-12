@@ -21,7 +21,11 @@
 - [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
 - [x] Windows client trace to RDP target completes in a single hop (~1 ms); suggests local/on-link or transparent routed connectivity, **not** proof of physical location or direct access from VPS.
 - [x] Workstation adapter `Ethernet` has an RFC1918 192.168.x.x address with `/24` prefix; Windows 1C server previously reported a `/26` prefix. Different subnet masks mean reachability may be asymmetric/routed; do not modify networking or presume direct L2. Exact addresses omitted from public repository.
-- [ ] Determine a secure always-on gateway in the workstation/1C network for an approved restricted VPN route to the REMOTE Ubuntu VPS (no public RDP, SMB, WinRM exposure).
+- [x] User requires **24/7 server-side connectivity independent of HOME Windows PC**, which is periodically powered off.
+- [ ] Prefer an always-on **network-edge VPN peer** (existing router/firewall if supported) connected securely to MSP Ubuntu VPS; verify who operates the gateway before changes.
+- [ ] If no suitable edge VPN peer exists, evaluate a separate authorized always-on gateway or a narrowly-scoped outbound connector on the 1C host only after OS/support and security review.
+- [ ] Do not install current Tailscale on Windows Server 2008 R2 (unsupported OS); do not expose legacy Windows RDP/SMB/WinRM to Internet.
+- [ ] Determine a secure always-on gateway in the 1C network for restricted VPS-to-1C routing; workstation must not be in the dependency chain.
 - [ ] Resolve reported RDP certificate identity warning with the administrator (hostname mismatch and untrusted issuer); do not bypass identity checks as the default.
 - [ ] Confirm approved private route from MSP REMOTE VPS to 1C Windows server; connectivity remains UNVERIFIED.
 - [ ] Check RD Gateway/client route and identify an administrator-approved secure private networking option; do NOT publicly expose RDP/SMB/WinRM.
