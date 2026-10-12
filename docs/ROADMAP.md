@@ -60,7 +60,7 @@
 ## Temporary network pilot — 2026-10-12
 - [x] User restored workstation Internet after **disabling** IPv4 Forwarding on Ethernet and Tailscale; normal browsing works again. Do not re-enable host IP forwarding or use workstation as Windows subnet router for this project.
 - [x] Workstation includes Windows OpenSSH client; read-only TCP test to current VPS Tailscale address port 22 returned **True**. This proves network-level TCP reachability, not SSH login.
-- [ ] Validate a **non-mutating authenticated SSH handshake** from workstation to MSP VPS with host-key checking; credentials must remain outside GitHub/chat.
+- [ ] Establish an authorized restricted SSH login for a per-port tunnel. 2026-10-12: `ssh -o BatchMode=yes root@VPS echo SSH_AUTH_OK` returned `Permission denied (publickey,password)`; TCP/22 connectivity is confirmed but **root authentication and key authorization are not**. `BatchMode=yes` suppresses password prompts, and the client added the host key via `accept-new`; host-key fingerprint has not been independently verified. Do not weaken SSH settings or require root login. Check which SSH identities are available on the workstation and prefer a dedicated restricted tunnel account.
 - [ ] Evaluate a narrowly scoped **reverse SSH port forwarding** only after an authorized 1C HTTP/OData endpoint and actual TCP port are verified. It must not change workstation routes, DNS or packet forwarding.
 - [ ] Remove the previously advertised and approved /32 Tailscale subnet route after ensuring it is not used; broad tailnet allow-all policy remains unchanged and must not be treated as protection of this route.
 
