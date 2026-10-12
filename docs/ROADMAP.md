@@ -18,6 +18,8 @@
 - [x] Confirm Windows host has 1C 8.3 Server Agent service RUNNING and 8.5 Server Agent service STOPPED; these services do NOT prove that UNF runs in server mode.
 - [x] Confirm 1C client and 8.3 server worker processes are present (from PowerShell 2.0 diagnostic script).
 - [ ] Determine whether 1C OData/HTTP is published and any web server is installed. The collected service output does not establish a published API.
+- [x] Verified investigation was on `SRV`: no observed IIS/Apache/nginx services and no default HTTP/HTTPS listeners; alternate TCP listener identified as `AnyDesk.exe`, **not** 1C. Do not confuse the listener with a 1C API.
+- [ ] 2026-10-12 COM registration assessment: check (read-only) `V85.COMConnector` and `V83.COMConnector` on the Windows server. 1C 8.5 may use `V85.COMConnector`; registration has NOT yet been demonstrated. COM cannot run on Ubuntu; only a Windows-side adapter, deliberately configured, could bridge to REMOTE.
 - [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
 - [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
 - [x] Windows client trace to RDP target completes in a single hop (~1 ms); suggests local/on-link or transparent routed connectivity, **not** proof of physical location or direct access from VPS.
