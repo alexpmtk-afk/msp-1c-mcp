@@ -24,7 +24,7 @@
 - [x] User requires **24/7 server-side connectivity independent of HOME Windows PC** in production, but explicitly accepts a temporary workstation relay during development.
 - [x] Decide provisional path: Windows workstation -> Tailscale host-only subnet route -> REMOTE Ubuntu, per [temporary gateway plan](TEMP_WORKSTATION_GATEWAY.md).
 - [x] User checked Windows workstation Tailscale service: **Running** (2026-10-12). Installation confirmed, tailnet login and VPS peer still unverified.
-- [ ] Verify Tailscale connection state and whether the VPS is a peer in the same tailnet (do not disclose auth tokens or full status JSON).
+- [ ] Verify Tailscale connection state and whether the VPS is a peer in the same tailnet. Initial CLI status as standard Windows user returned HTTP 401: daemon in server/unattended mode under LOCAL SERVICE; **no peer state verified**. Check via authorized administrator session or Tailscale console; do not reset/reinstall/stop existing service or change owner without approval.
 - [ ] Configure host-only subnet route with local admin permission, approve in tailnet and restrict access (no full LAN or public RDP exposure).
 - [ ] Verify approved connectivity from REMOTE to old Windows host without changing the 1C server.
 - [ ] Prefer an always-on **network-edge VPN peer** (existing router/firewall if supported) connected securely to MSP Ubuntu VPS; verify who operates the gateway before changes.
