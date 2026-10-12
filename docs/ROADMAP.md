@@ -23,7 +23,8 @@
 - [x] Workstation adapter `Ethernet` has an RFC1918 192.168.x.x address with `/24` prefix; Windows 1C server previously reported a `/26` prefix. Different subnet masks mean reachability may be asymmetric/routed; do not modify networking or presume direct L2. Exact addresses omitted from public repository.
 - [x] User requires **24/7 server-side connectivity independent of HOME Windows PC** in production, but explicitly accepts a temporary workstation relay during development.
 - [x] Decide provisional path: Windows workstation -> Tailscale host-only subnet route -> REMOTE Ubuntu, per [temporary gateway plan](TEMP_WORKSTATION_GATEWAY.md).
-- [ ] Check if Tailscale is installed and authenticated on the workstation and confirm it belongs to the same tailnet as the VPS.
+- [x] User checked Windows workstation Tailscale service: **Running** (2026-10-12). Installation confirmed, tailnet login and VPS peer still unverified.
+- [ ] Verify Tailscale connection state and whether the VPS is a peer in the same tailnet (do not disclose auth tokens or full status JSON).
 - [ ] Configure host-only subnet route with local admin permission, approve in tailnet and restrict access (no full LAN or public RDP exposure).
 - [ ] Verify approved connectivity from REMOTE to old Windows host without changing the 1C server.
 - [ ] Prefer an always-on **network-edge VPN peer** (existing router/firewall if supported) connected securely to MSP Ubuntu VPS; verify who operates the gateway before changes.
