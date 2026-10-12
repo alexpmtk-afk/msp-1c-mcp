@@ -7,6 +7,8 @@
       no Hermes integration or active production MCP service during investigation.
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
+- [x] Local 1C sandbox metadata test 2026-10-12: authenticated V85 COM connection passed on Windows host SRV; next step is enumeration of metadata names and counts in sandbox only. This is not remote VPS access and does not touch production.
+
 - [x] 2026-10-12 first V85 COM `Connect` to the separately confirmed sandbox with only `File` parameter returned `TEST_COM: FAIL` and 1C message *invalid user or password*; the owner confirms test infobase credentials are available locally. No credentials were sent to ChatGPT. Next use an interactive, hidden password prompt, never commit or log credential values, and connect only to the sandbox. This result is an authentication failure, not proof of a COM, network, or database-format problem.
 
 - [x] A purported 1C web-service probe was in fact run on the **workstation**, not the Windows 1C server: `netstat` showed workstation LAN/Tailscale interfaces and local proxy listeners, while `Get-Service` returned no W3SVC/Apache/nginx rows. This result does NOT establish 1C API publication. Must rerun read-only detection inside verified RDP session of legacy server; do not change local Windows proxy, Tailscale or network services.
