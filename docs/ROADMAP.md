@@ -1,33 +1,38 @@
-# Milestones — research first, deployment second
+# Roadmap — REMOTE connector first, MCP activation later
 
-## D0: public source baseline — DONE
-- [x] Public repository created with initial diagnostic MCP/CLI code.
-- [x] Offline tests and GitHub CI bootstrap.
-- [x] Research-first workflow documented; no REMOTE or Hermes dependency.
+## D0 — GitHub source baseline: DONE
+- [x] Public `msp-1c-mcp` repository and initial offline-safe connector skeleton.
+- [x] Offline test workflow.
+- [x] Confirm architecture: diagnostics on existing MSP REMOTE Ubuntu from day one;
+      no Hermes integration or active production MCP service during investigation.
 
-## D1: locate and inspect real 1C host — NOT STARTED
-- [ ] Determine how user logs on (Windows desktop/RDP, 1C client, web UI, etc.).
-- [ ] Run the smallest approved read-only host/launcher configuration check.
-- [ ] Confirm where the infobase lives (file mode or server mode).
-- [ ] Assess safe execution environment adjacent to 1C and the required
-      private network route; avoid deploying any remote MCP.
+## D1 — identify external Windows/1C setup: IN PROGRESS
+- [x] User opens a full remote Windows desktop.
+- [ ] Inspect 1C infobase launcher list using a **read-only** command.
+- [ ] Determine file-mode/server-mode, actual 1C host and available API publication.
+- [ ] Confirm approved route from MSP REMOTE VPS to 1C Windows server.
+- [ ] Confirm whether distinct credentials are required for OData/API vs Windows login.
 
-## D2: diagnostic link from ChatGPT workflow — NOT STARTED
-- [ ] Select and validate a minimal trusted test executor reachable by 1C.
-- [ ] Configure permissions and secrets strictly outside public GitHub.
-- [ ] Prove read-only discovery and metadata requests with redacted results.
-- [ ] Inventory entity names, fields, relationships and UNF semantics.
+## D2 — establish REMOTE diagnostics: NOT STARTED
+- [ ] Deploy restricted diagnostic code in
+      `/opt/mcp/projects/msp-1c-mcp/` on REMOTE.
+- [ ] Provision least-privilege 1C read-only account; save credentials only
+      outside Git at `/opt/mcp/secrets/onec.env` with restricted ownership.
+- [ ] Configure approved private encrypted network path to 1C.
+- [ ] Add a specific reviewed allowlisted GitHub bridge action (not arbitrary shell).
+- [ ] Read OData `$metadata` from REMOTE, return bounded redacted result.
+- [ ] Independently verify connectivity, authorization and safe logging.
 
-## D3: test business operations — NOT STARTED
-- [ ] Confirm separate TEST infobase with isolated credentials and data.
-- [ ] Verify stock read and cross-check values against 1C UI.
-- [ ] Create invoice on TEST base, read it back, verify form and fields.
-- [ ] Post invoice on TEST base if applicable; check resulting state.
-- [ ] Create/post sales delivery document on TEST base; check its movements.
-- [ ] Store accepted scripts, business semantics and tests in this repo.
+## D3 — discover and test 1C business operations: NOT STARTED
+- [ ] Map actual catalog/document/register field semantics in УНФ.
+- [ ] Verify stock reads with 1C UI.
+- [ ] Set up an isolated **TEST infobase** and separate test credentials.
+- [ ] Test create/read/verify invoice; then posting if applicable.
+- [ ] Test create/read/verify shipment; then posting if applicable.
+- [ ] Store accepted scripts, validation contracts and synthetic tests in GitHub.
 
-## D4: MCP production implementation — FUTURE, AFTER D3
-- [ ] Convert accepted scripts into typed MCP tools.
-- [ ] Integrate with REMOTE `msp-server-stack` and Hermes if authorized.
-- [ ] Enforce permissions, approvals, idempotency and audit before
-      enabling any production write action.
+## D4 — activate MCP runtime: FUTURE
+- [ ] Reuse the validated REMOTE connector behind MCP tools.
+- [ ] Integrate with REMOTE `msp-server-stack` / Hermes after authorization.
+- [ ] Add idempotency, approvals, role-based restrictions, independent
+      verification and audit before any production writes.
