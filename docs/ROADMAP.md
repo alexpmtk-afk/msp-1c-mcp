@@ -7,6 +7,8 @@
       no Hermes integration or active production MCP service during investigation.
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
+- [x] 2026-10-12 V85 COM sandbox metadata attempt: authentication and connection PASS; subsequent metadata script reported `RuntimeException` without diagnostic stage, so metadata inventory NOT yet obtained. Prepared local PowerShell 2.0 v2 diagnostics with per-stage sanitized failure types for `Metadata` root, collections, counts, and sample names. Sandbox only; credentials prompted locally, no production access.
+
 - [x] Local 1C sandbox metadata test 2026-10-12: authenticated V85 COM connection passed on Windows host SRV; next step is enumeration of metadata names and counts in sandbox only. This is not remote VPS access and does not touch production.
 
 - [x] 2026-10-12 first V85 COM `Connect` to the separately confirmed sandbox with only `File` parameter returned `TEST_COM: FAIL` and 1C message *invalid user or password*; the owner confirms test infobase credentials are available locally. No credentials were sent to ChatGPT. Next use an interactive, hidden password prompt, never commit or log credential values, and connect only to the sandbox. This result is an authentication failure, not proof of a COM, network, or database-format problem.
