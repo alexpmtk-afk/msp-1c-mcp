@@ -8,13 +8,16 @@
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
 - [x] User opens a full remote Windows desktop.
-- [x] User reports Windows Server 2008 R2 Datacenter; PowerShell version not yet checked.
+- [x] User reports Windows Server 2008 R2 Datacenter and confirms PowerShell 2.0.
 - [x] Confirm PowerShell 2.0 on Windows Server 2008 R2 using `$PSVersionTable.PSVersion`.
 - [ ] Use PowerShell 2.0-compatible read-only probes; do not assume `Get-NetIPAddress` or `[PSCustomObject]` exist.
 - [x] Confirm user-level 1C launcher file exists: `%APPDATA%\\1C\\1CEStart\\ibases.v8i` (`Test-Path=True`).
 - [ ] Parse registered infobase connection types and locations (read-only, redacted output).
 - [ ] Determine file-mode/server-mode, actual 1C host and available API publication.
-- [ ] Confirm approved route from MSP REMOTE VPS to 1C Windows server.
+- [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
+- [ ] Find whether the user's Windows workstation reaches this private subnet via LAN, VPN, or managed corporate route.
+- [ ] Resolve reported RDP certificate identity warning with the administrator (hostname mismatch and untrusted issuer); do not bypass identity checks as the default.
+- [ ] Confirm approved private route from MSP REMOTE VPS to 1C Windows server; connectivity remains UNVERIFIED.
 - [ ] Confirm whether distinct credentials are required for OData/API vs Windows login.
 
 ## D2 — establish REMOTE diagnostics: NOT STARTED
