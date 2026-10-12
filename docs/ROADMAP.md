@@ -8,7 +8,8 @@
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
 - [x] 2026-10-12: GitHub-managed test-only Windows executor code prepared in private `msp-server-bridge` (`scripts/onec/`, owner-only `onec-sandbox-windows-bridge.yml`). Fixed issue commands: `[1C] sandbox-check`, `[1C] sandbox-metadata`. Both need an online Windows runner labeled `onec-win` and authenticated WinRM; code preparation **does not mean operational GitHub→1C access**.
-- [ ] Windows 10 workstation: read-only WinRM connectivity check to existing 1C Windows server. Do NOT re-enable IP forwarding.
+- [x] Windows 10 workstation: read-only `Test-WSMan` against the legacy 1C host succeeded (WSMan identity/HTTP response, Microsoft Stack 2.0). This confirms network listener reachability **only**, not authenticated PowerShell Remoting. IP forwarding remains off.
+- [ ] Next: authenticated, read-only `Invoke-Command` against 1C host from Windows 10 using existing RDP account, without changing TrustedHosts or SSH settings. Require command PASS before installing an isolated Windows GitHub runner.
 - [ ] One-time dedicated Windows runner setup on workstation and same-user DPAPI credentials, then end-to-end GitHub issue PASS and metadata count acceptance. See [GITHUB_WINDOWS_1C_BRIDGE.md](GITHUB_WINDOWS_1C_BRIDGE.md).
 
 - [x] 2026-10-12 V85 COM sandbox metadata attempt: authentication and connection PASS; subsequent metadata script reported `RuntimeException` without diagnostic stage, so metadata inventory NOT yet obtained. Prepared local PowerShell 2.0 v2 diagnostics with per-stage sanitized failure types for `Metadata` root, collections, counts, and sample names. Sandbox only; credentials prompted locally, no production access.
