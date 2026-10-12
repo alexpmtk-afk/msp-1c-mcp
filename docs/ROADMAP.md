@@ -15,7 +15,8 @@
 - [ ] Parse registered infobase connection types and locations (read-only, redacted output).
 - [ ] Determine file-mode/server-mode, actual 1C host and available API publication.
 - [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
-- [ ] Find whether the user's Windows workstation reaches this private subnet via LAN, VPN, or managed corporate route.
+- [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
+- [ ] Determine actual client-side route / whether RD Gateway is configured, without publishing sensitive IP details.
 - [ ] Resolve reported RDP certificate identity warning with the administrator (hostname mismatch and untrusted issuer); do not bypass identity checks as the default.
 - [ ] Confirm approved private route from MSP REMOTE VPS to 1C Windows server; connectivity remains UNVERIFIED.
 - [ ] Confirm whether distinct credentials are required for OData/API vs Windows login.
