@@ -22,6 +22,8 @@
 - [x] 2026-10-12 read-only Windows registry check on 1C host `SRV`: **both `V85.COMConnector` and `V83.COMConnector` are registered** under HKCR. This proves registration only, not COM activation or an authenticated connection to UNF. 1C COM is Windows-side; connecting REMOTE Ubuntu would require a deliberately designed Windows-side adapter, not raw Ubuntu COM.
 - [x] On the verified 1C Windows server `SRV`, `New-Object -ComObject V85.COMConnector` succeeded (`COM85: PASS`), and the COM object was released. No infobase connection was attempted.
 - [x] Owner explicitly clarified (2026-10-12): the UNF file-mode infobase whose directory name includes `копия` and `РАБОЧАЯ` is the **LIVE PRODUCTION** database; the word `копия` does not indicate a safe test DB. **Never run experimental COM Connect or mutations against it.**
+- [x] Owner confirms the separately created sandbox UNF infobase is under a distinct `D:` location (exact test path only retained in this private conversation, not in public Git). It is not the live production infobase.
+- [ ] Next read-only PowerShell 2.0 step on `SRV`: verify the sandbox `1Cv8.1CD` file exists and is plausible before attempting COM access; do not connect to production.
 - [ ] Discover any separately verified TEST infobase using read-only directory listing; if none exists, plan a consistent offline backup / 1C-supported test copy with explicit permission and free disk space checks before activation. COM `Connect()` can run external-connection initialization hooks; test copy only.
 
 - [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
