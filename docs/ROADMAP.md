@@ -7,6 +7,7 @@
       no Hermes integration or active production MCP service during investigation.
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
+- [x] A purported 1C web-service probe was in fact run on the **workstation**, not the Windows 1C server: `netstat` showed workstation LAN/Tailscale interfaces and local proxy listeners, while `Get-Service` returned no W3SVC/Apache/nginx rows. This result does NOT establish 1C API publication. Must rerun read-only detection inside verified RDP session of legacy server; do not change local Windows proxy, Tailscale or network services.
 - [x] User opens a full remote Windows desktop.
 - [x] User reports Windows Server 2008 R2 Datacenter and confirms PowerShell 2.0.
 - [x] Confirm PowerShell 2.0 on Windows Server 2008 R2 using `$PSVersionTable.PSVersion`.
