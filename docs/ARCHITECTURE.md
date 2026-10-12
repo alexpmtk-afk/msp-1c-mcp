@@ -12,8 +12,11 @@ Two distinct remote machines must not be conflated:
   MCP deployment; future code at `/opt/mcp/projects/msp-1c-mcp/`, connection
   secrets at `/opt/mcp/secrets/onec.env` (file present only after provisioning).
 - **1C Windows server**: the machine to which the user logs in via remote
-  Windows desktop. Actual infobase location, publication, API and network
-  connectivity have **not** been verified.
+  Windows desktop. User-reported OS: **Windows Server 2008 R2 Datacenter**
+  (legacy, out of extended support). Actual infobase location, publication,
+  API and network connectivity have **not** been verified. The default shell
+  may be PowerShell 2.0: use backward-compatible discovery commands, check
+  the installed version, and avoid installing new components without approval.
 
 ### Research execution path
 
