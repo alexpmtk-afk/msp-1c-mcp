@@ -10,15 +10,19 @@
 - [x] User opens a full remote Windows desktop.
 - [x] User reports Windows Server 2008 R2 Datacenter and confirms PowerShell 2.0.
 - [x] Confirm PowerShell 2.0 on Windows Server 2008 R2 using `$PSVersionTable.PSVersion`.
-- [ ] Use PowerShell 2.0-compatible read-only probes; do not assume `Get-NetIPAddress` or `[PSCustomObject]` exist.
+- [x] Run one PowerShell 2.0-compatible read-only diagnostic script via a local `.ps1` file to avoid legacy console multiline paste issues.
 - [x] Confirm user-level 1C launcher file exists: `%APPDATA%\\1C\\1CEStart\\ibases.v8i` (`Test-Path=True`).
-- [ ] Parse registered infobase connection types and locations (read-only, redacted output).
-- [ ] Determine file-mode/server-mode, actual 1C host and available API publication.
+- [x] Read registered UNF infobase entry: **FILE mode** on a local Windows D: volume (exact path deliberately excluded from public Git).
+- [x] Confirm registered UNF connection is file-mode, not server-mode.
+- [x] Confirm Windows host has 1C 8.3 Server Agent service RUNNING and 8.5 Server Agent service STOPPED; these services do NOT prove that UNF runs in server mode.
+- [x] Confirm 1C client and 8.3 server worker processes are present (from PowerShell 2.0 diagnostic script).
+- [ ] Determine whether 1C OData/HTTP is published and any web server is installed. The collected service output does not establish a published API.
 - [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
 - [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
 - [ ] Determine actual client-side route / whether RD Gateway is configured, without publishing sensitive IP details.
 - [ ] Resolve reported RDP certificate identity warning with the administrator (hostname mismatch and untrusted issuer); do not bypass identity checks as the default.
 - [ ] Confirm approved private route from MSP REMOTE VPS to 1C Windows server; connectivity remains UNVERIFIED.
+- [ ] Check RD Gateway/client route and identify an administrator-approved secure private networking option; do NOT publicly expose RDP/SMB/WinRM.
 - [ ] Confirm whether distinct credentials are required for OData/API vs Windows login.
 
 ## D2 — establish REMOTE diagnostics: NOT STARTED
