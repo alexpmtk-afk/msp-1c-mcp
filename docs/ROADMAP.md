@@ -20,7 +20,8 @@
 - [ ] Determine whether 1C OData/HTTP is published and any web server is installed. The collected service output does not establish a published API.
 - [x] Verified investigation was on `SRV`: no observed IIS/Apache/nginx services and no default HTTP/HTTPS listeners; alternate TCP listener identified as `AnyDesk.exe`, **not** 1C. Do not confuse the listener with a 1C API.
 - [x] 2026-10-12 read-only Windows registry check on 1C host `SRV`: **both `V85.COMConnector` and `V83.COMConnector` are registered** under HKCR. This proves registration only, not COM activation or an authenticated connection to UNF. 1C COM is Windows-side; connecting REMOTE Ubuntu would require a deliberately designed Windows-side adapter, not raw Ubuntu COM.
-- [ ] Next: safely instantiate `V85.COMConnector` without connecting to the live infobase; report PASS or exact failure before attempting file-mode UNF access.
+- [x] On the verified 1C Windows server `SRV`, `New-Object -ComObject V85.COMConnector` succeeded (`COM85: PASS`), and the COM object was released. No infobase connection was attempted.
+- [ ] Next: establish COM connection against a separately confirmed TEST copy of file-mode UNF and read only metadata. COM `Connect()` can run configuration external-connection initialization hooks, therefore do **not** assert live database access is strictly read-only; confirm test-copy path before running.
 - [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
 - [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
 - [x] Windows client trace to RDP target completes in a single hop (~1 ms); suggests local/on-link or transparent routed connectivity, **not** proof of physical location or direct access from VPS.
