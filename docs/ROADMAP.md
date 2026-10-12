@@ -8,6 +8,8 @@
 
 ## D1 — identify external Windows/1C setup: IN PROGRESS
 - [x] User opens a full remote Windows desktop.
+- [x] User reports Windows Server 2008 R2 Datacenter; PowerShell version not yet checked.
+- [ ] Use a Windows Server 2008 R2 / PowerShell 2.0-compatible read-only probe; do not assume Get-NetIPAddress or [PSCustomObject] exist.
 - [ ] Inspect 1C infobase launcher list using a **read-only** command.
 - [ ] Determine file-mode/server-mode, actual 1C host and available API publication.
 - [ ] Confirm approved route from MSP REMOTE VPS to 1C Windows server.
