@@ -57,6 +57,13 @@
 - [ ] Check RD Gateway/client route and identify an administrator-approved secure private networking option; do NOT publicly expose RDP/SMB/WinRM.
 - [ ] Confirm whether distinct credentials are required for OData/API vs Windows login.
 
+## Temporary network pilot — 2026-10-12
+- [x] User restored workstation Internet after **disabling** IPv4 Forwarding on Ethernet and Tailscale; normal browsing works again. Do not re-enable host IP forwarding or use workstation as Windows subnet router for this project.
+- [x] Workstation includes Windows OpenSSH client; read-only TCP test to current VPS Tailscale address port 22 returned **True**. This proves network-level TCP reachability, not SSH login.
+- [ ] Validate a **non-mutating authenticated SSH handshake** from workstation to MSP VPS with host-key checking; credentials must remain outside GitHub/chat.
+- [ ] Evaluate a narrowly scoped **reverse SSH port forwarding** only after an authorized 1C HTTP/OData endpoint and actual TCP port are verified. It must not change workstation routes, DNS or packet forwarding.
+- [ ] Remove the previously advertised and approved /32 Tailscale subnet route after ensuring it is not used; broad tailnet allow-all policy remains unchanged and must not be treated as protection of this route.
+
 ## D2 — establish REMOTE diagnostics: NOT STARTED
 - [ ] Deploy restricted diagnostic code in
       `/opt/mcp/projects/msp-1c-mcp/` on REMOTE.
