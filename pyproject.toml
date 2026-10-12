@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "msp-1c-mcp"
+version = "0.1.0"
+description = "MSP 1C:Enterprise integration — read-only diagnostics first"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27,<1",
+    "defusedxml>=0.7,<1",
+    "mcp>=1.10,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+msp-onec = "msp_onec_mcp.cli:main"
+msp-onec-mcp = "msp_onec_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

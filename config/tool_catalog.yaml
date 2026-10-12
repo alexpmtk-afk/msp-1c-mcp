@@ -1,0 +1,37 @@
+version: 1
+project: msp-1c-mcp
+one_c:
+  platform: "8.5.1.1302 (reported, not live-verified)"
+  configuration: "Управление нашей фирмой 3.0.13.314 (reported, not live-verified)"
+  primary_transport_candidate: "HTTPS/OData via restricted diagnostic adapter"
+tools:
+  - id: onec_connection_configured
+    status: implemented
+    mode: local-configuration-only
+  - id: onec_metadata_overview
+    status: implemented-not-live-tested
+    mode: read-only
+  - id: onec_stocks
+    status: planned
+    mode: read-only
+    note: "Physical/free/reserved stock meanings to be verified in target UNF."
+  - id: onec_invoice_create
+    status: planned
+    mode: write-test-only
+  - id: onec_invoice_post
+    status: planned
+    mode: write-test-only
+  - id: onec_shipment_create
+    status: planned
+    mode: write-test-only
+  - id: onec_shipment_post
+    status: planned
+    mode: write-test-only
+  - id: onec_document_verify
+    status: planned
+    mode: read-only
+policies:
+  writes_enabled: false
+  arbitrary_1c_code_execution: false
+  unsafe_http: false
+  secrets_in_git: false
