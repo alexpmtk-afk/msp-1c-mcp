@@ -19,7 +19,8 @@
 - [ ] Determine whether 1C OData/HTTP is published and any web server is installed. The collected service output does not establish a published API.
 - [x] Existing Windows RDP connection targets an RFC1918 private 192.168.x.x address (exact address deliberately omitted from public Git).
 - [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
-- [ ] Determine actual client-side route / whether RD Gateway is configured, without publishing sensitive IP details.
+- [x] Windows client trace to RDP target completes in a single hop (~1 ms); suggests local/on-link or transparent routed connectivity, **not** proof of physical location or direct access from VPS.
+- [ ] Determine whether client uses a physical LAN or virtual adapter and confirm subnet membership (avoid disclosing full interface inventory publicly).
 - [ ] Resolve reported RDP certificate identity warning with the administrator (hostname mismatch and untrusted issuer); do not bypass identity checks as the default.
 - [ ] Confirm approved private route from MSP REMOTE VPS to 1C Windows server; connectivity remains UNVERIFIED.
 - [ ] Check RD Gateway/client route and identify an administrator-approved secure private networking option; do NOT publicly expose RDP/SMB/WinRM.
