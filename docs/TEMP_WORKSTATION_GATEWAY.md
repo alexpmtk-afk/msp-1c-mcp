@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-10-12): DO NOT RE-ENABLE WINDOWS IP FORWARDING.** The user observed lost Internet access after the temporary Windows subnet-router experiment and restored service by disabling IPv4 forwarding on both interfaces. Use [GitHub Windows 1C Bridge](GITHUB_WINDOWS_1C_BRIDGE.md) for the new local-LAN PowerShell Remoting/COM executor design. This page remains only as historical context; its routing steps are NOT an active runbook.
+
 # Temporary gateway: Windows workstation -> 1C host
 
 Status: **proposed, not configured**, recorded on 2026-10-12.
