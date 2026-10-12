@@ -21,11 +21,15 @@
 - [x] User reports connecting to 1C Windows server via standard RDP without manually enabling a VPN; this alone does NOT prove direct LAN access (possible pre-existing route or RD Gateway).
 - [x] Windows client trace to RDP target completes in a single hop (~1 ms); suggests local/on-link or transparent routed connectivity, **not** proof of physical location or direct access from VPS.
 - [x] Workstation adapter `Ethernet` has an RFC1918 192.168.x.x address with `/24` prefix; Windows 1C server previously reported a `/26` prefix. Different subnet masks mean reachability may be asymmetric/routed; do not modify networking or presume direct L2. Exact addresses omitted from public repository.
-- [x] User requires **24/7 server-side connectivity independent of HOME Windows PC**, which is periodically powered off.
+- [x] User requires **24/7 server-side connectivity independent of HOME Windows PC** in production, but explicitly accepts a temporary workstation relay during development.
+- [x] Decide provisional path: Windows workstation -> Tailscale host-only subnet route -> REMOTE Ubuntu, per [temporary gateway plan](TEMP_WORKSTATION_GATEWAY.md).
+- [ ] Check if Tailscale is installed and authenticated on the workstation and confirm it belongs to the same tailnet as the VPS.
+- [ ] Configure host-only subnet route with local admin permission, approve in tailnet and restrict access (no full LAN or public RDP exposure).
+- [ ] Verify approved connectivity from REMOTE to old Windows host without changing the 1C server.
 - [ ] Prefer an always-on **network-edge VPN peer** (existing router/firewall if supported) connected securely to MSP Ubuntu VPS; verify who operates the gateway before changes.
 - [ ] If no suitable edge VPN peer exists, evaluate a separate authorized always-on gateway or a narrowly-scoped outbound connector on the 1C host only after OS/support and security review.
 - [ ] Do not install current Tailscale on Windows Server 2008 R2 (unsupported OS); do not expose legacy Windows RDP/SMB/WinRM to Internet.
-- [ ] Determine a secure always-on gateway in the 1C network for restricted VPS-to-1C routing; workstation must not be in the dependency chain.
+- [ ] For **production**, migrate the pilot gateway to an approved always-on site peer; workstation must not remain a dependency.
 - [ ] Resolve reported RDP certificate identity warning with the administrator (hostname mismatch and untrusted issuer); do not bypass identity checks as the default.
 - [ ] Confirm approved private route from MSP REMOTE VPS to 1C Windows server; connectivity remains UNVERIFIED.
 - [ ] Check RD Gateway/client route and identify an administrator-approved secure private networking option; do NOT publicly expose RDP/SMB/WinRM.
