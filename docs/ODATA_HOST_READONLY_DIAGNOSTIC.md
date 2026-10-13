@@ -10,7 +10,7 @@ Run **only inside the already verified Windows remote-desktop session on the 1C 
 
 Example syntax using a locally saved copy (placeholder only; replace with verified computer name):
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\inspect-odata-host.ps1 -ExpectedComputerName "REPLACE_WITH_HOSTNAME"
+powershell.exe -NoProfile -File .\inspect-odata-host.ps1 -ExpectedComputerName "REPLACE_WITH_HOSTNAME"
 ```
 
 Do not fetch and run unreviewed network scripts, request admin rights, or enable execution policy system-wide.
