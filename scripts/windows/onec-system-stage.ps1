@@ -124,7 +124,7 @@ try {
     Copy-Item -LiteralPath $dll.FullName -Destination $dllDst
     $phase='VERIFY_CURL_DLL_SHA256'
     VerifyCopy $dll.FullName $dllDst
-    $phase='COPY_CURL_DLLS
+    $phase='COPY_CURL_DLLS'
   }
   # Reset file ACLs to the separately restricted destination directory defaults.
   $phase='RESET_BINARY_FILE_ACLS'
