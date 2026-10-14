@@ -70,7 +70,7 @@ jobs:
           }
           foreach($needed in @('ODATA_AUTH_DENIED','ODATA_UNAVAILABLE',
             'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_READ_ERROR',
-            'VERSION=ODATA_DIAG_V2')) {
+            'VERSION=ODATA_DIAG_V3')) {
             if(-not $poll.Contains($needed)) { throw ('DIAGNOSTIC_REASON_GUARD_MISSING='+$needed) }
           }
           if($diag -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
