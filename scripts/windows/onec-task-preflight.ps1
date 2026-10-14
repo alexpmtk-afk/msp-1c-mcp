@@ -1,6 +1,8 @@
 #requires -version 2
 # READ-ONLY diagnostic for legacy SRV Task Scheduler 2.0 and user DPAPI context.
 param(
+  [Parameter(Mandatory=$true)][string]$ExpectedComputerName,
+  [Parameter(Mandatory=$true)][string]$ExpectedAccount,
   [Parameter(Mandatory=$true)][string]$CurlExe,
   [Parameter(Mandatory=$true)][string]$CaBundle,
   [string]$StateDir = (Join-Path $env:LOCALAPPDATA 'MspOnecAgent')
@@ -8,9 +10,9 @@ param(
 $ErrorActionPreference='Stop'
 $taskName='MspOnecHttpsAgentProbe'
 try {
-  if ($env:COMPUTERNAME -ne 'SRV') { throw 'WRONG_MACHINE' }
+  if ($env:COMPUTERNAME -ne $ExpectedComputerName) { throw 'WRONG_MACHINE' }
   $identity=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-  if ($identity -ne 'SRV\parshin') { throw 'WRONG_IDENTITY' }
+  if ($identity -ne $ExpectedAccount) { throw 'WRONG_IDENTITY' }
   $poll=Join-Path $StateDir 'bin\onec-probe-poll.ps1'
   $enrolled=Join-Path $StateDir 'agent-token.dpapi'
   $address=Join-Path $StateDir 'endpoint.txt'
