@@ -105,21 +105,26 @@ try {
   $sys=Join-Path $bin 'onec-system-probe-poll.ps1'
   $phase='COPY_AGENT_SCRIPT'
   Copy-Item -LiteralPath $agentSource -Destination $sys
+  $phase='VERIFY_AGENT_SCRIPT_SHA256'
   VerifyCopy $agentSource $sys
   $curlDst=Join-Path $bin 'curl.exe'
   $caDst=Join-Path $bin 'curl-ca-bundle.crt'
   $phase='COPY_CURL_BINARY'
   Copy-Item -LiteralPath $CurlExe -Destination $curlDst
+  $phase='VERIFY_CURL_BINARY_SHA256'
   VerifyCopy $CurlExe $curlDst
   $phase='COPY_CA_BUNDLE'
   Copy-Item -LiteralPath $CaBundle -Destination $caDst
+  $phase='VERIFY_CA_BUNDLE_SHA256'
   VerifyCopy $CaBundle $caDst
   $phase='COPY_CURL_DLLS'
   $curlSourceDir=Split-Path -Parent $CurlExe
   foreach($dll in @(Get-ChildItem -LiteralPath $curlSourceDir -Filter '*.dll' -ErrorAction Stop)) {
     $dllDst=Join-Path $bin $dll.Name
     Copy-Item -LiteralPath $dll.FullName -Destination $dllDst
+    $phase='VERIFY_CURL_DLL_SHA256'
     VerifyCopy $dll.FullName $dllDst
+    $phase='COPY_CURL_DLLS
   }
   # Reset file ACLs to the separately restricted destination directory defaults.
   $phase='RESET_BINARY_FILE_ACLS'
