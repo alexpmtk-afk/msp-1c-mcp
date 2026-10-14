@@ -15,7 +15,7 @@ $TokenFile=Join-Path (Join-Path $RootDir 'secrets') 'agent-token.machine.dpapi'
 function Health([string]$Mode) {
   try {
     if (Test-Path -LiteralPath $StateDir -PathType Container) {
-      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_DIAG_V2')
+      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_DIAG_V3')
       [IO.File]::WriteAllText((Join-Path $StateDir 'last-status.txt'),$msg,[Text.Encoding]::ASCII)
     }
   } catch {}
@@ -133,7 +133,12 @@ try {
           $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
             'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
             'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR')
+            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
+            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
+            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
+            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
+            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
+            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
           if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
         }
       }
