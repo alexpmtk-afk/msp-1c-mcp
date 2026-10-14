@@ -110,7 +110,7 @@ try {
   }
   # Reset file ACLs to the separately restricted destination directory defaults.
   $ic=Join-Path $env:WINDIR 'System32\icacls.exe'
-  foreach($file in @(Get-ChildItem -LiteralPath $bin -File)) {
+  foreach($file in @(Get-ChildItem -LiteralPath $bin | Where-Object { -not $_.PSIsContainer })) {
     & $ic $file.FullName '/reset' | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'FILE_ACL_FAILURE' }
   }
