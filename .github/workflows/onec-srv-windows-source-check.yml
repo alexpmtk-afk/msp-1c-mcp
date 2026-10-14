@@ -28,7 +28,8 @@ jobs:
             'scripts/windows/onec-task-status.ps1','scripts/windows/onec-task-remove.ps1',
             'scripts/windows/onec-localservice-preflight.ps1',
             'scripts/windows/onec-system-probe-poll.ps1','scripts/windows/onec-system-stage.ps1',
-            'scripts/windows/onec-system-task-register.ps1','scripts/windows/onec-system-task-smoke.ps1')
+            'scripts/windows/onec-system-task-register.ps1','scripts/windows/onec-system-task-smoke.ps1',
+            'scripts/windows/onec-system-cutover.ps1','scripts/windows/onec-system-rollback.ps1')
           foreach ($path in $paths) {
             $errors = $null
             $text = [System.IO.File]::ReadAllText($path)
@@ -164,3 +165,31 @@ jobs:
             throw 'UNEXPECTED_SCHEDULE_MUTATION_IN_SMOKE'
           }
           Write-Output 'SYSTEM_TASK_MANUAL_ONLY=PASS'
+      - name: Guard bounded LocalService cutover and rollback safety
+        shell: powershell
+        run: |
+          $cut=[IO.File]::ReadAllText('scripts/windows/onec-system-cutover.ps1')
+          $back=[IO.File]::ReadAllText('scripts/windows/onec-system-rollback.ps1')
+          foreach($required in @('S-1-5-19','SID','RegisterTaskDefinition','Start-Sleep',
+            'PERSONAL_AGENT_RESTORE=PASS','SYSTEM_TIMER_DISARM=PASS',
+            'SYSTEM_SCHEDULED_HEARTBEAT=PASS','GITHUB_ROUNDTRIP=NOT_YET_TESTED',
+            'PERSONAL_AGENT_DISABLED=YES','newChangeAttempted',
+            'SCHEDULED_SYSTEM_HEARTBEAT_TIMEOUT','FAILURE_PHASE=')) {
+            if (-not $cut.Contains($required) -and $required -ne 'SID') {
+              throw ('CUTOVER_GUARD_MISSING='+$required)
+            }
+          }
+          if (-not $cut.Contains('for($i=1;$i -le 75;$i++)')) { throw 'CUTOVER_TIMEOUT_MISSING' }
+          if ($cut.IndexOf('PERSONAL_AGENT_RESTORE=PASS') -gt $cut.IndexOf('SYSTEM_TIMER_DISARM=PASS')) {
+            throw 'CUTOVER_WRONG_ROLLBACK_ORDER'
+          }
+          foreach($required in @('PERSONAL_AGENT_RESTORE=PASS','SYSTEM_TIMER_DISARM=PASS',
+            'RegisterTaskDefinition','RESULT=PASS;STAGE=ROLLBACK_TO_PERSONAL_AGENT')) {
+            if (-not $back.Contains($required)) { throw ('BACKOUT_GUARD_MISSING='+$required) }
+          }
+          foreach($code in @($cut,$back)) {
+            if ($code -match 'vm-817589|192\.168\.|Invoke-Expression|New-PSSession|Read-Host') {
+              throw 'UNSAFE_CUTOVER_CODE'
+            }
+          }
+          Write-Output 'BOUNDED_CUTOVER_AND_ROLLBACK_SOURCE=PASS'
