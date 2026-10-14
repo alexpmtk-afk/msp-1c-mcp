@@ -25,7 +25,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $paths = @('scripts/windows/onec-probe-poll.ps1','scripts/windows/onec-enroll-token.ps1',
             'scripts/windows/onec-task-preflight.ps1','scripts/windows/onec-task-install.ps1',
-            'scripts/windows/onec-task-status.ps1','scripts/windows/onec-task-remove.ps1')
+            'scripts/windows/onec-task-status.ps1','scripts/windows/onec-task-remove.ps1',
+            'scripts/windows/onec-localservice-preflight.ps1')
           foreach ($path in $paths) {
             $errors = $null
             $text = [System.IO.File]::ReadAllText($path)
@@ -63,3 +64,14 @@ jobs:
             throw 'UNSAFE_SCHEDULE_MODE'
           }
           Write-Output 'UNATTENDED_TASK_SOURCE_CONTRACT=PASS'
+      - name: Guard LocalService read-only preflight
+        shell: powershell
+        run: |
+          $source=[System.IO.File]::ReadAllText('scripts/windows/onec-localservice-preflight.ps1')
+          foreach($required in @('S-1-5-19','Schedule.Service','MACHINE_DPAPI_TYPE_AVAILABLE','READ_ONLY=YES','NEXT_GATE=ADMINISTRATIVE_INSTALLATION_REQUIRED')) {
+            if (-not $source.Contains($required)) { throw ('PREFLIGHT_GUARD_MISSING='+$required) }
+          }
+          foreach($denied in @('RegisterTaskDefinition','CreateService','Set-Acl','icacls.exe','ConvertFrom-SecureString','Remove-Item','New-ScheduledTask')) {
+            if ($source.Contains($denied)) { throw ('MUTATING_OPERATION_IN_PREFLIGHT='+$denied) }
+          }
+          Write-Output 'LOCAL_SERVICE_PREFLIGHT_SOURCE=PASS'
