@@ -125,23 +125,7 @@ try {
       else {
         $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
         if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?
-      }
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-) {
+            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
           $reason=$value
         } else {
           $status='FAIL';$reason='ODATA_READ_FAILED'
