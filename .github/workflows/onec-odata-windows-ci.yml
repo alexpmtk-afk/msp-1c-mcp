@@ -34,7 +34,7 @@ jobs:
           $poll=[IO.File]::ReadAllText('scripts/windows/onec-system-probe-poll.ps1')
           $enroll=[IO.File]::ReadAllText('scripts/windows/onec-odata-enroll-readonly.ps1')
           foreach($needed in @("Method='GET'",'127.0.0.1:8085/NewBase/odata/standard.odata/',
-            'КоличествоBalance','AllowAutoRedirect=$false','ProtectedData]::Unprotect',
+            'STOCK_Q_','AllowAutoRedirect=$false','ProtectedData]::Unprotect',
             'DataProtectionScope]::LocalMachine')) {
             if(-not $reader.Contains($needed)) { throw ('BALANCE_GUARD_MISSING='+$needed) }
           }
