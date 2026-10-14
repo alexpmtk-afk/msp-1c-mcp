@@ -50,8 +50,28 @@ try {
   Write-Output ('STOCK_Q_'+$match.Groups[1].Value)
   exit 0
 } catch [Net.WebException] {
-  if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 401) { Fail 'ODATA_AUTH_DENIED' }
-  Fail 'ODATA_UNAVAILABLE'
+  # Exact public error classes only. Never print URL, exception text or HTTP body.
+  $webError=$_.Exception
+  if ($webError.Response) {
+    $statusCode=[int]$webError.Response.StatusCode
+    if ($statusCode -eq 401) { Fail 'ODATA_AUTH_DENIED' }
+    if ($statusCode -eq 403) { Fail 'ODATA_HTTP_FORBIDDEN' }
+    if ($statusCode -eq 404) { Fail 'ODATA_HTTP_NOT_FOUND' }
+    if ($statusCode -ge 500) { Fail 'ODATA_HTTP_SERVER_ERROR' }
+    Fail 'ODATA_HTTP_OTHER'
+  }
+  switch ($webError.Status.ToString()) {
+    'Timeout' { Fail 'ODATA_WEB_TIMEOUT' }
+    'ConnectFailure' { Fail 'ODATA_WEB_CONNECT_FAILURE' }
+    'ReceiveFailure' { Fail 'ODATA_WEB_RECEIVE_FAILURE' }
+    'SendFailure' { Fail 'ODATA_WEB_SEND_FAILURE' }
+    'ConnectionClosed' { Fail 'ODATA_WEB_CONNECTION_CLOSED' }
+    'KeepAliveFailure' { Fail 'ODATA_WEB_KEEPALIVE_FAILURE' }
+    'NameResolutionFailure' { Fail 'ODATA_WEB_NAME_RESOLUTION' }
+    'TrustFailure' { Fail 'ODATA_WEB_TRUST_FAILURE' }
+    'ProtocolError' { Fail 'ODATA_WEB_PROTOCOL_ERROR' }
+    default { Fail 'ODATA_WEB_OTHER' }
+  }
 } catch {
   Fail 'ODATA_READ_ERROR'
 } finally {
