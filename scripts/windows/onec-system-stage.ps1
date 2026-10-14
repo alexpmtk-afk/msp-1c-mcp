@@ -34,7 +34,7 @@ function VerifyCopy([string]$from,[string]$to) {
     $ha=[BitConverter]::ToString($sha.ComputeHash($a))
     $hb=[BitConverter]::ToString($sha.ComputeHash($b))
     if ($ha -ne $hb) { throw 'COPY_HASH_MISMATCH' }
-  } finally { $sha.Dispose() }
+  } finally { $sha.Clear() }
 }
 try {
   if ($env:COMPUTERNAME -ne $ExpectedComputerName) { throw 'WRONG_MACHINE' }
