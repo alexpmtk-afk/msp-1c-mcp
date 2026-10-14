@@ -117,3 +117,12 @@ jobs:
             if ($src.Contains($banned)) { throw ('UNSAFE_DIAGNOSTIC='+$banned) }
           }
           Write-Output 'STAGING_FAILURE_DIAGNOSTICS=PASS'
+      - name: Separate PS2 copy and hash failure phases
+        shell: powershell
+        run: |
+          $src=[IO.File]::ReadAllText('scripts/windows/onec-system-stage.ps1')
+          foreach($required in @("COPY_AGENT_SCRIPT","VERIFY_AGENT_SCRIPT_SHA256",
+              "VERIFY_CURL_BINARY_SHA256","VERIFY_CA_BUNDLE_SHA256","VERIFY_CURL_DLL_SHA256")) {
+            if (-not $src.Contains($required)) { throw ("STAGE_CHECKPOINT_MISSING="+$required) }
+          }
+          Write-Output "PS2_STAGE_FILE_AND_HASH_CHECKPOINTS=PASS"
