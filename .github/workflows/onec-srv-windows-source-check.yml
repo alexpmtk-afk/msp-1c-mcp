@@ -206,7 +206,7 @@ jobs:
               'STOCK_Q_','32768','ProtectedData]::Unprotect','DataProtectionScope]::LocalMachine')) {
             if (-not $balance.Contains($required)) { throw ('ODATA_BALANCE_GUARD_MISSING='+$required) }
           }
-          foreach($required in @('Get-Credential','MCP_OData_ReadOnly','ProtectedData]::Protect',
+          foreach($required in @('Read-Host','-AsSecureString','MCP_OData_ReadOnly','ProtectedData]::Protect',
               'DataProtectionScope]::LocalMachine','S-1-5-19','PASSWORD_EXPORTED=NO')) {
             if (-not $enroll.Contains($required)) { throw ('ODATA_ENROLL_GUARD_MISSING='+$required) }
           }
