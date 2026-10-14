@@ -22,7 +22,8 @@ jobs:
                    'scripts/windows/onec-system-odata-balance.ps1',
                    'scripts/windows/onec-odata-enroll-readonly.ps1',
                    'scripts/windows/onec-odata-system-upgrade.ps1',
-                   'scripts/windows/onec-odata-diagnostic-upgrade.ps1')
+                   'scripts/windows/onec-odata-diagnostic-upgrade.ps1',
+                   'scripts/windows/onec-odata-error-class-upgrade.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -74,6 +75,22 @@ jobs:
           }
           if($diag -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
             throw 'UNSAFE_DIAGNOSTIC_UPGRADE'
+          }
+          $classUpgrade=[IO.File]::ReadAllText('scripts/windows/onec-odata-error-class-upgrade.ps1')
+          foreach($needed in @('OLD_AGENT_RESTORED=PASS','OLD_HELPER_RESTORED=PASS',
+             'LIVE_HASH_UNEXPECTED','PINNED_SOURCE_MISMATCH','SCHEDULED_HEARTBEAT_TIMEOUT',
+             'ODATA_READ=NOT_RETRIED','VERSION=ODATA_DIAG_V3','File]::Replace')) {
+            if(-not $classUpgrade.Contains($needed)) { throw ('ERROR_CLASS_UPGRADE_GUARD_MISSING='+$needed) }
+          }
+          foreach($needed in @('ODATA_WEB_RECEIVE_FAILURE','ODATA_WEB_CONNECT_FAILURE',
+            'ODATA_WEB_TIMEOUT','ODATA_HTTP_FORBIDDEN','ODATA_HTTP_SERVER_ERROR',
+            'ODATA_WEB_CONNECTION_CLOSED')) {
+            if(-not $poll.Contains($needed) -or -not $reader.Contains($needed)) {
+               throw ('ERROR_CLASS_ALLOWLIST_MISMATCH='+$needed)
+            }
+          }
+          if($classUpgrade -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
+             throw 'ERROR_CLASS_UPGRADE_UNSAFE'
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
