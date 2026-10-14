@@ -23,7 +23,9 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $paths = @('scripts/windows/onec-probe-poll.ps1','scripts/windows/onec-enroll-token.ps1')
+          $paths = @('scripts/windows/onec-probe-poll.ps1','scripts/windows/onec-enroll-token.ps1',
+            'scripts/windows/onec-task-preflight.ps1','scripts/windows/onec-task-install.ps1',
+            'scripts/windows/onec-task-status.ps1','scripts/windows/onec-task-remove.ps1')
           foreach ($path in $paths) {
             $errors = $null
             $text = [System.IO.File]::ReadAllText($path)
@@ -48,3 +50,16 @@ jobs:
             if (-not $s.Contains($required)) { throw ('MISSING_GUARD=' + $required) }
           }
           Write-Output 'PROBE_ONLY_CONTRACT=PASS'
+      - name: Enforce non-elevated password-logon and fixed target
+        shell: powershell
+        run: |
+          $s = [System.IO.File]::ReadAllText('scripts/windows/onec-task-install.ps1')
+          foreach ($required in @('Principal.LogonType=1','Principal.RunLevel=0','RegisterTaskDefinition',
+                  "MultipleInstances=2","Repetition.Interval='PT1M'",'Read-Host','-AsSecureString',
+                  "taskName='MspOnecHttpsAgentProbe'")) {
+            if (-not $s.Contains($required)) { throw ('MISSING_SCHEDULER_GUARD=' + $required) }
+          }
+          if ($s.Contains('TASK_LOGON_S4U') -or $s.Contains('/RP ') -or $s.Contains('Principal.RunLevel=1')) {
+            throw 'UNSAFE_SCHEDULE_MODE'
+          }
+          Write-Output 'UNATTENDED_TASK_SOURCE_CONTRACT=PASS'
