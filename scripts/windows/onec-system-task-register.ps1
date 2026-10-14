@@ -89,6 +89,13 @@ try {
   $phase='VERIFY_MANUAL_ONLY_SYSTEM_TASK'
   $actual=$root.GetTask($name)
   $d=$actual.Definition
+  $principalSid=''
+  try {
+    $principalSid=(New-Object Security.Principal.NTAccount -ArgumentList $d.Principal.UserId).Translate([Security.Principal.SecurityIdentifier]).Value
+  } catch {
+    throw 'SYSTEM_TASK_PRINCIPAL_UNVERIFIED'
+  }
+  if ($principalSid -ne 'S-1-5-19') { throw 'SYSTEM_TASK_PRINCIPAL_UNVERIFIED' }
   if (-not $actual.Enabled -or $d.Principal.LogonType -ne 5 -or
       $d.Principal.RunLevel -ne 0 -or $d.Triggers.Count -ne 1 -or
       $d.Triggers.Item(1).Enabled -or $d.Actions.Count -ne 1 -or
@@ -114,7 +121,7 @@ try {
     'STAGE_FILE_MISSING','STATE_DIR_MISSING','BAD_FILE_PATH','SYSTEM_SCRIPT_INVALID',
     'ENDPOINT_INVALID','LEGACY_TASK_NOT_ENABLED','SYSTEM_TASK_ALREADY_EXISTS',
     'LOCAL_SERVICE_UNRESOLVED','SYSTEM_TASK_CREATION_FAILED',
-    'SYSTEM_TASK_DEFINITION_MISMATCH','LEGACY_TASK_CHANGED')
+    'SYSTEM_TASK_DEFINITION_MISMATCH','SYSTEM_TASK_PRINCIPAL_UNVERIFIED','LEGACY_TASK_CHANGED')
   if ($allow -notcontains $reason) { $reason='SCHEDULER_COM_FAILURE' }
   Write-Output ('RESULT=FAIL;STAGE=REGISTER_SYSTEM_TASK;GATE='+$reason)
   Write-Output ('FAILURE_PHASE='+$phase)
