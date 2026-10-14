@@ -102,3 +102,18 @@ jobs:
             throw 'STAGING_ATTEMPTED_TO_CHANGE_TASK'
           }
           Write-Output 'SYSTEM_AGENT_STAGE_SOURCE_CONTRACT=PASS'
+      - name: Guard staging failure reporting: no raw Windows errors or secrets
+        shell: powershell
+        run: |
+          $src=[IO.File]::ReadAllText('scripts/windows/onec-system-stage.ps1')
+          foreach($required in @("FAILURE_PHASE=","ERROR_CLASS=","STAGED_ROOT_CLEANUP=",
+              "CHECK_SCHEDULER_TASKS","REPROTECT_MACHINE_DPAPI","RESET_BINARY_FILE_ACLS",
+              "TEST_COPIED_CURL","'SYSTEM_STAGE_FAILURE'")) {
+            if (-not $src.Contains($required)) { throw ('STAGE_FAILURE_DIAGNOSTIC_MISSING='+$required) }
+          }
+          foreach($banned in @('Write-Output $clear','Write-Output $cipher',
+              'Write-Output $_','Write-Output $sealed','Write-Host $_',
+              'Write-Output $tokenSource','Write-Output $reason')) {
+            if ($src.Contains($banned)) { throw ('UNSAFE_DIAGNOSTIC='+$banned) }
+          }
+          Write-Output 'STAGING_FAILURE_DIAGNOSTICS=PASS'
