@@ -7,7 +7,8 @@ param(
   [string]$StateDir = (Join-Path $env:LOCALAPPDATA 'MspOnecAgent')
 )
 $ErrorActionPreference='Stop'
-$Endpoint='https://vm-817589.tail76ae70.ts.net:8443'
+$EndpointFile=Join-Path $StateDir 'endpoint.txt'
+$Endpoint=''
 $TokenFile=Join-Path $StateDir 'agent-token.dpapi'
 function StopSafe([string]$Reason) {
   Write-Output ('RESULT=FAIL;STAGE=AGENT;GATE='+$Reason)
@@ -74,6 +75,88 @@ try {
   if (-not (Test-Path -LiteralPath $CaBundle -PathType Leaf)) { StopSafe 'CA_MISSING' }
   if (-not (Test-Path -LiteralPath $TokenFile -PathType Leaf)) { StopSafe 'TOKEN_NOT_ENROLLED' }
   PrivateDir $StateDir
+  if (-not (Test-Path -LiteralPath $EndpointFile -PathType Leaf)) { StopSafe 'ENDPOINT_NOT_ENROLLED' }
+  $Endpoint=[IO.File]::ReadAllText($EndpointFile,[Text.Encoding]::ASCII).Trim()
+  if ($Endpoint -notmatch '^https://[a-z0-9-]+\.tail[a-z0-9-]+\.ts\.net:8443 instance per Windows logon; prevent overlapping scheduled jobs.
+  $mutex=New-Object System.Threading.Mutex -ArgumentList @($false,'Local\MspOnecAgentPoll')
+  $owned=$false
+  try {
+    $owned=$mutex.WaitOne(0,$false)
+    if (-not $owned) { StopSafe 'ALREADY_RUNNING' }
+    $pending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'result-*.txt' -ErrorAction SilentlyContinue)
+    foreach($file in $pending) {
+      $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
+      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR)
+        throw 'INVALID_PENDING_RESULT'
+      }
+      $jid=$Matches[1]
+      $ack=AgentRequest 'POST' '/v1/agent/result' $file.FullName
+      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_PENDING_ACK' }
+      Remove-Item -LiteralPath $file.FullName -Force
+      Write-Output 'PENDING_RESULT_RECOVERED=YES'
+    }
+    $task=AgentRequest 'GET' '/v1/agent/poll' $null
+    if ($task -eq 'EMPTY') { Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
+    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|probe\|([0-9a-f]{32})$') {
+      throw 'UNRECOGNIZED_TASK'
+    }
+    $jid=$Matches[1];$lease=$Matches[2]
+    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
+    if (Test-Path -LiteralPath $marker) {
+      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
+      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
+    } else {
+      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
+    }
+    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
+    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|PASS|SRV_ALIVE'),[Text.Encoding]::ASCII)
+    $ack=AgentRequest 'POST' '/v1/agent/result' $result
+    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
+    Remove-Item -LiteralPath $result -Force
+    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
+  } finally {
+    if ($owned) { [void]$mutex.ReleaseMutex() }
+    $mutex.Close()
+  }
+} catch {
+  StopSafe 'GENERAL_FAILURE'
+}
+)) {
+        throw 'INVALID_PENDING_RESULT'
+      }
+      $jid=$Matches[1]
+      $ack=AgentRequest 'POST' '/v1/agent/result' $file.FullName
+      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_PENDING_ACK' }
+      Remove-Item -LiteralPath $file.FullName -Force
+      Write-Output 'PENDING_RESULT_RECOVERED=YES'
+    }
+    $task=AgentRequest 'GET' '/v1/agent/poll' $null
+    if ($task -eq 'EMPTY') { Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
+    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|probe\|([0-9a-f]{32})$') {
+      throw 'UNRECOGNIZED_TASK'
+    }
+    $jid=$Matches[1];$lease=$Matches[2]
+    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
+    if (Test-Path -LiteralPath $marker) {
+      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
+      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
+    } else {
+      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
+    }
+    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
+    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|PASS|SRV_ALIVE'),[Text.Encoding]::ASCII)
+    $ack=AgentRequest 'POST' '/v1/agent/result' $result
+    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
+    Remove-Item -LiteralPath $result -Force
+    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
+  } finally {
+    if ($owned) { [void]$mutex.ReleaseMutex() }
+    $mutex.Close()
+  }
+} catch {
+  StopSafe 'GENERAL_FAILURE'
+}
+) { StopSafe 'INVALID_HTTPS_ENDPOINT' }
   # One agent instance per Windows logon; prevent overlapping scheduled jobs.
   $mutex=New-Object System.Threading.Mutex -ArgumentList @($false,'Local\MspOnecAgentPoll')
   $owned=$false
