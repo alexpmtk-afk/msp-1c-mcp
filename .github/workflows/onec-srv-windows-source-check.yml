@@ -126,3 +126,16 @@ jobs:
             if (-not $src.Contains($required)) { throw ("STAGE_CHECKPOINT_MISSING="+$required) }
           }
           Write-Output "PS2_STAGE_FILE_AND_HASH_CHECKPOINTS=PASS"
+      - name: Guard SHA256 cleanup for native PowerShell 2
+        shell: powershell
+        run: |
+          $s=[IO.File]::ReadAllText('scripts/windows/onec-system-stage.ps1')
+          if (-not $s.Contains('$sha.Clear()')) { throw 'PS2_SHA256_CLEAR_REQUIRED' }
+          if ($s.Contains('$sha.Dispose()')) { throw 'PS2_SHA256_DISPOSE_UNSUPPORTED' }
+          $sha=[Security.Cryptography.SHA256]::Create()
+          try {
+            $bytes=[Text.Encoding]::ASCII.GetBytes('MspOnlyTest')
+            $sum=[BitConverter]::ToString($sha.ComputeHash($bytes))
+            if (-not $sum) { throw 'SHA256_COMPUTE_FAILED' }
+          } finally { $sha.Clear() }
+          Write-Output 'PS2_SHA256_CLEANUP_SOURCE=PASS'
