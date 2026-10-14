@@ -26,7 +26,8 @@ jobs:
           $paths = @('scripts/windows/onec-probe-poll.ps1','scripts/windows/onec-enroll-token.ps1',
             'scripts/windows/onec-task-preflight.ps1','scripts/windows/onec-task-install.ps1',
             'scripts/windows/onec-task-status.ps1','scripts/windows/onec-task-remove.ps1',
-            'scripts/windows/onec-localservice-preflight.ps1')
+            'scripts/windows/onec-localservice-preflight.ps1',
+            'scripts/windows/onec-system-probe-poll.ps1','scripts/windows/onec-system-stage.ps1')
           foreach ($path in $paths) {
             $errors = $null
             $text = [System.IO.File]::ReadAllText($path)
@@ -75,3 +76,29 @@ jobs:
             if ($source.Contains($denied)) { throw ('MUTATING_OPERATION_IN_PREFLIGHT='+$denied) }
           }
           Write-Output 'LOCAL_SERVICE_PREFLIGHT_SOURCE=PASS'
+      - name: Guard machine-scope token and system staging boundaries
+        shell: powershell
+        run: |
+          $poll=[IO.File]::ReadAllText('scripts/windows/onec-system-probe-poll.ps1')
+          $stage=[IO.File]::ReadAllText('scripts/windows/onec-system-stage.ps1')
+          foreach($f in @($poll,$stage)) {
+            if ($f -match 'vm-817589|192\.168\.|Invoke-Expression|Invoke-RestMethod|New-PSSession') {
+              throw 'UNSAFE_HARDCODED_ENDPOINT_OR_REMOTE_EXECUTION'
+            }
+            if ($f -match 'Get-ChildItem[^\r\n]*\s-File(?:\s|[);])') {
+              throw 'UNSUPPORTED_POWERSHELL2_FILE_SWITCH'
+            }
+          }
+          foreach($required in @('S-1-5-19','ProtectedData]::Unprotect','DataProtectionScope]::LocalMachine',
+              '/v1/agent/poll','/v1/agent/result','last-status.txt','AUTHENTICATED_EMPTY')) {
+            if (-not $poll.Contains($required)) { throw ('SYSTEM_POLL_GUARD_MISSING='+$required) }
+          }
+          foreach($required in @('ProtectedData]::Protect','DataProtectionScope]::LocalMachine',
+              'SYSTEM_STAGE_ALREADY_EXISTS','SYSTEM_CURL_START_FAILED','icacls.exe','SOURCE_SHA256_COPY_VERIFIED',
+              'PERSONAL_AGENT_TASK=UNCHANGED','NEW_SYSTEM_TASK=NOT_CREATED','S-1-5-18','S-1-5-32-544','S-1-5-19')) {
+            if (-not $stage.Contains($required)) { throw ('SYSTEM_STAGE_GUARD_MISSING='+$required) }
+          }
+          if ($stage -match 'RegisterTaskDefinition|DeleteTask\(|LegacyTask\.Enabled\s*=') {
+            throw 'STAGING_ATTEMPTED_TO_CHANGE_TASK'
+          }
+          Write-Output 'SYSTEM_AGENT_STAGE_SOURCE_CONTRACT=PASS'
