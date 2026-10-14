@@ -1,4 +1,4 @@
-#requires -version 2
+﻿#requires -version 2
 # One fixed GET to local SANDBOX NewBase OData; no caller-controlled URL or input.
 # Outputs only a bounded numeric sample, never product or warehouse identifiers.
 $ErrorActionPreference='Stop'
