@@ -33,7 +33,8 @@ jobs:
             'scripts/windows/onec-odata-enroll-readonly.ps1','scripts/windows/onec-system-odata-balance.ps1',
             'scripts/windows/onec-odata-system-upgrade.ps1',
                    'scripts/windows/onec-odata-diagnostic-upgrade.ps1',
-            'scripts/windows/onec-odata-error-class-upgrade.ps1')
+            'scripts/windows/onec-odata-error-class-upgrade.ps1',
+            'scripts/windows/onec-odata-filter-selfcheck.ps1')
           foreach ($path in $paths) {
             $errors = $null
             $text = [System.IO.File]::ReadAllText($path)
