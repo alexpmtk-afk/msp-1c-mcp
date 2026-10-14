@@ -19,9 +19,12 @@ try {
   if (-not (Test-Path -LiteralPath (Join-Path $root 'secrets') -PathType Container)) { throw 'SECRET_DIR_MISSING' }
   if (Test-Path -LiteralPath $dest) { throw 'ALREADY_ENROLLED' }
   $phase='LOCAL_PASSWORD_PROMPT'
-  $cred=Get-Credential -Credential 'MCP_OData_ReadOnly'
-  if ($null -eq $cred -or $cred.UserName -cne 'MCP_OData_ReadOnly') { throw 'WRONG_1C_ACCOUNT' }
-  $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($cred.Password)
+  # OData username is fixed in the GET helper; prompt only for its password.
+  # This avoids Windows auto-qualifying names to MACHINE\username.
+  Write-Output 'ODATA_ACCOUNT=MCP_OData_ReadOnly'
+  $secure=Read-Host -Prompt 'Enter password for the fixed 1C OData account' -AsSecureString
+  if ($null -eq $secure) { throw 'INVALID_PASSWORD' }
+  $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
   $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
   if (-not $plain -or $plain.Length -gt 256) { throw 'INVALID_PASSWORD' }
   $phase='MACHINE_DPAPI_PROTECT'
@@ -52,4 +55,5 @@ try {
   if ($null -ne $clearBytes) { [Array]::Clear($clearBytes,0,$clearBytes.Length) }
   if ($null -ne $sealed) { [Array]::Clear($sealed,0,$sealed.Length) }
   if ($ptr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+  if ($null -ne $secure) { $secure.Dispose() }
 }
