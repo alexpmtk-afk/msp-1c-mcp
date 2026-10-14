@@ -11,6 +11,7 @@ $ErrorActionPreference='Stop'
 $root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'MspOnecAgent'
 $old=Join-Path $env:LOCALAPPDATA 'MspOnecAgent'
 $created=$false
+$phase='INITIAL_GATES'
 $ptr=[IntPtr]::Zero
 $clear=$null
 $plainBytes=$null
@@ -47,6 +48,7 @@ try {
   if ([Environment]::OSVersion.Version.Major -ne 6 -or
       [Environment]::OSVersion.Version.Minor -ne 1) { throw 'WRONG_OS' }
   if (Test-Path -LiteralPath $root) { throw 'SYSTEM_STAGE_ALREADY_EXISTS' }
+  $phase='CHECK_SOURCE_FILES'
   $agentSource=Join-Path $old 'bin\onec-system-probe-poll.ps1'
   $legacy=Join-Path $old 'bin\onec-probe-poll.ps1'
   $tokenSource=Join-Path $old 'agent-token.dpapi'
@@ -58,12 +60,14 @@ try {
   if ($address -notmatch '^https://[a-z0-9-]+\.tail[a-z0-9-]+\.ts\.net:8443$') {
     throw 'INVALID_ENDPOINT'
   }
+  $phase='VERIFY_SYSTEM_AGENT_SOURCE'
   $script=[IO.File]::ReadAllText($agentSource,[Text.Encoding]::UTF8)
   if (-not $script.StartsWith('#requires -version 2') -or
       -not $script.Contains("S-1-5-19") -or
       -not $script.Contains('DataProtectionScope]::LocalMachine')) {
     throw 'INVALID_SYSTEM_SCRIPT'
   }
+  $phase='CHECK_SCHEDULER_TASKS'
   $service=New-Object -ComObject 'Schedule.Service'
   $service.Connect()
   $tasks=$service.GetFolder('\')
@@ -75,18 +79,23 @@ try {
   } catch {
     if ($_.Exception.Message -eq 'NEW_TASK_ALREADY_EXISTS') { throw }
   }
+  $phase='READ_USER_DPAPI_TOKEN'
   $cipher=[IO.File]::ReadAllText($tokenSource,[Text.Encoding]::UTF8).Trim()
   $secure=ConvertTo-SecureString -String $cipher
   $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
   $clear=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
   if ($clear -notmatch '^[A-Za-z0-9_-]{32,128}$') { throw 'BAD_OLD_TOKEN' }
+  $phase='REPROTECT_MACHINE_DPAPI'
   [byte[]]$plainBytes=[Text.Encoding]::ASCII.GetBytes($clear)
   Add-Type -AssemblyName System.Security -ErrorAction Stop
   $sealed=[Security.Cryptography.ProtectedData]::Protect(
     $plainBytes,$null,[Security.Cryptography.DataProtectionScope]::LocalMachine)
+  $phase='CREATE_ROOT_DIRECTORY'
   [void](New-Item -ItemType Directory -Path $root)
   $created=$true
+  $phase='ACL_ROOT_DIRECTORY'
   AllowAcl $root $false
+  $phase='CREATE_AND_ACL_SUBDIRECTORIES'
   foreach($child in @('bin','config','secrets','state')) {
     $dir=Join-Path $root $child
     [void](New-Item -ItemType Directory -Path $dir)
@@ -94,14 +103,18 @@ try {
   }
   $bin=Join-Path $root 'bin'
   $sys=Join-Path $bin 'onec-system-probe-poll.ps1'
+  $phase='COPY_AGENT_SCRIPT'
   Copy-Item -LiteralPath $agentSource -Destination $sys
   VerifyCopy $agentSource $sys
   $curlDst=Join-Path $bin 'curl.exe'
   $caDst=Join-Path $bin 'curl-ca-bundle.crt'
+  $phase='COPY_CURL_BINARY'
   Copy-Item -LiteralPath $CurlExe -Destination $curlDst
   VerifyCopy $CurlExe $curlDst
+  $phase='COPY_CA_BUNDLE'
   Copy-Item -LiteralPath $CaBundle -Destination $caDst
   VerifyCopy $CaBundle $caDst
+  $phase='COPY_CURL_DLLS'
   $curlSourceDir=Split-Path -Parent $CurlExe
   foreach($dll in @(Get-ChildItem -LiteralPath $curlSourceDir -Filter '*.dll' -ErrorAction Stop)) {
     $dllDst=Join-Path $bin $dll.Name
@@ -109,15 +122,20 @@ try {
     VerifyCopy $dll.FullName $dllDst
   }
   # Reset file ACLs to the separately restricted destination directory defaults.
+  $phase='RESET_BINARY_FILE_ACLS'
   $ic=Join-Path $env:WINDIR 'System32\icacls.exe'
   foreach($file in @(Get-ChildItem -LiteralPath $bin | Where-Object { -not $_.PSIsContainer })) {
     & $ic $file.FullName '/reset' | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'FILE_ACL_FAILURE' }
   }
+  $phase='WRITE_ENDPOINT_CONFIG'
   [IO.File]::WriteAllText((Join-Path (Join-Path $root 'config') 'endpoint.txt'),$address,[Text.Encoding]::ASCII)
+  $phase='WRITE_MACHINE_DPAPI_FILE'
   [IO.File]::WriteAllBytes((Join-Path (Join-Path $root 'secrets') 'agent-token.machine.dpapi'),$sealed)
+  $phase='TEST_COPIED_CURL'
   & $curlDst -q --version | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'SYSTEM_CURL_START_FAILED' }
+  $phase='COMPLETE'
   Write-Output 'ONEC_LOCAL_SERVICE_STAGE'
   Write-Output 'SYSTEM_PROGRAMDATA_FILES=PASS'
   Write-Output 'SOURCE_SHA256_COPY_VERIFIED=PASS'
@@ -136,9 +154,24 @@ try {
     'BAD_OLD_TOKEN','ACL_SETUP_FAILED','COPY_HASH_MISMATCH','FILE_ACL_FAILURE',
     'SYSTEM_CURL_START_FAILED')
   if ($allowed -notcontains $reason) { $reason='SYSTEM_STAGE_FAILURE' }
+  $class=$_.Exception.GetType().Name
+  $classes=@('UnauthorizedAccessException','IOException','COMException',
+    'RuntimeException','MethodInvocationException','ArgumentException',
+    'CryptographicException','CommandNotFoundException','ParameterBindingException',
+    'SecurityException','DirectoryNotFoundException','FileNotFoundException')
+  if ($classes -notcontains $class) { $class='OTHER' }
   Write-Output ('RESULT=FAIL;STAGE=SYSTEM_PREPARE;GATE='+$reason)
+  Write-Output ('FAILURE_PHASE='+$phase)
+  Write-Output ('ERROR_CLASS='+$class)
   if ($created) {
     try { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction Stop } catch {}
+    if (Test-Path -LiteralPath $root) {
+      Write-Output 'STAGED_ROOT_CLEANUP=INCOMPLETE'
+    } else {
+      Write-Output 'STAGED_ROOT_CLEANUP=COMPLETE'
+    }
+  } else {
+    Write-Output 'STAGED_ROOT_CREATED=NO'
   }
   exit 1
 } finally {
