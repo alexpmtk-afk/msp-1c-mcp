@@ -95,8 +95,8 @@ jobs:
           }
           $filterCheck=[IO.File]::ReadAllText('scripts/windows/onec-odata-filter-selfcheck.ps1')
           foreach($required in @("Method='GET'",'127.0.0.1:8085/NewBase/',
-            'GetResponse','Номенклатура_Key','СтруктурнаяЕдиница_Key',
-            'КоличествоBalance','EscapeDataString','FILTER_RETURNED_WRONG_PAIR',
+            'GetResponse','ItemGuid','WarehouseGuid',
+            'QUANTITY_NOT_UNIQUE','EscapeDataString','FILTER_RETURNED_WRONG_PAIR',
             'QUANTITY_MISMATCH','DIMENSION_GUIDS_EXPORTED=NO',
             'DATA_WRITES=NO','AGENT_AND_SCHEDULER_UNCHANGED=YES',
             'MCP_OData_ReadOnly')) {
