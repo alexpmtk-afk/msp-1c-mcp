@@ -27,7 +27,8 @@ jobs:
             'scripts/windows/onec-task-preflight.ps1','scripts/windows/onec-task-install.ps1',
             'scripts/windows/onec-task-status.ps1','scripts/windows/onec-task-remove.ps1',
             'scripts/windows/onec-localservice-preflight.ps1',
-            'scripts/windows/onec-system-probe-poll.ps1','scripts/windows/onec-system-stage.ps1')
+            'scripts/windows/onec-system-probe-poll.ps1','scripts/windows/onec-system-stage.ps1',
+            'scripts/windows/onec-system-task-register.ps1','scripts/windows/onec-system-task-smoke.ps1')
           foreach ($path in $paths) {
             $errors = $null
             $text = [System.IO.File]::ReadAllText($path)
@@ -139,3 +140,27 @@ jobs:
             if (-not $sum) { throw 'SHA256_COMPUTE_FAILED' }
           } finally { $sha.Clear() }
           Write-Output 'PS2_SHA256_CLEANUP_SOURCE=PASS'
+      - name: Guard LocalService manual-only task registration
+        shell: powershell
+        run: |
+          $s=[IO.File]::ReadAllText('scripts/windows/onec-system-task-register.ps1')
+          $q=[IO.File]::ReadAllText('scripts/windows/onec-system-task-smoke.ps1')
+          foreach($required in @('S-1-5-19','Principal.LogonType=5','Principal.RunLevel=0',
+              'RegisterTaskDefinition','Repetition.Interval=','trigger.Enabled=$false',
+              'OLD_AGENT_ENABLED=YES','SYSTEM_AGENT_EXECUTION=NOT_YET_TESTED',
+              'MANUAL_EXECUTION_ALLOWED=YES','AUTOMATIC_TRIGGER_ENABLED=NO',
+              'TASK_REGISTERED=YES')) {
+            if (-not $s.Contains($required)) { throw ('SYSTEM_SCHEDULER_GUARD_MISSING='+$required) }
+          }
+          if ($s -match 'Principal.LogonType=1|Settings.Enabled=\$false|Read-Host|Start-Process|Invoke-Expression') {
+            throw 'UNSAFE_SYSTEM_SCHEDULER_REGISTRATION'
+          }
+          foreach($required in @('MANUAL_START=ACCEPTED','AUTOMATIC_TRIGGER_ENABLED=NO',
+              'LEGACY_TASK_NOT_ENABLED','LOCAL_SERVICE_HEALTH=','last-status.txt',
+              'SYSTEM_TASK_RUNTIME=PASS')) {
+            if (-not $q.Contains($required)) { throw ('SYSTEM_SMOKE_GUARD_MISSING='+$required) }
+          }
+          if ($q -match 'RegisterTaskDefinition|\.Enabled\s*=\s*\$true|DeleteTask\(|Disable-ScheduledTask') {
+            throw 'UNEXPECTED_SCHEDULE_MUTATION_IN_SMOKE'
+          }
+          Write-Output 'SYSTEM_TASK_MANUAL_ONLY=PASS'
