@@ -1,8 +1,10 @@
 #requires -version 2
-# Registers a single non-elevated, password-logon task under SRV\parshin.
+# Registers a single non-elevated, password-logon task under the approved user.
 # Windows Server 2008 R2 Task Scheduler 2.0 COM. No 1C/COMConnector calls.
 # Password entered in hidden console prompt and passed only to Schedule.Service COM.
 param(
+  [Parameter(Mandatory=$true)][string]$ExpectedComputerName,
+  [Parameter(Mandatory=$true)][string]$ExpectedAccount,
   [Parameter(Mandatory=$true)][string]$CurlExe,
   [Parameter(Mandatory=$true)][string]$CaBundle,
   [string]$StateDir = (Join-Path $env:LOCALAPPDATA 'MspOnecAgent')
@@ -15,9 +17,9 @@ $password=$null
 $secret=$null
 $root=$null
 try {
-  if ($env:COMPUTERNAME -ne 'SRV') { throw 'WRONG_MACHINE' }
+  if ($env:COMPUTERNAME -ne $ExpectedComputerName) { throw 'WRONG_MACHINE' }
   $username=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-  if ($username -ne 'SRV\parshin') { throw 'WRONG_IDENTITY' }
+  if ($username -ne $ExpectedAccount) { throw 'WRONG_IDENTITY' }
   $script=Join-Path $StateDir 'bin\onec-probe-poll.ps1'
   $encrypted=Join-Path $StateDir 'agent-token.dpapi'
   $endpoint=Join-Path $StateDir 'endpoint.txt'
