@@ -38,7 +38,7 @@ jobs:
             'DataProtectionScope]::LocalMachine')) {
             if(-not $reader.Contains($needed)) { throw ('BALANCE_GUARD_MISSING='+$needed) }
           }
-          foreach($needed in @('Get-Credential','ProtectedData]::Protect','MCP_OData_ReadOnly',
+          foreach($needed in @('Read-Host','-AsSecureString','ProtectedData]::Protect','MCP_OData_ReadOnly',
             'PASSWORD_EXPORTED=NO')) {
             if(-not $enroll.Contains($needed)) { throw ('CREDENTIAL_GUARD_MISSING='+$needed) }
           }
