@@ -21,6 +21,13 @@ try {
       $def.Triggers.Item(1).Enabled -or $def.Actions.Count -ne 1) {
     throw 'SYSTEM_TASK_NOT_MANUAL_ONLY'
   }
+  $principalSid=''
+  try {
+    $principalSid=(New-Object Security.Principal.NTAccount -ArgumentList $def.Principal.UserId).Translate([Security.Principal.SecurityIdentifier]).Value
+  } catch {
+    throw 'SYSTEM_TASK_NOT_LOCAL_SERVICE'
+  }
+  if ($principalSid -ne 'S-1-5-19') { throw 'SYSTEM_TASK_NOT_LOCAL_SERVICE' }
   $old=$root.GetTask('MspOnecHttpsAgentProbe')
   if (-not $old.Enabled) { throw 'LEGACY_TASK_NOT_ENABLED' }
   $base=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'MspOnecAgent'
@@ -60,7 +67,7 @@ try {
 } catch {
   $reason=$_.Exception.Message
   $allowed=@('WRONG_MACHINE','ADMIN_REQUIRED','SYSTEM_TASK_NOT_MANUAL_ONLY',
-    'LEGACY_TASK_NOT_ENABLED','RUN_RETURNED_EMPTY')
+    'LEGACY_TASK_NOT_ENABLED','SYSTEM_TASK_NOT_LOCAL_SERVICE','RUN_RETURNED_EMPTY')
   if ($allowed -notcontains $reason) { $reason='MANUAL_SMOKE_FAILURE' }
   Write-Output ('RESULT=FAIL;STAGE=MANUAL_SYSTEM_SMOKE;GATE='+$reason)
   exit 1
