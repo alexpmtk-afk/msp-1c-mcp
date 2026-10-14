@@ -15,7 +15,7 @@ $TokenFile=Join-Path (Join-Path $RootDir 'secrets') 'agent-token.machine.dpapi'
 function Health([string]$Mode) {
   try {
     if (Test-Path -LiteralPath $StateDir -PathType Container) {
-      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_V1')
+      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_DIAG_V2')
       [IO.File]::WriteAllText((Join-Path $StateDir 'last-status.txt'),$msg,[Text.Encoding]::ASCII)
     }
   } catch {}
@@ -124,8 +124,34 @@ try {
       if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
       else {
         $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') { $reason=$value }
-        else { $status='FAIL';$reason='ODATA_READ_FAILED' }
+        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
+            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?
+      }
+    }
+    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
+    $ack=AgentRequest 'POST' '/v1/agent/result' $result
+    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
+    Remove-Item -LiteralPath $result -Force
+    Health 'PROBE_ACK'
+    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
+  } finally {
+    if ($owned) { [void]$mutex.ReleaseMutex() }
+    $mutex.Close()
+  }
+} catch {
+  StopSafe 'GENERAL_FAILURE'
+}
+) {
+          $reason=$value
+        } else {
+          $status='FAIL';$reason='ODATA_READ_FAILED'
+          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
+          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
+            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
+            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
+            'ODATA_UNAVAILABLE','ODATA_READ_ERROR')
+          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
+        }
       }
     }
     [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
