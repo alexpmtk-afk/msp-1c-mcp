@@ -21,7 +21,8 @@ jobs:
           $paths=@('scripts/windows/onec-system-probe-poll.ps1',
                    'scripts/windows/onec-system-odata-balance.ps1',
                    'scripts/windows/onec-odata-enroll-readonly.ps1',
-                   'scripts/windows/onec-odata-system-upgrade.ps1')
+                   'scripts/windows/onec-odata-system-upgrade.ps1',
+                   'scripts/windows/onec-odata-diagnostic-upgrade.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -59,6 +60,20 @@ jobs:
           }
           if($upgrade -match 'RegisterTaskDefinition|Start-ScheduledTask|New-ScheduledTask|Invoke-Expression') {
             throw 'UNSAFE_UPGRADE_OPERATION'
+          }
+          $diag=[IO.File]::ReadAllText('scripts/windows/onec-odata-diagnostic-upgrade.ps1')
+          foreach($needed in @('File]::Replace','OLD_AGENT_RESTORED=PASS',
+            'LIVE_HASH_UNEXPECTED','PINNED_SOURCE_MISMATCH','VERSION=ODATA_DIAG_V2',
+            'S-1-5-19','ODATA_READ=NOT_RETRIED','TASKS_UNCHANGED=YES')) {
+            if(-not $diag.Contains($needed)) { throw ('DIAGNOSTIC_UPGRADE_GUARD_MISSING='+$needed) }
+          }
+          foreach($needed in @('ODATA_AUTH_DENIED','ODATA_UNAVAILABLE',
+            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_READ_ERROR',
+            'VERSION=ODATA_DIAG_V2')) {
+            if(-not $poll.Contains($needed)) { throw ('DIAGNOSTIC_REASON_GUARD_MISSING='+$needed) }
+          }
+          if($diag -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
+            throw 'UNSAFE_DIAGNOSTIC_UPGRADE'
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
