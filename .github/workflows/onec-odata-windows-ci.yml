@@ -20,7 +20,8 @@ jobs:
           $ErrorActionPreference='Stop'
           $paths=@('scripts/windows/onec-system-probe-poll.ps1',
                    'scripts/windows/onec-system-odata-balance.ps1',
-                   'scripts/windows/onec-odata-enroll-readonly.ps1')
+                   'scripts/windows/onec-odata-enroll-readonly.ps1',
+                   'scripts/windows/onec-odata-system-upgrade.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -48,6 +49,16 @@ jobs:
           }
           if($reader -match 'Invoke-Expression|Invoke-RestMethod|New-PSSession') {
             throw 'MUTATING_OR_REMOTE_EXECUTION_VERB'
+          }
+          $upgrade=[IO.File]::ReadAllText('scripts/windows/onec-odata-system-upgrade.ps1')
+          foreach($needed in @('File]::Replace','OLD_AGENT_RESTORED=PASS',
+             'PINNED_SOURCE_MISMATCH','LIVE_SOURCE_UNEXPECTED','VERSION=ODATA_V1',
+             'S-1-5-19','PERSONAL_AGENT_DISABLED=YES','SYSTEM_TASK_UNCHANGED=YES',
+             'ODATA_READ=NOT_YET_TESTED')) {
+            if(-not $upgrade.Contains($needed)) { throw ('UPGRADE_GUARD_MISSING='+$needed) }
+          }
+          if($upgrade -match 'RegisterTaskDefinition|Start-ScheduledTask|New-ScheduledTask|Invoke-Expression') {
+            throw 'UNSAFE_UPGRADE_OPERATION'
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
