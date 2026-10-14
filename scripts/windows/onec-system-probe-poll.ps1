@@ -1,5 +1,5 @@
 #requires -version 2
-# LocalService fixed-operations poller: probe or sandbox OData Balance GET. No arbitrary commands.
+# LocalService fixed operations: probe or sandbox OData Balance GET. No arbitrary commands.
 # NEVER run with the personal user-scoped token or personal state directory.
 # PowerShell 2.0 / Windows Server 2008 R2. TLS handled by approved portable curl.
 param(
@@ -118,26 +118,13 @@ try {
       [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
     }
     $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS'; $reason='SRV_ALIVE'
+    $status='PASS';$reason='SRV_ALIVE'
     if ($operation -eq 'odata_balance') {
       $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
       if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
       else {
         $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-) { $reason=$value }
+        if ($LASTEXITCODE -eq 0 -and $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') { $reason=$value }
         else { $status='FAIL';$reason='ODATA_READ_FAILED' }
       }
     }
