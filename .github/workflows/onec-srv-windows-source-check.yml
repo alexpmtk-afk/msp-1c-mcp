@@ -1,0 +1,50 @@
+name: 1C Windows probe scripts syntax and safety
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows/onec-*.ps1'
+      - '.github/workflows/onec-srv-windows-source-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/windows/onec-*.ps1'
+      - '.github/workflows/onec-srv-windows-source-check.yml'
+permissions:
+  contents: read
+jobs:
+  ps-parser:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Parse on Windows PowerShell 5.1 (not a PS2 native runtime test)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $paths = @('scripts/windows/onec-probe-poll.ps1','scripts/windows/onec-enroll-token.ps1')
+          foreach ($path in $paths) {
+            $errors = $null
+            $text = [System.IO.File]::ReadAllText($path)
+            $null = [System.Management.Automation.PSParser]::Tokenize($text, [ref]$errors)
+            if ($errors -and $errors.Count -gt 0) {
+              throw ('PARSER_FAILURE=' + $path + ' ' + (($errors | ForEach-Object {$_.Message + '@' + $_.Token.StartLine + ':' + $_.Token.StartColumn}) -join ';'))
+            }
+            if (-not $text.StartsWith('#requires -version 2')) {
+              throw ('VERSION_GUARD_MISSING=' + $path)
+            }
+          }
+          Write-Output 'PS51_SYNTAX_PARSE=PASS'
+          Write-Output 'NATIVE_PS2_EXECUTION=NOT_TESTED'
+      - name: Enforce read-only probe and private endpoint boundaries
+        shell: powershell
+        run: |
+          $s = [System.IO.File]::ReadAllText('scripts/windows/onec-probe-poll.ps1')
+          if ($s -match 'vm-817589|192\.168\.|Invoke-Expression|Invoke-RestMethod|New-PSSession') {
+            throw 'PRIVATE_ENDPOINT_OR_UNSAFE_EXECUTION_IN_PUBLIC_SOURCE'
+          }
+          foreach ($required in @('ConvertTo-SecureString','--tlsv1.2','--cacert','/v1/agent/poll','/v1/agent/result','REPLAY_LEASE_MISMATCH')) {
+            if (-not $s.Contains($required)) { throw ('MISSING_GUARD=' + $required) }
+          }
+          Write-Output 'PROBE_ONLY_CONTRACT=PASS'
