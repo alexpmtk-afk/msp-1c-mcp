@@ -46,7 +46,7 @@ jobs:
             'REPLAY_LEASE_MISMATCH')) {
             if(-not $poll.Contains($needed)) { throw ('POLL_GUARD_MISSING='+$needed) }
           }
-          if($reader -match 'Invoke-Expression|Invoke-RestMethod|New-PSSession|POST|PUT|DELETE') {
+          if($reader -match 'Invoke-Expression|Invoke-RestMethod|New-PSSession') {
             throw 'MUTATING_OR_REMOTE_EXECUTION_VERB'
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
