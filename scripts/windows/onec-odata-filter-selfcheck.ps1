@@ -58,7 +58,7 @@ function ReadRow([string]$json) {
   $qtyMatches=[regex]::Matches($json,'"КоличествоBalance"\s*:\s*(-?\d{1,9}(?:\.\d{1,3})?)')
   if ($qtyMatches.Count -ne 1) { throw 'QUANTITY_NOT_UNIQUE' }
   $qty=[decimal]::Parse($qtyMatches[0].Groups[1].Value,[Globalization.CultureInfo]::InvariantCulture)
-  return @{ Item=$values['Номенклатура_Key']; Warehouse=$values['СтруктурнаяЕдиница_Key']; Qty=$qty }
+  return @{ ItemGuid=$values['Номенклатура_Key']; WarehouseGuid=$values['СтруктурнаяЕдиница_Key']; Qty=$qty }
 }
 try {
   if ($env:COMPUTERNAME -ne $ExpectedComputerName) { throw 'WRONG_MACHINE' }
@@ -80,12 +80,12 @@ try {
   $phase='GET_FIRST_BALANCE_ROW'
   $first=ReadRow (ReadBounded ($base+'?$top=1&$format=json'))
   $phase='GET_FILTERED_BALANCE'
-  $condition=("Номенклатура_Key eq guid'"+$first.Item+
-      "' and СтруктурнаяЕдиница_Key eq guid'"+$first.Warehouse+"'")
+  $condition=("Номенклатура_Key eq guid'"+$first['ItemGuid']+
+      "' and СтруктурнаяЕдиница_Key eq guid'"+$first['WarehouseGuid']+"'")
   $filteredUrl=$base+'?$filter='+[Uri]::EscapeDataString($condition)+'&$top=2&$format=json'
   $second=ReadRow (ReadBounded $filteredUrl)
   $phase='VERIFY_FILTERED_MATCH'
-  if ($second.Item -ne $first.Item -or $second.Warehouse -ne $first.Warehouse) {
+  if ($second['ItemGuid'] -ne $first['ItemGuid'] -or $second['WarehouseGuid'] -ne $first['WarehouseGuid']) {
     throw 'FILTER_RETURNED_WRONG_PAIR'
   }
   if ($second.Qty -ne $first.Qty) { throw 'QUANTITY_MISMATCH' }
