@@ -1,5 +1,5 @@
 #requires -version 2
-# SYSTEM-OWNED LocalService one-shot probe, no 1C/COM/OData operations or arbitrary commands.
+# LocalService fixed-operations poller: probe or sandbox OData Balance GET. No arbitrary commands.
 # NEVER run with the personal user-scoped token or personal state directory.
 # PowerShell 2.0 / Windows Server 2008 R2. TLS handled by approved portable curl.
 param(
@@ -95,7 +95,7 @@ try {
     $pending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'result-*.txt' -ErrorAction SilentlyContinue)
     foreach($file in $pending) {
       $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
-      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR)$')) {
+      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR|STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|ODATA_[A-Z_]+)$')) {
         throw 'INVALID_PENDING_RESULT'
       }
       $jid=$Matches[1]
@@ -106,10 +106,10 @@ try {
     }
     $task=AgentRequest 'GET' '/v1/agent/poll' $null
     if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|probe\|([0-9a-f]{32})$') {
+    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|(probe|odata_balance)\|([0-9a-f]{32})$') {
       throw 'UNRECOGNIZED_TASK'
     }
-    $jid=$Matches[1];$lease=$Matches[2]
+    $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
     $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
     if (Test-Path -LiteralPath $marker) {
       $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
@@ -118,7 +118,30 @@ try {
       [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
     }
     $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|PASS|SRV_ALIVE'),[Text.Encoding]::ASCII)
+    $status='PASS'; $reason='SRV_ALIVE'
+    if ($operation -eq 'odata_balance') {
+      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
+      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
+      else {
+        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
+        if ($LASTEXITCODE -eq 0 -and $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?
+    $ack=AgentRequest 'POST' '/v1/agent/result' $result
+    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
+    Remove-Item -LiteralPath $result -Force
+    Health 'PROBE_ACK'
+    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
+  } finally {
+    if ($owned) { [void]$mutex.ReleaseMutex() }
+    $mutex.Close()
+  }
+} catch {
+  StopSafe 'GENERAL_FAILURE'
+}
+) { $reason=$value }
+        else { $status='FAIL';$reason='ODATA_READ_FAILED' }
+      }
+    }
+    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
     $ack=AgentRequest 'POST' '/v1/agent/result' $result
     if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
     Remove-Item -LiteralPath $result -Force
