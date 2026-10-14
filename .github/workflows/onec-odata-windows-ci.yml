@@ -23,7 +23,8 @@ jobs:
                    'scripts/windows/onec-odata-enroll-readonly.ps1',
                    'scripts/windows/onec-odata-system-upgrade.ps1',
                    'scripts/windows/onec-odata-diagnostic-upgrade.ps1',
-                   'scripts/windows/onec-odata-error-class-upgrade.ps1')
+                   'scripts/windows/onec-odata-error-class-upgrade.ps1',
+                   'scripts/windows/onec-odata-filter-selfcheck.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -91,6 +92,23 @@ jobs:
           }
           if($classUpgrade -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
              throw 'ERROR_CLASS_UPGRADE_UNSAFE'
+          }
+          $filterCheck=[IO.File]::ReadAllText('scripts/windows/onec-odata-filter-selfcheck.ps1')
+          foreach($required in @("Method='GET'",'127.0.0.1:8085/NewBase/',
+            'GetResponse','Номенклатура_Key','СтруктурнаяЕдиница_Key',
+            'КоличествоBalance','EscapeDataString','FILTER_RETURNED_WRONG_PAIR',
+            'QUANTITY_MISMATCH','DIMENSION_GUIDS_EXPORTED=NO',
+            'DATA_WRITES=NO','AGENT_AND_SCHEDULER_UNCHANGED=YES',
+            'MCP_OData_ReadOnly')) {
+            if(-not $filterCheck.Contains($required)) {
+              throw ('FILTER_SELF_CHECK_GUARD_MISSING='+$required)
+            }
+          }
+          foreach($denied in @('Invoke-Expression','RegisterTaskDefinition',
+              'New-ScheduledTask','Invoke-RestMethod','Start-Process')) {
+            if($filterCheck.Contains($denied)) {
+              throw ('UNSAFE_FILTER_CHECK='+$denied)
+            }
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
