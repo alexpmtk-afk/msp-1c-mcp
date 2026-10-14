@@ -203,7 +203,7 @@ jobs:
           $agent=[IO.File]::ReadAllText('scripts/windows/onec-system-probe-poll.ps1')
           foreach($required in @('S-1-5-19',"request.Method='GET'",'AllowAutoRedirect=$false',
               "Proxy=$null",'127.0.0.1:8085/NewBase/odata/standard.odata/',
-              'КоличествоBalance','32768','ProtectedData]::Unprotect','DataProtectionScope]::LocalMachine')) {
+              'STOCK_Q_','32768','ProtectedData]::Unprotect','DataProtectionScope]::LocalMachine')) {
             if (-not $balance.Contains($required)) { throw ('ODATA_BALANCE_GUARD_MISSING='+$required) }
           }
           foreach($required in @('Get-Credential','MCP_OData_ReadOnly','ProtectedData]::Protect',
