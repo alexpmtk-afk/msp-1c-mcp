@@ -12,7 +12,23 @@ try {
   & $icacls $StateDir '/inheritance:r' '/grant:r' ($account+':(OI)(CI)F') | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'ACL_FAILED' }
   $destination=Join-Path $StateDir 'agent-token.dpapi'
-  if (Test-Path -LiteralPath $destination) { throw 'ALREADY_ENROLLED' }
+  $endpointFile=Join-Path $StateDir 'endpoint.txt'
+  if ((Test-Path -LiteralPath $destination) -or (Test-Path -LiteralPath $endpointFile)) { throw 'ALREADY_ENROLLED' }
+  $endpoint=Read-Host 'Approved HTTPS Funnel URL ending with :8443'
+  if ($endpoint -notmatch '^https://[a-z0-9-]+\.tail[a-z0-9-]+\.ts\.net:8443 'Paste the agent token from the private VPS root console (hidden input)' -AsSecureString
+  if ($null -eq $secret -or $secret.Length -lt 32 -or $secret.Length -gt 128) { throw 'INVALID_TOKEN_LENGTH' }
+  $protected=$secret | ConvertFrom-SecureString
+  [IO.File]::WriteAllText($destination,$protected,[Text.Encoding]::UTF8)
+  try { [IO.File]::WriteAllText($endpointFile,$endpoint,[Text.Encoding]::ASCII) }
+  catch { Remove-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue; throw }
+  $protected=$null
+  $secret.Dispose()
+  Write-Output 'RESULT=PASS;STAGE=LOCAL_DPAPI_ENROLLED;SECRET_EXPORTED=NO'
+} catch {
+  Write-Output 'RESULT=FAIL;STAGE=LOCAL_DPAPI_ENROLLMENT'
+  exit 1
+}
+) { throw 'INVALID_ENDPOINT' }
   $secret=Read-Host 'Paste the agent token from the private VPS root console (hidden input)' -AsSecureString
   if ($null -eq $secret -or $secret.Length -lt 32 -or $secret.Length -gt 128) { throw 'INVALID_TOKEN_LENGTH' }
   $protected=$secret | ConvertFrom-SecureString
