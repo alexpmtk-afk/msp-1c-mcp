@@ -8,6 +8,8 @@ on:
       - 'scripts/windows/onec-natural-agent-cutover.ps1'
       - 'scripts/windows/onec-natural-diagnostic-helper.ps1'
       - 'scripts/windows/onec-natural-diagnostic-once.ps1'
+      - 'scripts/windows/onec-legacy-json.ps1'
+      - 'tests/windows/test_onec_legacy_json.ps1'
       - 'src/msp_onec_mcp/onec_stock_stdio.py'
       - 'src/msp_onec_mcp/natural_stock_vps.py'
       - 'tests/test_onec_natural_stock_vps.py'
@@ -33,7 +35,9 @@ jobs:
           $installer='scripts/windows/onec-natural-agent-cutover.ps1'
           $diag='scripts/windows/onec-natural-diagnostic-once.ps1'
           $diagHelper='scripts/windows/onec-natural-diagnostic-helper.ps1'
-          foreach($path in @($helper,$poller,$smoke,$installer,$diag,$diagHelper)) {
+          $jsonLibrary='scripts/windows/onec-legacy-json.ps1'
+          $jsonTests='tests/windows/test_onec_legacy_json.ps1'
+          foreach($path in @($helper,$poller,$smoke,$installer,$diag,$diagHelper,$jsonLibrary,$jsonTests)) {
             $bytes=[IO.File]::ReadAllBytes($path)
             if($bytes.Length -lt 6 -or $bytes[0] -ne 239 -or $bytes[1] -ne 187 -or $bytes[2] -ne 191) {
               throw ('PS2_UTF8_BOM_REQUIRED='+$path)
@@ -61,7 +65,7 @@ jobs:
             'AccumulationRegister_','Balance(',
             "Method='GET'",'AllowAutoRedirect=$false',
             'ROW_PRESENT','NO_BALANCE_ROW','Description',
-            'Add-Type -AssemblyName System.Web.Extensions',
+            'MspLegacyJson',
             'DeserializeObject','NAT_')) {
             if(-not $h.Contains($required)) { throw ('NATURAL_HELPER_GUARD_MISSING='+$required) }
           }
@@ -76,7 +80,7 @@ jobs:
           foreach($needle in @('S-1-5-19','NAT_','OBSERVED_STOCK_6=PASS',
             'MISSING_BALANCE_QUALIFIED_ZERO=PASS',
             'natural-stock-live-smoke.txt','RESULT=PASS',
-            'Add-Type -AssemblyName System.Web.Extensions')) {
+            'MspLegacyJson')) {
             if(-not $accept.Contains($needle)) { throw ('SMOKE_GUARD_MISSING='+$needle) }
           }
           $install=[IO.File]::ReadAllText($installer,[Text.Encoding]::UTF8)
@@ -114,6 +118,14 @@ jobs:
               throw ('DIAG_HELPER_GUARD_MISSING='+$needle)
             }
           }
+          $legacyJson=[IO.File]::ReadAllText($jsonLibrary,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspLegacyJson','DeserializeObject','Serialize',
+            'Add-Type -TypeDefinition','JSON duplicate key','JSON depth')) {
+            if(-not $legacyJson.Contains($needle)) { throw ('CLR2_JSON_GUARD_MISSING='+$needle) }
+          }
+          & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $jsonTests
+          if($LASTEXITCODE -ne 0) { throw 'CLR2_JSON_RUNTIME_TEST_FAIL' }
+          'CLR2_JSON_RUNTIME_SMOKE=PASS'
           'ONEC_NATURAL_LOCAL_SERVICE_DIAGNOSTIC_STATIC=PASS'
           'ONEC_NATURAL_CUTOVER_PS2_STATIC=PASS'
           'ONEC_NATURAL_PS2_SOURCE_AND_SAFETY=PASS'
