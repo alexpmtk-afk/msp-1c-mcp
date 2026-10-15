@@ -155,8 +155,10 @@ try {
   if ($WarehouseB64 -ne '-') { $warehouse=Decode $WarehouseB64 100 }
   if (-not (Test-Path -LiteralPath $secret -PathType Leaf)) { throw 'ODATA_CREDENTIAL_NOT_ENROLLED' }
   Add-Type -AssemblyName System.Security
-  Add-Type -AssemblyName System.Web.Extensions
-  $serializer=New-Object Web.Script.Serialization.JavaScriptSerializer
+  $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
+  if (-not (Test-Path -LiteralPath $jsonLibrary -PathType Leaf)) { throw 'JSON_LIB_NOT_INSTALLED' }
+  . $jsonLibrary
+  $serializer=New-Object MspLegacyJson
   $serializer.MaxJsonLength=262144
   $encrypted=[IO.File]::ReadAllBytes($secret)
   $clear=[Security.Cryptography.ProtectedData]::Unprotect(
@@ -245,8 +247,9 @@ try {
   # Never expose an exception/URL/credential/raw item record.
   try {
     if ($null -eq $serializer) {
-      Add-Type -AssemblyName System.Web.Extensions
-      $serializer=New-Object Web.Script.Serialization.JavaScriptSerializer
+      $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
+      if (Test-Path -LiteralPath $jsonLibrary -PathType Leaf) { . $jsonLibrary }
+      $serializer=New-Object MspLegacyJson
     }
     PrintResult (StatusResult 'UNAVAILABLE')
   } catch {
