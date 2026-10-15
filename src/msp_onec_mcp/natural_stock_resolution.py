@@ -17,7 +17,7 @@ import re
 from .natural_stock_contract import validate_term
 
 UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\\Z")
-QTY = re.compile(r"-?[0-9]{1,9}(?:\\.[0-9]{1,3})?\\Z")
+QTY = re.compile(r"-?[0-9]{1,9}(?:\.[0-9]{1,3})?\\Z")
 MAX_ITEMS = 50            # 51st item is overflow, not silently truncated
 MAX_WAREHOUSES = 50       # 51st warehouse is overflow
 MAX_BALANCES = 2500       # 50 items x 50 warehouses max
