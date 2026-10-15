@@ -46,7 +46,7 @@ try {
     $dir=$root
     if($name -eq 'state'){$dir=$state}
     if(Test-Path -LiteralPath $dir -PathType Container){
-      $acl=Get-Acl -LiteralPath $dir
+      $acl=Get-Acl -Path $dir
       'ACL_'+$name.ToUpper()+'_PROTECTED='+$acl.AreAccessRulesProtected
       $ls=@()
       foreach($entry in $acl.Access){

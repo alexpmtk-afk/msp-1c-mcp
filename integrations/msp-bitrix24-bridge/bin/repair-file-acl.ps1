@@ -55,7 +55,7 @@ try {
   if((HashFile $bridge) -ne '22240335d75d8447d7beb99b7040935f1c6a53b7703019897f39c6263f2070ec'){Fail 'BRIDGE_HASH_MISMATCH'}
   if((HashFile $policy) -ne 'e2599e2f9252b6368bb79b8ed60748a76a2489cc1b3e54c14182d0ba6e571175'){Fail 'POLICY_HASH_MISMATCH'}
   foreach($f in @($bridge,$policy)){
-    $acl=Get-Acl -LiteralPath $f
+    $acl=Get-Acl -Path $f
     foreach($targetSid in @('S-1-5-18','S-1-5-32-544','S-1-5-19')){
       $found=$false
       foreach($entry in $acl.Access){

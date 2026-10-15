@@ -49,6 +49,13 @@ class StagingTest(unittest.TestCase):
                           "Takeown", "Set-Acl", "Invoke-WebRequest", "MspOnecHttpsAgentSystem"):
             self.assertNotIn(forbidden,s)
         self.assertIn("foreach($f in @($bridge,$policy))",s)
+    def test_ps2_acl_verification_avoids_ps3_literalpath(self):
+        # Microsoft documents Get-Acl -LiteralPath as introduced in PS 3.0.
+        for name in ("repair-file-acl.ps1", "diagnose-runtime.ps1"):
+            s=src(name)
+            self.assertNotIn("Get-Acl -LiteralPath", s)
+            self.assertIn("Get-Acl -Path", s)
+
     def test_native_system_smoke(self):
         s=src("smoke-system.ps1")
         for token in ("S-1-5-19","Run($null)","SAFE_IDLE","FRESH_SYSTEM_HEARTBEAT_MISSING"):
