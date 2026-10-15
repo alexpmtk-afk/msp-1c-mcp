@@ -24,7 +24,7 @@ jobs:
             $source=[IO.File]::ReadAllText($_.FullName,[Text.Encoding]::UTF8)
             $errs=$null
             $null=[System.Management.Automation.PSParser]::Tokenize($source,[ref]$errs)
-            if($errs -and $errs.Count -gt 0){throw ('PARSE_FAILED: '+$_.Name)}
+            if($errs -and $errs.Count -gt 0){foreach($parseErr in $errs){Write-Output ('PS_PARSE_DIAGNOSTIC='+$_.Name+'|'+$parseErr.Message+'|'+$parseErr.Token.StartLine)};throw ('PARSE_FAILED: '+$_.Name)}
             if(-not $source.StartsWith('#requires -version 2')){throw ('PS2_DECLARATION_MISSING: '+$_.Name)}
             Write-Output ('PARSE_PASS='+$_.Name)
           }
