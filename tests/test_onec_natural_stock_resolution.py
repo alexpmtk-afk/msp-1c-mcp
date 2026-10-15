@@ -52,7 +52,10 @@ def test_article_with_human_warehouse_exact():
 
 def test_no_match_never_fake_zero():
     assert resolve(text="missing")["status"]=="ITEM_NOT_FOUND"
-    assert resolve(balances=[])["status"]=="NO_BALANCE_ROW"
+    empty=resolve(balances=[])
+    assert empty["status"]=="PASS"
+    assert empty["items"][0]["total_quantity"]=="0"
+    assert empty["items"][0]["balance_state"]=="NO_BALANCE_ROW"
     assert resolve(warehouses=[])["status"]=="WAREHOUSES_UNAVAILABLE"
 
 
@@ -65,8 +68,13 @@ def test_real_explicit_zero_is_not_missing():
 
 def test_ambiguous_product_article_or_name():
     second={"guid":OTHER,"article":ARTICLE,"name":"Другая позиция"}
-    assert resolve(items=ITEMS+[second])["status"]=="ITEM_AMBIGUOUS"
-    assert resolve("name",NAME,items=ITEMS+[{"guid":OTHER,"name":NAME,"article":"X"}])["status"]=="ITEM_AMBIGUOUS"
+    by_article=resolve(items=ITEMS+[second])
+    assert by_article["status"]=="PASS"
+    assert by_article["match_count"]==2
+    assert [x["total_quantity"] for x in by_article["items"]]==["0","15.500"] or sorted(x["total_quantity"] for x in by_article["items"])==["0","15.500"]
+    by_name=resolve("name",NAME,items=ITEMS+[{"guid":OTHER,"name":NAME,"article":"X"}])
+    assert by_name["status"]=="PASS"
+    assert by_name["match_count"]==2
 
 
 def test_duplicate_warehouse_names_are_ambiguous():
@@ -113,37 +121,76 @@ def test_no_fuzzy_or_marketplace_fallback():
 
 
 def test_cap_never_reports_partial_total():
-    records=[{"item_guid":ITEM,"warehouse_guid":W1,"quantity":"1"}]*51
+    records=[{"item_guid":ITEM,"warehouse_guid":W1,"quantity":"1"}]*2501
     assert resolve(balances=records)["status"]=="BALANCE_RESULT_INCOMPLETE"
 
 
-def test_live_newbase_duplicate_slam_ball_names_need_1c_code_disambiguation():
+def test_live_newbase_duplicate_slam_ball_names_return_both_balances():
     first={"guid":ITEM,"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None}
     second={"guid":OTHER,"name":"Слэмбол 6 кг","code":"НФ-00000879","article":None}
     stock=[{"item_guid":ITEM,"warehouse_guid":W1,"quantity":"6"}]
     result=resolve("name","Слэмбол 6 кг","Основной склад",
                    items=[first,second],balances=stock)
-    assert result["status"]=="ITEM_AMBIGUOUS"
-    assert result["candidates"]==[
-        {"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None},
-        {"name":"Слэмбол 6 кг","code":"НФ-00000879","article":None},
-    ]
-    assert "total_quantity" not in result
-    assert "guid" not in repr(result)
-    assert ITEM not in repr(result)
-    assert OTHER not in repr(result)
-    chosen=resolve("code","НФ-00001359","Основной склад",
-                   items=[first,second],balances=stock)
-    assert chosen["status"]=="PASS"
-    assert chosen["code"]=="НФ-00001359"
-    assert chosen["article"] is None
-    assert chosen["total_quantity"]=="6"
-    missing=resolve("code","НФ-00000879","Основной склад",
-                    items=[first,second],balances=[])
-    assert missing["status"]=="NO_BALANCE_ROW"
+    assert result["status"]=="PASS"
+    assert result["match_count"]==2
+    assert "total_quantity" not in result  # never sum distinct 1C cards
+    assert ITEM not in repr(result) and OTHER not in repr(result)
+    by_code={row["code"]:row for row in result["items"]}
+    assert by_code["НФ-00001359"]["total_quantity"]=="6"
+    assert by_code["НФ-00001359"]["balance_state"]=="HAS_BALANCE_ROWS"
+    assert by_code["НФ-00000879"]["total_quantity"]=="0"
+    assert by_code["НФ-00000879"]["balance_state"]=="NO_BALANCE_ROW"
+    assert by_code["НФ-00000879"]["warehouses"]==[
+        {"name":"Основной склад","quantity":"0","balance_state":"NO_BALANCE_ROW"}]
+    assert all(row["article"] is None for row in result["items"])
+    assert "not an observed zero" in result["missing_balance_display_rule"]
 
 
-def test_missing_article_does_not_error_and_does_not_match():
+def test_missing_article_not_searchable_but_name_is():
     item={"guid":ITEM,"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None}
     assert resolve("article","ТРН-99",items=[item])["status"]=="ITEM_NOT_FOUND"
-    assert resolve("code","НФ-00001359",items=[item])["status"]=="PASS"
+    assert resolve("name","Слэмбол 6 кг",items=[item])["status"]=="PASS"
+    with pytest.raises(ValueError):
+        resolve("code","НФ-00001359",items=[item])
+
+
+def test_ten_cards_with_same_name_are_all_returned():
+    rows=[]
+    stock=[]
+    for n in range(1,11):
+        guid=f"{n:08x}-2222-3333-4444-555555555555"
+        rows.append({"guid":guid,"name":"Слэмбол 6 кг",
+                     "article":None,"code":f"НФ-{n:08d}"})
+        if n%2 == 0:
+            stock.append({"item_guid":guid,"warehouse_guid":W1,
+                          "quantity":str(n)})
+    result=resolve("name","Слэмбол 6 кг","Основной склад",
+                   items=rows,balances=stock)
+    assert result["status"]=="PASS"
+    assert result["match_count"]==10
+    assert len(result["items"])==10
+    assert sorted(row["total_quantity"] for row in result["items"])==sorted(
+        ["0" if n%2 else str(n) for n in range(1,11)])
+    assert "total_quantity" not in result
+
+
+def test_fifty_matches_accepted_fifty_one_is_incomplete():
+    rows=[{"guid":f"{n:08x}-2222-3333-4444-555555555555",
+           "name":"Одинаковый товар","article":"A-1",
+           "code":f"НФ-{n:08d}"} for n in range(1,52)]
+    fifty=resolve("article","A-1",warehouse="Основной склад",
+                  items=rows[:50],balances=[])
+    assert fifty["status"]=="PASS"
+    assert fifty["match_count"]==50
+    assert resolve("article","A-1",items=rows)["status"]=="ITEM_RESULT_INCOMPLETE"
+
+
+def test_same_article_different_names_returns_each_row_separately():
+    items=[{"guid":ITEM,"name":"Коврик А","article":"ART123","code":"НФ-00000123"},
+           {"guid":OTHER,"name":"Коврик Б","article":"ART123","code":"НФ-00000456"}]
+    answer=resolve("article","ART123","Основной склад",items=items,
+                   balances=[{"item_guid":ITEM,"warehouse_guid":W1,"quantity":"1"}])
+    assert answer["status"]=="PASS"
+    assert answer["match_count"]==2
+    assert [r["name"] for r in answer["items"]]==["Коврик А","Коврик Б"]
+    assert [r["total_quantity"] for r in answer["items"]]==["1","0"]
