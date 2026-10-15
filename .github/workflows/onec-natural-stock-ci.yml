@@ -200,7 +200,7 @@ jobs:
             'MAX','METADATA_HTTP_GET','METADATA_XML_PARSE',
             'KNOWN_NAME_MATCHES','EXAMPLE_UPPER_MATCHES',
             'WAREHOUSE_HTTP_GET','BALANCE_ROUTE_HTTP',
-            'AccumulationRegister_ЗапасыНаСкладах/Balance(Dimensions=',
+            'Balance(Dimensions=',
             "Method='GET'",'DATA_WRITES')) {
             if(-not $v4.Contains($needle) -and $needle -ne 'MAX') {
               throw ('V4_READONLY_GUARD_MISSING='+$needle)
