@@ -1,0 +1,143 @@
+name: 1C NewBase OData Windows script safety
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows/onec-*.ps1'
+      - '.github/workflows/onec-odata-windows-ci.yml'
+permissions:
+  contents: read
+jobs:
+  check-odata:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Parse fixed OData scripts and check read-only restrictions
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $paths=@('scripts/windows/onec-system-probe-poll.ps1',
+                   'scripts/windows/onec-system-odata-balance.ps1',
+                   'scripts/windows/onec-odata-enroll-readonly.ps1',
+                   'scripts/windows/onec-odata-system-upgrade.ps1',
+                   'scripts/windows/onec-odata-diagnostic-upgrade.ps1',
+                   'scripts/windows/onec-odata-error-class-upgrade.ps1',
+                   'scripts/windows/onec-odata-filter-selfcheck.ps1',
+                   'scripts/windows/onec-system-odata-pair-check.ps1',
+                   'scripts/windows/onec-odata-pair-upgrade.ps1')
+          foreach($p in $paths) {
+            $source=[IO.File]::ReadAllText($p)
+            $errors=$null
+            $null=[System.Management.Automation.PSParser]::Tokenize($source,[ref]$errors)
+            if($errors -and $errors.Count -gt 0) { throw ('PS_PARSE_FAIL='+$p) }
+            if(-not $source.TrimStart([char]0xFEFF).StartsWith('#requires -version 2')) {
+              throw ('PS2_VERSION_GUARD_MISSING='+$p)
+            }
+          }
+          $reader=[IO.File]::ReadAllText('scripts/windows/onec-system-odata-balance.ps1')
+          $poll=[IO.File]::ReadAllText('scripts/windows/onec-system-probe-poll.ps1')
+          $enroll=[IO.File]::ReadAllText('scripts/windows/onec-odata-enroll-readonly.ps1')
+          foreach($needed in @("Method='GET'",'127.0.0.1:8085/NewBase/odata/standard.odata/',
+            'STOCK_Q_','AllowAutoRedirect=$false','ProtectedData]::Unprotect',
+            'DataProtectionScope]::LocalMachine')) {
+            if(-not $reader.Contains($needed)) { throw ('BALANCE_GUARD_MISSING='+$needed) }
+          }
+          foreach($needed in @('Read-Host','-AsSecureString','ProtectedData]::Protect','MCP_OData_ReadOnly',
+            'PASSWORD_EXPORTED=NO')) {
+            if(-not $enroll.Contains($needed)) { throw ('CREDENTIAL_GUARD_MISSING='+$needed) }
+          }
+          foreach($needed in @('odata_balance','onec-system-odata-balance.ps1',
+            'REPLAY_LEASE_MISMATCH')) {
+            if(-not $poll.Contains($needed)) { throw ('POLL_GUARD_MISSING='+$needed) }
+          }
+          if($reader -match 'Invoke-Expression|Invoke-RestMethod|New-PSSession') {
+            throw 'MUTATING_OR_REMOTE_EXECUTION_VERB'
+          }
+          $upgrade=[IO.File]::ReadAllText('scripts/windows/onec-odata-system-upgrade.ps1')
+          foreach($needed in @('File]::Replace','OLD_AGENT_RESTORED=PASS',
+             'PINNED_SOURCE_MISMATCH','LIVE_SOURCE_UNEXPECTED','VERSION=ODATA_V1',
+             'S-1-5-19','PERSONAL_AGENT_DISABLED=YES','SYSTEM_TASK_UNCHANGED=YES',
+             'ODATA_READ=NOT_YET_TESTED')) {
+            if(-not $upgrade.Contains($needed)) { throw ('UPGRADE_GUARD_MISSING='+$needed) }
+          }
+          if($upgrade -match 'RegisterTaskDefinition|Start-ScheduledTask|New-ScheduledTask|Invoke-Expression') {
+            throw 'UNSAFE_UPGRADE_OPERATION'
+          }
+          $diag=[IO.File]::ReadAllText('scripts/windows/onec-odata-diagnostic-upgrade.ps1')
+          foreach($needed in @('File]::Replace','OLD_AGENT_RESTORED=PASS',
+            'LIVE_HASH_UNEXPECTED','PINNED_SOURCE_MISMATCH','VERSION=ODATA_DIAG_V2',
+            'S-1-5-19','ODATA_READ=NOT_RETRIED','TASKS_UNCHANGED=YES')) {
+            if(-not $diag.Contains($needed)) { throw ('DIAGNOSTIC_UPGRADE_GUARD_MISSING='+$needed) }
+          }
+          foreach($needed in @('ODATA_AUTH_DENIED','ODATA_UNAVAILABLE',
+            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_READ_ERROR',
+            'VERSION=ODATA_PAIR_V1')) {
+            if(-not $poll.Contains($needed)) { throw ('DIAGNOSTIC_REASON_GUARD_MISSING='+$needed) }
+          }
+          if($diag -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
+            throw 'UNSAFE_DIAGNOSTIC_UPGRADE'
+          }
+          $classUpgrade=[IO.File]::ReadAllText('scripts/windows/onec-odata-error-class-upgrade.ps1')
+          foreach($needed in @('OLD_AGENT_RESTORED=PASS','OLD_HELPER_RESTORED=PASS',
+             'LIVE_HASH_UNEXPECTED','PINNED_SOURCE_MISMATCH','SCHEDULED_HEARTBEAT_TIMEOUT',
+             'ODATA_READ=NOT_RETRIED','VERSION=ODATA_DIAG_V3','File]::Replace')) {
+            if(-not $classUpgrade.Contains($needed)) { throw ('ERROR_CLASS_UPGRADE_GUARD_MISSING='+$needed) }
+          }
+          foreach($needed in @('ODATA_WEB_RECEIVE_FAILURE','ODATA_WEB_CONNECT_FAILURE',
+            'ODATA_WEB_TIMEOUT','ODATA_HTTP_FORBIDDEN','ODATA_HTTP_SERVER_ERROR',
+            'ODATA_WEB_CONNECTION_CLOSED')) {
+            if(-not $poll.Contains($needed) -or -not $reader.Contains($needed)) {
+               throw ('ERROR_CLASS_ALLOWLIST_MISMATCH='+$needed)
+            }
+          }
+          if($classUpgrade -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
+             throw 'ERROR_CLASS_UPGRADE_UNSAFE'
+          }
+          # PS2 defaults to system ANSI for .ps1 files with no Unicode BOM.
+          $filterBytes=[IO.File]::ReadAllBytes('scripts/windows/onec-odata-filter-selfcheck.ps1')
+          if($filterBytes.Length -lt 4 -or $filterBytes[0] -ne 239 -or
+             $filterBytes[1] -ne 187 -or $filterBytes[2] -ne 191) {
+             throw 'FILTER_SELF_CHECK_PS2_UTF8_BOM_MISSING'
+          }
+          $filterCheck=[IO.File]::ReadAllText('scripts/windows/onec-odata-filter-selfcheck.ps1')
+          foreach($required in @("Method='GET'",'127.0.0.1:8085/NewBase/',
+            'GetResponse','ItemGuid','WarehouseGuid',
+            'QUANTITY_NOT_UNIQUE','EscapeDataString','FILTER_RETURNED_WRONG_PAIR',
+            'QUANTITY_MISMATCH','DIMENSION_GUIDS_EXPORTED=NO',
+            'DATA_WRITES=NO','AGENT_AND_SCHEDULER_UNCHANGED=YES',
+            'MCP_OData_ReadOnly')) {
+            if(-not $filterCheck.Contains($required)) {
+              throw ('FILTER_SELF_CHECK_GUARD_MISSING='+$required)
+            }
+          }
+          foreach($denied in @('Invoke-Expression','RegisterTaskDefinition',
+              'New-ScheduledTask','Invoke-RestMethod','Start-Process')) {
+            if($filterCheck.Contains($denied)) {
+              throw ('UNSAFE_FILTER_CHECK='+$denied)
+            }
+          }
+          $pairPath='scripts/windows/onec-system-odata-pair-check.ps1'
+          $pairBytes=[IO.File]::ReadAllBytes($pairPath)
+          if($pairBytes.Length -lt 4 -or $pairBytes[0] -ne 239 -or
+             $pairBytes[1] -ne 187 -or $pairBytes[2] -ne 191) {
+             throw 'PAIR_HELPER_PS2_UTF8_BOM_MISSING'
+          }
+          $pair=[IO.File]::ReadAllText($pairPath)
+          foreach($needed in @('S-1-5-19','MCP_OData_ReadOnly',
+            '127.0.0.1:8085/NewBase/','Method=','GET',
+            'EscapeDataString','FILTER_RETURNED_WRONG_PAIR','QUANTITY_MISMATCH',
+            'PAIR_Q_','ODATA_PAIR_READ_FAILED')) {
+            if(-not $pair.Contains($needed)) { throw ('PAIR_HELPER_GUARD_MISSING='+$needed) }
+          }
+          foreach($forbidden in @('Invoke-Expression','RegisterTaskDefinition',
+             'New-ScheduledTask','Invoke-RestMethod','Start-Process')) {
+            if($pair.Contains($forbidden)) { throw ('PAIR_HELPER_UNSAFE='+$forbidden) }
+          }
+          foreach($needed in @('odata_pair_check','onec-system-odata-pair-check.ps1',
+            'VERSION=ODATA_PAIR_V1','PAIR_Q_')) {
+            if(-not $poll.Contains($needed)) { throw ('PAIR_AGENT_GUARD_MISSING='+$needed) }
+          }
+          'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
+          'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'

@@ -1,5 +1,5 @@
 #requires -version 2
-# SYSTEM-OWNED LocalService one-shot probe, no 1C/COM/OData operations or arbitrary commands.
+# LocalService fixed operations: probe or sandbox OData Balance GET. No arbitrary commands.
 # NEVER run with the personal user-scoped token or personal state directory.
 # PowerShell 2.0 / Windows Server 2008 R2. TLS handled by approved portable curl.
 param(
@@ -15,7 +15,7 @@ $TokenFile=Join-Path (Join-Path $RootDir 'secrets') 'agent-token.machine.dpapi'
 function Health([string]$Mode) {
   try {
     if (Test-Path -LiteralPath $StateDir -PathType Container) {
-      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode)
+      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_PAIR_V1')
       [IO.File]::WriteAllText((Join-Path $StateDir 'last-status.txt'),$msg,[Text.Encoding]::ASCII)
     }
   } catch {}
@@ -95,7 +95,7 @@ try {
     $pending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'result-*.txt' -ErrorAction SilentlyContinue)
     foreach($file in $pending) {
       $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
-      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR)$')) {
+      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR|STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|ODATA_[A-Z_]+)$')) {
         throw 'INVALID_PENDING_RESULT'
       }
       $jid=$Matches[1]
@@ -106,10 +106,10 @@ try {
     }
     $task=AgentRequest 'GET' '/v1/agent/poll' $null
     if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|probe\|([0-9a-f]{32})$') {
+    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
       throw 'UNRECOGNIZED_TASK'
     }
-    $jid=$Matches[1];$lease=$Matches[2]
+    $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
     $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
     if (Test-Path -LiteralPath $marker) {
       $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
@@ -118,7 +118,46 @@ try {
       [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
     }
     $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|PASS|SRV_ALIVE'),[Text.Encoding]::ASCII)
+    $status='PASS';$reason='SRV_ALIVE'
+    if ($operation -eq 'odata_balance') {
+      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
+      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
+      else {
+        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
+        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
+            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
+          $reason=$value
+        } else {
+          $status='FAIL';$reason='ODATA_READ_FAILED'
+          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
+          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
+            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
+            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
+            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
+            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
+            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
+            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
+            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
+            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
+          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
+        }
+      }
+    }
+    elseif ($operation -eq 'odata_pair_check') {
+      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
+      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
+        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
+      } else {
+        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
+        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
+            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
+          $reason=$pairOutput
+        } else {
+          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
+        }
+      }
+    }
+    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
     $ack=AgentRequest 'POST' '/v1/agent/result' $result
     if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
     Remove-Item -LiteralPath $result -Force
