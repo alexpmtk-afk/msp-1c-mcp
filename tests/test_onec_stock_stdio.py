@@ -14,8 +14,8 @@ def test_initialize_and_discovery():
 
 
 def test_selected_stock_call_and_invalid_params():
-    guid1="06f8d0d9-edd9-11eb-967e-b06ebf3542da"
-    guid2="c6b7fd02-f288-11e6-af7e-1078d2da734e"
+    guid1="11111111-2222-3333-4444-555555555555"
+    guid2="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     params={"name":"onec_stock_by_guid","arguments":{"item_guid":guid1,"warehouse_guid":guid2}}
     with patch.object(m,"selected_stock",return_value={"status":"PASS","quantity":"6"}) as stock:
         response=m.dispatch({"jsonrpc":"2.0","id":3,"method":"tools/call","params":params})
