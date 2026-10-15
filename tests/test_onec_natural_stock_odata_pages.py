@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 import pytest
 
@@ -37,7 +38,7 @@ def test_real_fields_complete_mock_e2e_article_all_warehouses():
         balance_query_complete=bal_ok,
     )
     assert answer["status"]=="PASS"
-    assert answer["total_quantity"]=="8.500"
+    assert Decimal(answer["total_quantity"])==Decimal("8.500")
     assert answer["scope"]=="all_warehouses"
     assert {r["name"] for r in answer["warehouses"]}=={
         "Основной склад","Склад готовой продукции"
