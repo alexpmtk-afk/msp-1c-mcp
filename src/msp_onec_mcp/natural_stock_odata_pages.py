@@ -13,7 +13,7 @@ import re
 from urllib.parse import quote
 
 from .natural_stock_contract import validate_term
-from .natural_stock_resolution import UUID, _ref, _quantity
+from .natural_stock_resolution import _ref, _quantity, _text
 
 MAX_PAGE_BYTES = 262144
 MAX_PRODUCT_ROWS = 51      # $top=51 to detect overflow of 50 matched cards
@@ -29,7 +29,7 @@ def exact_filter_url_fragment(field: str, text: str, *, approved_field: str) -> 
     """
     if not isinstance(field, str) or not isinstance(approved_field, str):
         raise ValueError("Invalid field")
-    if field != approved_field or field not in ("Code", "Description", "Артикул"):
+    if field != approved_field or field not in ("Description", "Артикул"):
         raise ValueError("Unapproved 1C lookup property")
     safe_text = validate_term(text, max_length=160, label="OData field")
     escaped = safe_text.replace("'", "''")
@@ -64,7 +64,7 @@ def parse_item_page(
     article_field: str | None,
 ) -> tuple[list[dict], bool]:
     """Read Ref_Key, Description, 1C Code and business article where published."""
-    if article_field is not None and article_field not in ("Артикул", "Code"):
+    if article_field is not None and article_field != "Артикул":
         raise ValueError("Business article field requires schema approval")
     records, complete = _decode_page(raw, row_limit=MAX_PRODUCT_ROWS)
     if len(records) > 50:
@@ -72,16 +72,16 @@ def parse_item_page(
     result = []
     for row in records:
         guid = _ref(row.get("Ref_Key"))
-        name = validate_term(row.get("Description"), max_length=160, label="item name")
+        name = _text(row.get("Description"))
         article = row.get(article_field) if article_field is not None else None
         # An empty published article is a legitimate missing value in NewBase.
         if article:
-            article = validate_term(article, max_length=96, label="business article")
+            article = _text(article, 96)
         else:
             article = None
         code = row.get("Code")
         if code:
-            code = validate_term(code, max_length=96, label="1C item code")
+            code = _text(code, 96)
         elif code == "" or code is None:
             code = None
         else:
@@ -97,7 +97,7 @@ def parse_warehouse_page(raw: bytes | str) -> tuple[list[dict], bool]:
         return [], False
     result = [{
         "guid": _ref(row.get("Ref_Key")),
-        "name": validate_term(row.get("Description"), max_length=100, label="warehouse")
+        "name": _text(row.get("Description"), 100)
     } for row in records]
     return result, complete
 
