@@ -99,7 +99,7 @@ jobs:
           }
           $dia=[IO.File]::ReadAllText($diag,[Text.Encoding]::UTF8)
           foreach($needle in @('S-1-5-19','MspOnecNaturalDiagnosticOnce',
-            'OPERATING_AGENT_UNCHANGED=YES','e56376b56d567d572a15f5098f9493f5b3aeebe0',
+            'OPERATING_AGENT_UNCHANGED=YES','25b692b7f4baf63667a6f25462846877371b8dc6',
             'natural-stock-diagnostic-result.txt','SOURCE_HASH_MISMATCH',
             'TEMPORARY_TASK_CLEANUP=PASS')) {
             if(-not $dia.Contains($needle)) {
