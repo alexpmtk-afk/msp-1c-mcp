@@ -113,7 +113,7 @@ try{
   $manifest=@(
     @('bin/smoke-customer-store-service.ps1','bin\smoke-customer-store-service.ps1','b2753f937e1e2c941440b69cbb2596655909f7a11892c61d34e44aa95c49b388'),
     @('config/collector.ini','config\collector.ini','38d5d83c423f560c5e087edd1a28249eb84197282725fec2a28df2da20bad695'),
-    @('schema/customer-store.sql','schema\customer-store.sql','309b0bcfb0487369dc6d6a5d9bf639b90a2b36f65de2e1738ea0e440a622e958')
+    @('schema/customer-store.sql','schema\customer-store.sql','50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3')
   )
   foreach($row in $manifest){
     $staged=Join-Path $staging ((Split-Path $row[0] -Leaf)+'.verified')

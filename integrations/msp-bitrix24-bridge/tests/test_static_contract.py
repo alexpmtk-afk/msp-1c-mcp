@@ -381,6 +381,21 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Invoke-WebRequest", "raw.githubusercontent.com", "Set-Acl",
                           "Remove-Item", "DeleteTask", "Get-Credential", "crm.company.add"):
             self.assertNotIn(forbidden,s)
+    def test_raw_lf_schema_checksum_enforced(self):
+        attr=(ROOT/".gitattributes").read_text(encoding="ascii")
+        self.assertIn("schema/*.sql text eol=lf",attr)
+        self.assertIn("bin/*.ps1 text eol=lf",attr)
+        self.assertIn("config/*.ini text eol=lf",attr)
+        for file in ("resume-machine-customer-store.ps1",
+                     "resume-machine-customer-store-from-zip.ps1",
+                     "resume-machine-customer-store-from-schema.ps1"):
+            s=read(file)
+            self.assertIn("50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3",s)
+        import hashlib
+        raw=(ROOT/"schema/customer-store.sql").read_bytes()
+        self.assertNotIn(b"\r",raw)
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),
+                         "50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3")
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

@@ -65,3 +65,13 @@ jobs:
           }
           $sqlFile='integrations/msp-bitrix24-bridge/schema/customer-store.sql'
           Write-Output ('SCHEMA_SHA256='+(Get-FileHash -Algorithm SHA256 $sqlFile).Hash.ToLowerInvariant())
+
+      - name: Verify LF SQL raw GitHub SHA256
+        shell: pwsh
+        run: |
+          $path='integrations/msp-bitrix24-bridge/schema/customer-store.sql'
+          $data=[IO.File]::ReadAllBytes($path)
+          if([Array]::IndexOf($data,[byte]13) -ge 0){throw 'SQL_SCHEMA_MUST_BE_LF_ONLY'}
+          $hash=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+          if($hash -ne '50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3'){throw 'SQL_RAW_SCHEMA_HASH_MISMATCH'}
+          Write-Output ('SQL_RAW_SCHEMA_HASH='+$hash)
