@@ -15,7 +15,7 @@ $TokenFile=Join-Path (Join-Path $RootDir 'secrets') 'agent-token.machine.dpapi'
 function Health([string]$Mode) {
   try {
     if (Test-Path -LiteralPath $StateDir -PathType Container) {
-      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_DIAG_V3')
+      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_PAIR_V1')
       [IO.File]::WriteAllText((Join-Path $StateDir 'last-status.txt'),$msg,[Text.Encoding]::ASCII)
     }
   } catch {}
@@ -95,7 +95,7 @@ try {
     $pending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'result-*.txt' -ErrorAction SilentlyContinue)
     foreach($file in $pending) {
       $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
-      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR|STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|ODATA_[A-Z_]+)$')) {
+      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR|STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|ODATA_[A-Z_]+)$')) {
         throw 'INVALID_PENDING_RESULT'
       }
       $jid=$Matches[1]
@@ -106,7 +106,7 @@ try {
     }
     $task=AgentRequest 'GET' '/v1/agent/poll' $null
     if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|(probe|odata_balance)\|([0-9a-f]{32})$') {
+    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
       throw 'UNRECOGNIZED_TASK'
     }
     $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
@@ -140,6 +140,20 @@ try {
             'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
             'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
           if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
+        }
+      }
+    }
+    elseif ($operation -eq 'odata_pair_check') {
+      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
+      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
+        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
+      } else {
+        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
+        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
+            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
+          $reason=$pairOutput
+        } else {
+          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
         }
       }
     }
