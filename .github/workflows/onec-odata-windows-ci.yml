@@ -24,7 +24,8 @@ jobs:
                    'scripts/windows/onec-odata-system-upgrade.ps1',
                    'scripts/windows/onec-odata-diagnostic-upgrade.ps1',
                    'scripts/windows/onec-odata-error-class-upgrade.ps1',
-                   'scripts/windows/onec-odata-filter-selfcheck.ps1')
+                   'scripts/windows/onec-odata-filter-selfcheck.ps1',
+                   'scripts/windows/onec-system-odata-pair-check.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -115,6 +116,27 @@ jobs:
             if($filterCheck.Contains($denied)) {
               throw ('UNSAFE_FILTER_CHECK='+$denied)
             }
+          }
+          $pairPath='scripts/windows/onec-system-odata-pair-check.ps1'
+          $pairBytes=[IO.File]::ReadAllBytes($pairPath)
+          if($pairBytes.Length -lt 4 -or $pairBytes[0] -ne 239 -or
+             $pairBytes[1] -ne 187 -or $pairBytes[2] -ne 191) {
+             throw 'PAIR_HELPER_PS2_UTF8_BOM_MISSING'
+          }
+          $pair=[IO.File]::ReadAllText($pairPath)
+          foreach($needed in @('S-1-5-19','MCP_OData_ReadOnly',
+            '127.0.0.1:8085/NewBase/','Method=','GET',
+            'EscapeDataString','FILTER_RETURNED_WRONG_PAIR','QUANTITY_MISMATCH',
+            'PAIR_Q_','ODATA_PAIR_READ_FAILED')) {
+            if(-not $pair.Contains($needed)) { throw ('PAIR_HELPER_GUARD_MISSING='+$needed) }
+          }
+          foreach($forbidden in @('Invoke-Expression','RegisterTaskDefinition',
+             'New-ScheduledTask','Invoke-RestMethod','Start-Process')) {
+            if($pair.Contains($forbidden)) { throw ('PAIR_HELPER_UNSAFE='+$forbidden) }
+          }
+          foreach($needed in @('odata_pair_check','onec-system-odata-pair-check.ps1',
+            'VERSION=ODATA_PAIR_V1','PAIR_Q_')) {
+            if(-not $poll.Contains($needed)) { throw ('PAIR_AGENT_GUARD_MISSING='+$needed) }
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
