@@ -10,12 +10,33 @@ full scans.
 | Gate | Objective | Current |
 | --- | --- | --- |
 | S0 | Test 1C read-only inventory, all 6,433 active buyers and category split | PASS |
-| S1 | Read-only SRV runtime/provider + 1C exchange plan metadata preflight | SCRIPT READY; NOT RUN |
+| S1 | Read-only SRV runtime/provider + 1C exchange plan metadata preflight | PASS; OData published one equipment exchange plan; no customer delta feed confirmed |
 | S2 | Create minimal protected transactional local storage on SRV, verify read/write/reopen under restricted service identity | NOT STARTED |
 | S3 | One-time initial load of ALL buyer types into local DB; 6,433 unique GUIDs; hash/count/back-read PASS | NOT STARTED |
 | S4 | Change source: isolated 1C TEST change registration + minimal durable extraction endpoint, with developer authorization | NOT STARTED |
 | S5 | Full automatic test: edit TEST buyer → registration → local refresh, reboot/resume, duplicate suppression | NOT STARTED |
 | S6 | Only after S0-S5: connect Bitrix24 application, lookup and/or sync | OUT OF SCOPE NOW |
+
+## Inventory facts, SRV, 2026-10-15
+
+Read-only S1 accepted: `METADATA_ENTITY_SETS=1492`;
+`EXCHANGE_PLAN_ENTITY_SETS=1`; published
+`ExchangePlan_ОбменСПодключаемымОборудованиемOffline`.
+This is unrelated to the planned customer sync. Do not repurpose it.
+Unpublished 1C exchange plans may also exist, so published OData
+metadata is not a complete configurator inventory.
+`PLAN_CHANGE_EVENTS_ACCESS=NOT_YET_VERIFIED`, `DATA_WRITES=NO`,
+`FILES_CREATED=NO`, `RESULT=PASS;STAGE=SRV_CUSTOMER_PIPELINE_PREFLIGHT`.
+
+**SQLite compatibility is NOT verified yet**: S1 output supplied did
+not include CLI/provider presence, architecture, or .NET runtime lines.
+Run the targeted, credentials-free read-only `bin/inventory-srv-sqlite-runtime.ps1`
+for the exact environment before attempting any install or writing files.
+
+Official System.Data.SQLite has historic .NET Framework 2.0/3.5 builds,
+but several older package releases are deprecated/unsupported. Do not
+install arbitrary binaries on legacy SRV without verifying compatibility
+and cryptographic checksums.
 
 ## Important 1C platform gate
 

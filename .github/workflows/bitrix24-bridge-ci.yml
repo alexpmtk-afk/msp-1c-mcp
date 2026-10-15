@@ -42,6 +42,7 @@ jobs:
                    'bin/scan-customers-required-fields.ps1','bin/pilot-buyer-types-local-100.ps1',
                    'bin/count-buyer-classes.ps1','bin/scan-legal-required-fields.ps1',
                    'bin/preflight-srv-customer-store.ps1',
+                   'bin/inventory-srv-sqlite-runtime.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f

@@ -225,6 +225,18 @@ class BootstrapSafety(unittest.TestCase):
         for token in (".Method='POST'", "Invoke-Expression", "Export-Csv",
                       "WriteAllBytes", "CreateDirectory", "crm.company.add"):
             self.assertNotIn(token,script)
+    def test_srv_sqlite_inventory_no_mutation_ps2(self):
+        s=read("inventory-srv-sqlite-runtime.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("SRV_STORAGE_RUNTIME_INVENTORY","BRIDGE_SQLITE_CLI_PRESENT=",
+                      "BRIDGE_SQLITE_PROVIDER_PRESENT=", "PROCESS_BITS=",
+                      "OS_VERSION=", "NET35_REGISTRY=", "CUSTOMER_DB_ALREADY_EXISTS=",
+                      "SAFE_IDLE=YES", "EXISTING_SQLITE_BINARY_EXECUTED=NO",
+                      "FILES_CREATED=NO", "DATA_WRITES=NO"):
+            self.assertIn(token,s)
+        for forbidden in ("Start-Process", "Invoke-Expression", "WriteAllBytes",
+                          "CreateDirectory", "Set-Acl", "New-Item", ".Method='POST'"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
