@@ -1,4 +1,4 @@
-#requires -version 2
+﻿#requires -version 2
 # One-time read-only self-check of exact 1C item+warehouse OData balance filter.
 # Run manually on SRV. No edits to the 1C infobase, credentials or system agent.
 # Both reference GUIDs stay local and are never printed or transmitted to GitHub.
