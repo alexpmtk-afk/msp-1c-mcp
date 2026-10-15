@@ -140,6 +140,20 @@ jobs:
             'TEMPORARY_TASK_CLEANUP=PASS')) {
             if(-not $third.Contains($needle)) { throw ('V3_DIAGNOSTIC_GUARD_MISSING='+$needle) }
           }
+          # Regression guard: a V3 URL must not download the V2 helper and
+          # compare against V3's Git blob SHA (real SRV failed this gate).
+          if(-not $third.Contains("'/scripts/windows/onec-natural-diagnostic-helper-v3.ps1'") -or
+             $third.Contains("'/scripts/windows/onec-natural-diagnostic-helper-v2.ps1'")) {
+            throw 'V3_DIAGNOSTIC_WRONG_HELPER_URL'
+          }
+          if(-not $third.Contains("$"+"expectedHelper='3d262ec0a5df7bd89c21d4df5ce085c5065e270b'")) {
+            throw 'V3_DIAGNOSTIC_PIN_CHANGED'
+          }
+          $actualV3Blob=(& git hash-object -- $diagV3Helper).Trim()
+          if($LASTEXITCODE -ne 0 -or $actualV3Blob -ne '3d262ec0a5df7bd89c21d4df5ce085c5065e270b') {
+            throw 'V3_DIAGNOSTIC_HELPER_HASH_MISMATCH'
+          }
+          'ONEC_V3_DIAGNOSTIC_FILENAME_AND_SHA=PASS'
           $thirdHelper=[IO.File]::ReadAllText($diagV3Helper,[Text.Encoding]::UTF8)
           foreach($needle in @('ConvertTo-NaturalStockJson','LOAD_FIXED_JSON_WRITER',
             'READ_STOCK_REGISTER','SERIALIZE_COMPLETE_RESULT','STAGE=','REASON=',
