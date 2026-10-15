@@ -34,25 +34,26 @@ CLR 2.0.50727.5420; .NET 2.0 present; .NET 4 Full registry present;
 .NET 3.5 registry not found. C: free 60.37 GiB. No SQLite CLI/provider,
 no `customers.db`; `SAFE_IDLE=YES`.
 
-Next run `bin/pilot-create-sqlite-store.ps1`, a user-local **isolated
-compatibility pilot**, NOT the permanent SRV service database:
-`%LOCALAPPDATA%\MspCustomerStorePilot\customers.db`.
-It downloads the *official SQLite* x86 3.43.2 ZIP only from sqlite.org,
-checks independently published ZIP SHA-256, extracts sqlite3.exe, runs
-its version, then downloads the commit-pinned SQL schema and verifies
-its GitHub Actions SHA-256 supplied via `-ExpectedSchemaSha256`.
-The pilot creates an EMPTY customer DB with four tables, tests
-integrity, a synthetic transaction and rollback; it MUST remain empty.
-Do not retry blindly if the pilot directory already exists.
-No change to system task, live DB, 1C, Bitrix or protected ACLs.
-Source for known Win7/Server 2008 shell behavior:
-https://sqlite.org/forum/forumpost/1b2892bca0
-Checksum cross-check: https://community.chocolatey.org/packages/SQLite/3.43.2
+**Correction, 15 Oct 2026:** The earlier user-local SQLite pilot
+(`%LOCALAPPDATA%\MspCustomerStorePilot`) is **CANCELLED**.
+Its script `bin/pilot-create-sqlite-store.ps1` is retired and
+fails closed at the current branch head. Do not run the previously
+provided hash-pinned command. Do not install SQLite into any
+specific user's profile.
 
-If that is PASS, next promote verified runtime to an ACL-protected
-machine-owned SRV path, with proper single-writer policy, encryption
-assessment and a separate explicit authorized system deployment.
-Then run initial full buyer ingestion.
+The next acceptance must install/test SQLite under
+`C:\ProgramData\MspBitrix24Bridge\` as a machine-owned
+installation and verify its read/write permissions **as**
+`NT AUTHORITY\LOCAL SERVICE`. System-owned runtime dependencies
+(including HTTPS client and CA) must likewise not depend on
+`C:\Users\parshin\`. An authorized administrator or existing
+machine-owned bootstrap must grant precise ACLs; `SRV\parshin`
+remains a nonadmin user.
+
+See [MACHINE_OWNED_STORAGE_POLICY.md](MACHINE_OWNED_STORAGE_POLICY.md).
+Prepare secure SRV service preflight + machine-owned install only,
+then perform empty-schema transaction and back-read under LOCAL SERVICE.
+
 
 Official System.Data.SQLite has historic .NET Framework 2.0/3.5 builds,
 but several older package releases are deprecated/unsupported. Do not

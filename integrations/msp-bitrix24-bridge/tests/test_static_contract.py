@@ -237,20 +237,22 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Start-Process", "Invoke-Expression", "WriteAllBytes",
                           "CreateDirectory", "Set-Acl", "New-Item", ".Method='POST'"):
             self.assertNotIn(forbidden,s)
-    def test_official_pinned_sqlite_empty_pilot_ps2(self):
+    def test_machine_owned_runtime_policy_and_retired_profile_pilot(self):
+        spec=(ROOT/"docs/MACHINE_OWNED_STORAGE_POLICY.md").read_text(encoding="utf-8")
+        for token in ("C:\\ProgramData\\MspBitrix24Bridge", "S-1-5-19",
+                      "LOCAL SERVICE", "SQLite", "SAFE_IDLE", "DO NOT RUN"):
+            self.assertIn(token, spec)
         s=read("pilot-create-sqlite-store.ps1")
         self.assertTrue(s.isascii())
-        for token in ("www.sqlite.org/2023/sqlite-tools-win32-x86-3430200.zip",
-                      "fae9efccf4469ca69be5d418fc088593cdb86e07a1b211bdb85463591a923b02",
-                      "MspCustomerStorePilot", "PILOT_DIRECTORY_ALREADY_EXISTS",
-                      "ExpectedSchemaSha256", "SCHEMA_SHA256_MISMATCH",
-                      "PRAGMA quick_check", "ROLLBACK;", "CUSTOMERS_COUNT=0",
-                      "LIVE_BRIDGE_DATA_MODIFIED=NO", "ONEC_CALLS=NO",
-                      "SYSTEM_TASK_CHANGED=NO"):
-            self.assertIn(token,s)
-        for forbidden in ("Invoke-Expression", "Invoke-WebRequest", "Export-Csv",
-                          "crm.company.add", ".Method='POST'", "C:\\ProgramData\\MspBitrix24Bridge\\data\\customers.db"):
-            self.assertNotIn(forbidden,s)
+        self.assertTrue(s.startswith("#requires -version 2"))
+        self.assertIn("DEPRECATED_USER_PROFILE_INSTALL_FORBIDDEN",s)
+        for token in ("CreateDirectory", "Download", "CopyHere",
+                      "LOCALAPPDATA", "APPDATA", "C:\\Users\\parshin"):
+            self.assertNotIn(token,s)
+        for token in ("ACTIVE=0", "CUSTOMERS_READ=0", "PRODUCTS_READ=0",
+                      "INVOICES_WRITE=0"):
+            conf=(ROOT/"config/bridge.ini").read_text(encoding="ascii")
+            self.assertIn(token,conf)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
