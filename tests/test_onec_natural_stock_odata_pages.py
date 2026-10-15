@@ -184,3 +184,21 @@ def test_two_identical_article_value_different_product_cards_keep_both():
     assert len(found)==2
     assert found[0]["article"]==found[1]["article"]=="A-77"
     assert found[0]["code"]!=found[1]["code"]
+
+
+def test_never_treat_1c_code_as_business_article_search():
+    with pytest.raises(ValueError):
+        exact_filter_url_fragment("Code","НФ-00001359",approved_field="Code")
+    with pytest.raises(ValueError):
+        parse_item_page(fixture([{"Ref_Key":ITEM,"Description":"Слэмбол 6 кг",
+                                 "Code":"НФ-00001359"}]),article_field="Code")
+
+
+def test_catalog_unit_name_with_real_leading_space_is_not_discarded():
+    rows,complete=parse_warehouse_page(fixture([
+        {"Ref_Key":WH1,"Description":" ОЗОН"},
+        {"Ref_Key":WH2,"Description":"Основной склад"},
+    ]))
+    assert complete is True
+    assert len(rows)==2
+    assert rows[0]["name"]==" ОЗОН"
