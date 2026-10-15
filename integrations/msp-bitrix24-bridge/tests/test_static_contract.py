@@ -564,6 +564,21 @@ class BootstrapSafety(unittest.TestCase):
             self.assertNotIn(forbidden,s)
         self.assertIn("-readonly -batch -bail",s)
         self.assertNotIn("'DELETE FROM customers",s)
+    def test_s4_exchange_plan_metadata_service_get_only(self):
+        s=read("survey-exchange-plan-metadata-service.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("DataProtectionScope]::LocalMachine", "S-1-5-19",
+                      "MCP_OData_ReadOnly", "ACTIVE=0", "DELTA_READ=0",
+                      "$req.Method='GET'", "standard.odata/$metadata",
+                      "EXCHANGE_PLANS=", "PLAN_{0:D3}", "SelectChanges",
+                      "ConfirmChanges", "EXCHANGE_PLAN_LIMIT",
+                      "METADATA_OVER_32M", "ONEC_WRITES=NO", "BITRIX_CALLS=NO",
+                      "S4_CHANGE_REGISTRATION_READY=NOT_PROVEN"):
+            self.assertIn(token,s)
+        for bad in ("POST", "DeleteTask", "RegisterTaskDefinition",
+                    "Get-Credential", "127.0.0.1:9786", "WriteAllText($db",
+                    "SELECT count(*) FROM customers"):
+            self.assertNotIn(bad,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
