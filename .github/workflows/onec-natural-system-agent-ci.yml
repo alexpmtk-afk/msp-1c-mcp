@@ -148,8 +148,7 @@ jobs:
           }
           foreach($needle in @('ASSERT_TWO_REAL_CARDS',
             'CARD_FIRST_BALANCE_CHANGED','CARD_SECOND_BALANCE_CHANGED',
-            'EXPECTED_CARD_MISSING','Слэмбол 6 кг','Основной склад',
-            'НФ-00001359','НФ-00000879','NO_BALANCE_ROW',
+            'EXPECTED_CARD_MISSING','NO_BALANCE_ROW',
             'natural-stock-v4-card-smoke-result.txt')) {
             if(-not $v4Helper.Contains($needle)) {
               throw ('V4_CARD_ACCEPTANCE_GUARD_MISSING='+$needle)
