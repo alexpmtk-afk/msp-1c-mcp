@@ -25,7 +25,7 @@ function InspectFile([string]$Label,[string]$File){
 function ExecVersion([string]$Label,[string]$Executable){
   if(-not [IO.File]::Exists($Executable)){($Label+'_VERSION_STATUS=NOT_PRESENT');return}
   try{
-    $result=@(& $Executable -version 2>&1)
+    $result=@(& $Executable --version 2>&1)
     $exit=$LASTEXITCODE
     if($exit -eq 0 -and (($result -join ' ') -match '(?i)curl/')){
       ($Label+'_VERSION_STATUS=PASS')

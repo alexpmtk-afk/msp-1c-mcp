@@ -76,7 +76,7 @@ try{
     [IO.File]::Copy($lib.FullName,(Join-Path $bin $lib.Name),$false)
     $dllCount++
   }
-  $curlVersion=@(& $installedCurl -version 2>&1)
+  $curlVersion=@(& $installedCurl --version 2>&1)
   if($LASTEXITCODE -ne 0 -or (($curlVersion -join ' ') -notmatch '(?i)curl')){Fail 'INSTALLED_CURL_DEPENDENCY_ERROR'}
   $phase='SQLITE_DOWNLOAD'
   $zip=Join-Path $staging 'sqlite-tools-win32-x86-3430200.zip'

@@ -299,6 +299,8 @@ class BootstrapSafety(unittest.TestCase):
                          "TLS_RUNTIME_MACHINE_OWNED=YES", "ONEC_CALLS=NO",
                          "BITRIX_CALLS=NO", "PREVIOUS_BRIDGE_UNCHANGED=YES"):
             self.assertIn(required,s)
+        self.assertIn("& $installedCurl --version",s)
+        self.assertNotIn("& $installedCurl -version",s)
         for forbidden in ("C:\\Users\\parshin", "Set-ExecutionPolicy", ".Method='POST'",
                           "Enable-NetFirewallRule", "MspOnecHttpsAgentSystem",
                           "Set-Service", "Import-Module", "Get-Credential"):
