@@ -38,6 +38,7 @@ jobs:
                    'bin/repair-file-acl.ps1','bin/inspect-customers-metadata.ps1',
                    'bin/inspect-customers-schema.ps1','bin/inspect-customers-counts.ps1',
                    'bin/inspect-customers-required-counts.ps1',
+                   'bin/diagnose-customer-string-filters.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
