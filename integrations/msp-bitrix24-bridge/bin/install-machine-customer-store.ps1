@@ -8,7 +8,7 @@ $phase='PRECHECK'
 function Fail([string]$Reason){throw ('INSTALL_'+$Reason)}
 function Sha256([string]$File){
   $h=New-Object Security.Cryptography.SHA256Managed
-  try{return ([BitConverter]::ToString($h.ComputeHash([IO.File]::ReadAllBytes($File))).Replace('-','').ToLowerInvariant())}finally{$h.Clear()}
+  try{$hex=[BitConverter]::ToString($h.ComputeHash([IO.File]::ReadAllBytes($File)));return $hex.Replace('-','').ToLowerInvariant()}finally{$h.Clear()}
 }
 function BlobSha1([string]$File){
   [byte[]]$payload=[IO.File]::ReadAllBytes($File)
@@ -17,7 +17,7 @@ function BlobSha1([string]$File){
   [Array]::Copy($prefix,0,$bytes,0,$prefix.Length)
   [Array]::Copy($payload,0,$bytes,$prefix.Length,$payload.Length)
   $h=New-Object Security.Cryptography.SHA1Managed
-  try{return ([BitConverter]::ToString($h.ComputeHash($bytes))).Replace('-','').ToLowerInvariant())}finally{$h.Clear()}
+  try{$hex=[BitConverter]::ToString($h.ComputeHash($bytes));return $hex.Replace('-','').ToLowerInvariant()}finally{$h.Clear()}
 }
 function Fetch([string]$Url,[string]$Destination,[string]$Curl,[string]$Ca){
   & $Curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $Ca --proto '=https' --max-redirs 0 --output $Destination $Url
