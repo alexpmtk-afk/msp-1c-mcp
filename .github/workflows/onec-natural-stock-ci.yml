@@ -8,6 +8,8 @@ on:
       - 'scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
       - 'scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
       - 'scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-v3.ps1'
+      - 'scripts/windows/onec-natural-stock-v3-once.ps1'
       - 'src/msp_onec_mcp/natural_stock_contract.py'
       - 'src/msp_onec_mcp/natural_stock_resolution.py'
       - 'src/msp_onec_mcp/natural_stock_odata_pages.py'
@@ -79,7 +81,9 @@ jobs:
           $bootstrapPath='scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
           $v2RunnerPath='scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
           $v2OncePath='scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
-          foreach($file in @($runnerPath,$oncePath,$bootstrapPath,$v2RunnerPath,$v2OncePath)) {
+          $v3HelperPath='scripts/windows/onec-natural-stock-schema-v3.ps1'
+          $v3OncePath='scripts/windows/onec-natural-stock-v3-once.ps1'
+          foreach($file in @($runnerPath,$oncePath,$bootstrapPath,$v2RunnerPath,$v2OncePath,$v3HelperPath,$v3OncePath)) {
             $raw=[IO.File]::ReadAllBytes($file)
             if($raw.Length -lt 4 -or $raw[0] -ne 239 -or $raw[1] -ne 187 -or $raw[2] -ne 191) {
               throw ('UTF8_BOM_MISSING='+$file)
@@ -142,6 +146,54 @@ jobs:
              $v2Once -match 'Invoke-Expression|Start-Service|Restart-Service|New-ScheduledTask') {
             throw 'FORENSIC_UNSAFE_OPERATION'
           }
+          $v3=[IO.File]::ReadAllText($v3HelperPath)
+          $v3Once=[IO.File]::ReadAllText($v3OncePath)
+          foreach($needle in @('S-1-5-19','MCP_OData_ReadOnly',
+            '127.0.0.1:8085/NewBase/odata/standard.odata/',
+            'ProhibitDtd=$true','XmlResolver=$null','MaxCharactersInDocument=16777216',
+            "Method='GET'",'AllowAutoRedirect=$false',
+            'METADATA_HTTP_GET','METADATA_XML_PARSE','SCHEMA_PROPERTY_MAP',
+            'EXACT_CODE_FILTER','EXACT_ARTICLE_FILTER',
+            'ODATA_ACCESS_DENIED','ODATA_RESPONSE_TOO_LARGE',
+            'natural-stock-schema-report-v3.txt','DATA_WRITES','NO')) {
+            if(-not $v3.Contains($needle)) { throw ('V3_HELPER_GUARD_MISSING='+$needle) }
+          }
+          if($v3.Contains('DtdProcessing]::') -or
+             $v3 -match 'Invoke-Expression|Invoke-RestMethod|Start-Service|RegisterTaskDefinition|New-ScheduledTask|WebClient|HttpListener') {
+            throw 'V3_UNSAFE_HELPER'
+          }
+          foreach($needle in @('MspOnecNaturalSchemaV3',
+            'MspOnecHttpsAgentSystem','V2_EVIDENCE_MISSING',
+            'f8f34426e1be4cb4d14a9003774e4876b1167698',
+            'GitBlob $v1','Triggers.Count -ne 0',
+            'STAGE=REPORT_CAPTURE_ONLY')) {
+            if(-not $v3Once.Contains($needle)) {
+              throw ('V3_ONESHOT_GUARD_MISSING='+$needle)
+            }
+          }
+          if($v3Once -match 'Invoke-Expression|Start-Service|Restart-Service|New-ScheduledTask') {
+            throw 'V3_ONESHOT_UNSAFE'
+          }
+          # ProhibitDtd exists on CLR2 and should reject inline DTD on CI host too.
+          $settings=New-Object System.Xml.XmlReaderSettings
+          $settings.ProhibitDtd=$true
+          $settings.XmlResolver=$null
+          $settings.MaxCharactersInDocument=1024
+          $inputXml='<!DOCTYPE foo [<!ENTITY x "abc">]><foo>&x;</foo>'
+          $reader=New-Object System.IO.StringReader -ArgumentList @($inputXml)
+          $reject=$false
+          $xr=$null
+          try {
+            $xr=[Xml.XmlReader]::Create($reader,$settings)
+            while($xr.Read()) {}
+          } catch [Xml.XmlException] {
+            $reject=$true
+          } finally {
+            if($null -ne $xr) { $xr.Close() }
+            $reader.Close()
+          }
+          if(-not $reject) { throw 'DTD_NOT_PROHIBITED' }
+          'ONEC_V3_CLR2_SAFE_STATIC=PASS'
           'ONEC_FORENSIC_V2_STATIC=PASS'
           'ONEC_ONESHOT_PS2_STATIC=PASS'
           'ONEC_SCHEMA_PS2_STATIC=PASS'
