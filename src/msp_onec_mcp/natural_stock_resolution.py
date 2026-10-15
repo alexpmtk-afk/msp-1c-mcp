@@ -1,4 +1,4 @@
-"""Deterministic article/product/warehouse name resolution (offline core).
+"""Deterministic article/name/1C code and warehouse name resolution (offline core).
 
 All inputs are *verified data* read from fixed NewBase OData entities by an
 authorized SRV handler. This function cannot read 1C, choose OData URLs,
@@ -48,16 +48,16 @@ def resolve_stock(
     *, item_query_complete: bool, warehouse_query_complete: bool,
     balance_query_complete: bool,
 ) -> dict:
-    """Resolve only an exact article/name and optional real warehouse name.
+    """Resolve only an exact article/name/1C code and optional real warehouse name.
 
-    items have keys guid/article/name. warehouses: guid/name.
+    items have keys guid/article/name/code. warehouses: guid/name.
     balances: item_guid/warehouse_guid/quantity (decimal strings).
     Query-complete booleans are supplied by the OData handler after verifying
     that no nextLink, pagination, or cap could suppress matching rows.
     """
-    if kind not in ("article", "name"):
+    if kind not in ("article", "name", "code"):
         raise ValueError("Invalid kind")
-    validate_term(item_text, max_length=96 if kind == "article" else 160, label="item")
+    validate_term(item_text, max_length=160 if kind == "name" else 96, label="item")
     if warehouse_name is not None:
         validate_term(warehouse_name, max_length=100, label="warehouse")
     if not isinstance(items, list) or not isinstance(warehouses, list) or not isinstance(balances, list):
@@ -70,24 +70,47 @@ def resolve_stock(
         return _status("WAREHOUSE_RESULT_INCOMPLETE")
     if not balance_query_complete or len(balances) > MAX_BALANCES:
         return _status("BALANCE_RESULT_INCOMPLETE")
-    requested_field = "article" if kind == "article" else "name"
+    requested_field = kind
     matches = []
     for row in items:
         _ref(row.get("guid"))
-        if not isinstance(row.get(requested_field), str):
-            raise ValueError("Missing OData field")
-        if row[requested_field] == item_text:
+        value = row.get(requested_field)
+        # Empty business articles are common in the verified NewBase sample.
+        # Treat them as unmatched, not as a failure of name/code resolution.
+        if value is not None and not isinstance(value, str):
+            raise ValueError("Invalid OData selector field")
+        if value == item_text:
             matches.append(row)
     if not matches:
         return _status("ITEM_NOT_FOUND")
     if len(matches) > 1:
-        return _status("ITEM_AMBIGUOUS")
+        # The selected record must never be inferred from which of the
+        # same-named cards happens to have a positive balance. Offer only
+        # validated human-readable, bounded identifiers; never GUIDs.
+        choices = []
+        for row in matches:
+            code = row.get("code")
+            article = row.get("article")
+            name = row.get("name")
+            choices.append({
+                "name": _text(name),
+                "code": _text(code, 96) if code else None,
+                "article": _text(article, 96) if article else None,
+            })
+        return _status("ITEM_AMBIGUOUS", candidates=choices)
     item = matches[0]
     item_guid = item["guid"]
     name = _text(item.get("name"))
     article = item.get("article")
-    if article is not None:
+    if article:
         article = _text(article, 96)
+    else:
+        article = None
+    code = item.get("code")
+    if code:
+        code = _text(code, 96)
+    else:
+        code = None
     warehouse_by_guid = {}
     candidates = []
     for row in warehouses:
@@ -132,6 +155,7 @@ def resolve_stock(
         "PASS",
         item_name=name,
         article=article,
+        code=code,
         scope="specified_warehouse" if warehouse_name is not None else "all_warehouses",
         warehouses=[{"name": r["warehouse"], "quantity": str(r["quantity"])} for r in found],
         total_quantity=str(total),
