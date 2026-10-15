@@ -1,0 +1,6 @@
+# Keep repository bytes identical to portable curl downloads on legacy SRV.
+# Windows checkout must not silently rewrite SHA-256-pinned files.
+*.ps1 text eol=lf
+*.ini text eol=lf
+*.md text eol=lf
+*.py text eol=lf

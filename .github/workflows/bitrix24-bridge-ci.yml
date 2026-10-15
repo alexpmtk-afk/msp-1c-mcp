@@ -28,14 +28,20 @@ jobs:
             if(-not $source.StartsWith('#requires -version 2')){throw ('PS2_DECLARATION_MISSING: '+$_.Name)}
             Write-Output ('PARSE_PASS='+$_.Name)
           }
-      - name: Pinned staging SHA256 hashes
+      - name: Pinned SHA256 portable source bytes, force LF
         shell: pwsh
         run: |
+          $ErrorActionPreference='Stop'
           $files=@('bin/bridge.ps1','bin/install-system.ps1',
                    'bin/smoke-system.ps1','bin/enable-system.ps1',
                    'bin/status.ps1','config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
+            [byte[]]$bytes=[IO.File]::ReadAllBytes($path)
+            if([Array]::IndexOf($bytes,[byte]13) -ge 0){
+              throw ("CR_BYTE_IN_PINNED_FILE="+$f)
+            }
             $sha=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
             Write-Output "STAGE_HASH=$f|$sha"
+            Write-Output "STAGE_BYTES=$f|$($bytes.Length)"
           }
