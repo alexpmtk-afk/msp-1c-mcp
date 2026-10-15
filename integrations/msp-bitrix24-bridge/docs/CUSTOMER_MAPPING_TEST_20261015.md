@@ -5,6 +5,12 @@
 - `Catalog_Контрагенты`: key `Ref_Key` (Edm.Guid), 66 properties.
 - `Catalog_Контрагенты_КонтактнаяИнформация`: compound key `Ref_Key` and `LineNumber`, 16 properties.
 - Count-only check on SRV returned 7,635 counterparties, 6,770 buyer-flagged, and 6,433 active not-deleted buyers (15 Oct 2026). No customer rows were fetched, no Bitrix24 portal queried, no 1C writes.
+- Full 65-page audited scan on SRV: 6,433/6,433 read, 6,433 unique GUIDs, no duplicates, PASS.
+- Among active buyers: full name nonblank 5,577; INN nonblank 1,925; both nonblank 1,912.
+- Missing full name 856; missing INN 4,508; either required field missing 4,521.
+- INN containing exactly 10/12 ASCII digits 1,921 (4 nonempty values have another shape; checksum NOT validated).
+- These results do NOT classify legal entities versus individuals; never treat the missing INNs as 4,508 faulty organizations.
+- No source customer names, INNs or GUIDs were exported. No 1C writes or Bitrix REST calls.
 - Actual field labels/types below were obtained from current 1C metadata, not assumed.
 
 ## Provisional mapping (Bitrix24 target NOT validated against portal yet)
@@ -39,10 +45,12 @@ No row content inspected, so email/phone/address subtype logic remains TBD.
 Bitrix API field `RQ_COMPANY_NAME` is **short** organization name; do not use it as the full name.
 Full-name and INN completeness are release gates: no automatic write of organizations
 with either field missing until a specific exception workflow is approved.
-Do not assume all 6,433 eligible buyer records have both values.
-First inspect counts via `bin/inspect-customers-required-counts.ps1` (read-only OData `$count`).
-A nonempty string filter can still include whitespace-only values; these need later
-local validation before any Bitrix24 writes.
+Complete locally verified audit: 1,912 of 6,433 active buyers had both fields
+nonblank after whitespace trimming. The count covers ALL buyer types.
+An OData string filter `НаименованиеПолное ne ''` caused HTTP 500;
+a 65-page LOCAL-only scan is the accepted alternative for this test.
+No inference about organization readiness is permitted before classifying
+`ЮридическоеФизическоеЛицо`.
 
 Not all counterparties are organizations. `ЮридическоеФизическоеЛицо` has
 Edm.String type, but **actual values have not been checked**; natural persons
@@ -70,6 +78,10 @@ Official documentation:
 - 1C OData `$count` with `$filter`: https://1c-dn.com/download-trial/files/guides/developer_guide.pdf
 
 ## Next gate
-The 3 initial buyer counts already passed on physical SRV. Next execute `bin/inspect-customers-required-counts.ps1` manually using `MCP_OData_ReadOnly`.
-It returns only aggregate counts of nonempty full name and INN from TEST 1C using `$count` with filters, no rows or identifiers. Then verify legal-entity classification before treating any count as a final company import list.
+Accepted: full 6,433-buyer local field-completeness scan and 6,433 unique GUIDs.
+Next run `bin/pilot-buyer-types-local-100.ps1` manually on SRV to discover
+distinct `ЮридическоеФизическоеЛицо` category values from a max-100-record
+sample. The script outputs only category names/counters, not customer fields,
+GUIDs or names. The sample is NOT a population estimate. Later evaluate
+whether per-category aggregate OData counts work without re-scanning all 6,433.
 No changes to system bridge or existing MSP tasks.

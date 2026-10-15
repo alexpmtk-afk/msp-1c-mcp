@@ -39,7 +39,7 @@ jobs:
                    'bin/inspect-customers-schema.ps1','bin/inspect-customers-counts.ps1',
                    'bin/inspect-customers-required-counts.ps1',
                    'bin/diagnose-customer-string-filters.ps1','bin/pilot-customers-local-10.ps1',
-                   'bin/scan-customers-required-fields.ps1',
+                   'bin/scan-customers-required-fields.ps1','bin/pilot-buyer-types-local-100.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
