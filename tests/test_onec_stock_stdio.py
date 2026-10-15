@@ -1,4 +1,5 @@
 import json
+import os
 from unittest.mock import patch
 
 from msp_onec_mcp import onec_stock_stdio as m
@@ -7,8 +8,11 @@ from msp_onec_mcp import onec_stock_stdio as m
 def test_initialize_and_discovery():
     start=m.dispatch({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}})
     assert start["result"]["protocolVersion"]=="2025-06-18"
-    tools=m.dispatch({"jsonrpc":"2.0","id":2,"method":"tools/list"})["result"]["tools"]
-    assert len(tools)==2
+    with patch.dict(os.environ, {"ONEC_ENABLE_NATURAL_STOCK": "0"}):
+        old_tools=m.dispatch({"jsonrpc":"2.0","id":2,"method":"tools/list"})["result"]["tools"]
+        assert [t["name"] for t in old_tools]==["onec_stock_by_guid"]
+    with patch.dict(os.environ, {"ONEC_ENABLE_NATURAL_STOCK": "1"}):
+        tools=m.dispatch({"jsonrpc":"2.0","id":2,"method":"tools/list"})["result"]["tools"]
     assert [t["name"] for t in tools]==["onec_stock_by_guid","onec_stock_by_name_or_article"]
     assert tools[0]["name"]=="onec_stock_by_guid"
     assert tools[0]["inputSchema"]["additionalProperties"] is False
@@ -51,7 +55,7 @@ def test_natural_tool_returns_all_item_cards_without_requiring_internal_code():
         {"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None,"total_quantity":"6"},
         {"name":"Слэмбол 6 кг","code":"НФ-00000879","article":None,
          "total_quantity":"0","balance_state":"NO_BALANCE_ROW"}]}
-    with patch.object(m,"natural_stock",return_value=result) as lookup:
+    with patch.dict(os.environ, {"ONEC_ENABLE_NATURAL_STOCK": "1"}), patch.object(m,"natural_stock",return_value=result) as lookup:
         response=m.dispatch({"jsonrpc":"2.0","id":11,"method":"tools/call","params":params})
     assert response["result"]["isError"] is False
     parsed=json.loads(response["result"]["content"][0]["text"])
