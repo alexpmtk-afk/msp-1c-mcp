@@ -144,6 +144,21 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Get-Credential", "Invoke-Expression", "Invoke-WebRequest",
                           "WriteAllText", "Export-Csv", ".Method='POST'", "crm.company.add"):
             self.assertNotIn(forbidden,s)
+    def test_buyer_category_count_probes_are_readonly_ps2(self):
+        s=read("count-buyer-classes.ps1")
+        self.assertTrue(s.isascii())
+        for marker in ("127.0.0.1:8085/NewBase", "/$count", "EscapeDataString",
+                       "$req.Method='GET'", "$req.Proxy=$null", "$req.AllowAutoRedirect=$false",
+                       "Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString",
+                       "LEGAL_ENTITIES", "NATURAL_PERSONS", "LEGAL_WITH_NONEMPTY_INN",
+                       "BASELINE_MISMATCH", "CATEGORY_FILTER_UNAVAILABLE",
+                       "CUSTOMER_RECORDS_EXPORTED=NO", "RAW_IDENTIFIERS_EXPORTED=NO",
+                       "BITRIX_CALLS=NO", "SAFE_IDLE_TASK_UNCHANGED=YES",
+                       "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(marker,s)
+        for forbidden in ("Get-Credential", "Invoke-Expression", "Invoke-WebRequest",
+                          "WriteAllText", "Export-Csv", ".Method='POST'", "crm.company.add"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

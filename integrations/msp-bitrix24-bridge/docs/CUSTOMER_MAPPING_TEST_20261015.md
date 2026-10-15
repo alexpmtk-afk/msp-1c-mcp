@@ -77,11 +77,22 @@ Official documentation:
 - https://apidocs.bitrix24.com/api-reference/crm/universal/object-fields.html
 - 1C OData `$count` with `$filter`: https://1c-dn.com/download-trial/files/guides/developer_guide.pdf
 
+## Buyer type sample, confirmed on SRV (15 Oct 2026)
+- Read-only 100-row sample, 100 unique GUIDs, 2 distinct literal category values:
+  `ЮридическоеЛицо` 61, `ФизическоеЛицо` 39.
+- These are first 100 by GUID, **NOT a random population sample** and
+  cannot be extrapolated to 6,433.
+- Sample contained no record export, write or Bitrix API call.
+- Next evaluate OData `$count` filters for each exact class and for legal
+  entities with nonempty INN; do not filter on long full name (HTTP 500).
+
 ## Next gate
 Accepted: full 6,433-buyer local field-completeness scan and 6,433 unique GUIDs.
-Next run `bin/pilot-buyer-types-local-100.ps1` manually on SRV to discover
-distinct `ЮридическоеФизическоеЛицо` category values from a max-100-record
-sample. The script outputs only category names/counters, not customer fields,
-GUIDs or names. The sample is NOT a population estimate. Later evaluate
-whether per-category aggregate OData counts work without re-scanning all 6,433.
+The 100-buyer type sample completed successfully. Next run
+`bin/count-buyer-classes.ps1` manually on SRV, using password-only
+`MCP_OData_ReadOnly`. It makes up to four read-only OData
+`$count` calls (known eligible-buyer baseline, legal, natural-person,
+legal with nonempty INN). Only integer counts and status are returned.
+If the class string predicate is unsupported, stop with a diagnostic
+status and do NOT automatically repeat or scan all buyers.
 No changes to system bridge or existing MSP tasks.
