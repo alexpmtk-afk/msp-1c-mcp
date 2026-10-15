@@ -124,7 +124,12 @@ try {
   foreach($entity in $warehouses) {
     $fieldSet=@(Fields $doc $entity)
     if ($fieldSet.Count -gt 0) {
-      Record 'WAREHOUSE_ENTITY_PRESENT' ($entity.Replace('Catalog_',''))
+      $label='UNVERIFIED'
+      if ($entity -eq 'Catalog_СтруктурныеЕдиницы') { $label='STRUCTURAL_UNITS' }
+      elseif ($entity -eq 'Catalog_Склады') { $label='WAREHOUSES' }
+      elseif ($entity -eq 'Catalog_СкладскиеПомещения') { $label='STORAGE_ROOMS' }
+      elseif ($entity -eq 'Catalog_СкладыКомпании') { $label='COMPANY_WAREHOUSES' }
+      Record 'WAREHOUSE_ENTITY_PRESENT' $label
       Record 'WAREHOUSE_NAME_PRESENT' (Flag ($fieldSet -ccontains 'Description'))
       Record 'WAREHOUSE_GUID_PRESENT' (Flag ($fieldSet -ccontains 'Ref_Key'))
     }
