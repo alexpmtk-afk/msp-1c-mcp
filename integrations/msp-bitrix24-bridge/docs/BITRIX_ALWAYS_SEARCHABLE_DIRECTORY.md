@@ -1,0 +1,115 @@
+# MSP Bitrix24: Always-searchable 1C buyer directory (15 Oct 2026)
+
+**Status:** User-confirmed PRODUCT GOAL; target architecture/proposed technical
+implementation, NOT activated in Bitrix24, 1C or SRV.
+
+## What the manager must be able to do
+
+- Open the Client field in an appropriate Bitrix24 CRM form and begin typing
+  the beginning or part of a customer name.
+- See possible existing **Bitrix24** companies/contacts and matching clients
+  from the **complete, current 1C buyer directory**, including companies
+  and natural persons with no INN.
+- Choose an existing CRM entity if present. If the customer exists in
+  1C but **does not** yet exist in Bitrix24 CRM, create/link the appropriate
+  company/contact **upon selection**, after checking for duplicates.
+- If not in 1C and not in CRM, permit new-client workflow under rules
+  still to be agreed; do NOT silently create a source 1C record.
+- Multiple managers must search concurrently without causing any full
+  scan or additional demand-driven OData query to 1C.
+
+**Key distinction:** 'all buyers are SEARCHABLE from Bitrix24' does not
+necessarily mean 'precreate all buyer entities in Bitrix24 CRM'.
+The second option is possible but can clutter CRM, create duplicates,
+and is not needed to meet the stated workflow.
+
+## Bitrix24-supported integration point
+
+Official REST widget **`CRM_DETAIL_SEARCH`**, accessed by an installed
+local application with `crm, placement` rights:
+https://apidocs.bitrix24.com/api-reference/widgets/crm/detail-search.html
+
+Confirmed documented behavior:
+1. A user types at least **3 characters** in the Contact or Company
+   field of the CRM 'Client' block.
+2. An installed application's entry appears alongside native CRM matches.
+   User **clicks the application entry** to start external search.
+3. Handler receives `PLACEMENT_OPTIONS.searchQuery` and
+   `entityTypeName=COMPANY|CONTACT`. Authenticated handler queries a
+   protected **search index**, not the 1C OData endpoint directly.
+4. The handler passes options to `crmShowFoundEntities`; Bitrix renders
+   them in its selector.
+5. Selecting an external option emits `onCrmEntityIsNeedToCreate`.
+   After verifying stable GUID mapping and CRM duplicates, the application
+   creates or links the CRM record, then signals `crmShowCreatedEntity`
+   with actual Bitrix entity ID.
+
+**Caution:** This is not automatic first-keystroke completion; an extra
+application-choice click after >=3 characters is documented. If seamless
+live suggestions without this click are essential, evaluate a custom UI
+integration separately. Portal-specific availability/rights not tested.
+
+## Data plane and query plan
+
+- 1C TEST/production as authoritative master for customer reference
+  -> change registration **Option B** -> one durable SRV local index
+  (SQLite suggested; compatibility/security validation pending).
+- Index includes all eligible buyer identities `Ref_Key`, type, normalized
+  search/display name, company full name (when present), nullable INN,
+  source version and CRM link status.
+- For an incremental update, touch only changed GUID, not all 6,433.
+- Search request from Bitrix sends **short query + entity type**; search
+  indexes and limits suggestions (e.g., top 10-20), never transfers all
+  6,433 rows per keystroke.
+- User's CRM status 'already linked' versus 'found in 1C only' must be
+  determined by `bitrix_links` and a duplicate check in CRM. Never
+  create a second CRM item for the same `Ref_Key`.
+- Separate natural-person search without INN; company search with optional
+  organization full name and INN. Six unknown type records flagged for
+  review and must not silently disappear.
+- No external client names, INNs or GUIDs in public logs, GitHub or Telegram.
+
+## Network reachability issue — NOT solved yet
+
+The current SRV 1C agent is an **outbound HTTPS poll** design. A Bitrix
+external-search widget requires a prompt **HTTPS handler reachable from
+Bitrix**, plus quick access to a searchable index.
+
+A SQLite file on SRV alone **does not** automatically make it accessible
+to a cloud Bitrix24 application. The existing slow/polling bridge must not
+be misrepresented as an already functional real-time search transport.
+Options to evaluate safely:
+A. Authenticated, narrowly scoped *private query relay* that accesses SRV
+   index without publishing the legacy SRV directly. Feasibility and
+   latency still unknown.
+B. Separate minimal, protected **search-only projection** at a trusted
+   online application host, refreshed from SRV by change events. This
+   exports restricted personal data (client names/types), hence requires
+   explicit security/data-residency approval, encryption, RBAC and
+   retention policy. No such mirror created or authorized.
+
+Do not expose the raw 2008 R2 server to the Internet, share DB through
+SMB, or publish 1C OData as a search endpoint.
+Proposed experience is not guaranteed 'always online'; SLA/availability
+and fallback require design and monitoring. Freshness targets must be
+measured, not invented.
+
+## Acceptance criteria
+
+- All 6,433 eligible TEST buyers are queryable by suitable name terms,
+  subject to resolving missing display labels and six unknown types.
+- Legal organizations and people without INN are both findable.
+- Search returns a small list and never scans all buyer rows or calls
+  1C OData for each search.
+- Change in 1C causes the locally indexed entry to update through
+  source-side registration, demonstrably without a global rescan.
+- Existing Bitrix CRM links retained; never duplicate by GUID.
+- External selection results in an actionable CRM item only after
+  authorization and duplicate checks.
+- Test simultaneous search load and freshness; report real latencies.
+- No sync activation, data transfer outside SRV, production changes
+  or 1C writes before separate explicit authorization.
+
+References:
+https://apidocs.bitrix24.com/api-reference/widgets/crm/detail-search.html
+https://helpdesk.bitrix24.com/open/25516596/

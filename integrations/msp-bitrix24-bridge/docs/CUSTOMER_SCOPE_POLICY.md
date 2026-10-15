@@ -62,6 +62,19 @@ a natural person**. Sync runs centrally, not once for each person searching.
 - Integration remains conceptual; see [SYNC_ARCHITECTURE_OPTION_B.md](SYNC_ARCHITECTURE_OPTION_B.md).
 - No 1C metadata/config write or Bitrix24 sync enabled without approval.
 
+## Primary Bitrix24 workflow (user-confirmed, 15 Oct 2026)
+
+Bitrix24 must provide a **full searchable catalog** of active 1C
+buyers. This DOES NOT require automatically creating all 6,433 CRM
+cards. The preferred integration candidate is `CRM_DETAIL_SEARCH`:
+show external 1C results in client selection, preserve existing CRM
+matches, create/link CRM card only on explicit user selection and after
+duplicate validation. Its documented UX requires at least 3 characters
+and an extra application choice click.
+See [BITRIX_ALWAYS_SEARCHABLE_DIRECTORY.md](BITRIX_ALWAYS_SEARCHABLE_DIRECTORY.md).
+No 1C full scan per user query; network/service accessibility remains an
+unresolved design gate.
+
 ## Next acceptance work
 - Inspect safe **per-type aggregate** name completeness, plus the
   six unknown type values, without record export.

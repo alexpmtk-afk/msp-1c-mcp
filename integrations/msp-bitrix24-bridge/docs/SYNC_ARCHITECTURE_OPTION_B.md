@@ -84,13 +84,31 @@ must not go to GitHub, VPS logs or Telegram.
    to load measurements), deduplicates and loads only changed clients.
 5. SRV writes local `customers` and `change_inbox` atomically.
    1C registration can then be acknowledged as appropriate.
-6. Independently, an opt-in Bitrix worker picks deduplicated outbox items,
-   applies throttled upsert to companies/contacts/requisites, confirms IDs
-   and records success/failure. No automatic creation before portal testing
-   and owner approval. Never silently delete a Bitrix card.
-7. Users search existing Bitrix24 CRM cards, never trigger 1C full scans.
+6. Independently, an authorized Bitrix search application can query the
+   local synced index through an approved secured low-latency interface.
+   Search itself DOES NOT create CRM entities or touch 1C.
+7. If a user selects an external 1C customer absent from CRM, the app
+   checks linkage/duplicates, then creates or links a company/contact
+   on demand. Separately approved bulk preloading remains optional.
+   Never silently delete a Bitrix card or create a duplicate.
 8. Rare controlled reconciliation runs remain as fallback and safety audit,
    not the default synchronization mechanism.
+
+## Searchable directory is the primary user workflow
+
+The user clarified that the business objective is **universal, current
+search access** from Bitrix24 (not necessarily precreation of all 6,433 CRM
+entities). Prefer evaluating the officially supported `CRM_DETAIL_SEARCH`
+external-client finder, with on-demand safe CRM entity creation/linking
+after selection, before any bulk CRM import design.
+See [BITRIX_ALWAYS_SEARCHABLE_DIRECTORY.md](BITRIX_ALWAYS_SEARCHABLE_DIRECTORY.md).
+
+The separate Bitrix24 search widget requires a low-latency reachable
+authenticated endpoint. The SRV outbound polling transport does **not**
+provide this by itself, and no network route is yet approved.
+An option involving a protected minimal online search projection would
+require separate approval before moving any client data from SRV.
+Existing SAFE_IDLE remains unchanged.
 
 ## Explicit current status
 

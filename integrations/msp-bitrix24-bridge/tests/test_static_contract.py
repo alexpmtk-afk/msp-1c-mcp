@@ -191,6 +191,15 @@ class BootstrapSafety(unittest.TestCase):
             self.assertIn(term,spec)
         self.assertIn("NOT been proven",spec)
         self.assertIn("no 1C writes",spec)
+    def test_external_search_is_on_demand_not_bulk_sync(self):
+        spec=(ROOT/"docs/BITRIX_ALWAYS_SEARCHABLE_DIRECTORY.md").read_text(encoding="utf-8")
+        for token in ("CRM_DETAIL_SEARCH", "crmShowFoundEntities",
+                      "onCrmEntityIsNeedToCreate", "crmShowCreatedEntity",
+                      "3 characters", "6,433", "Bitrix24 CRM",
+                      "natural persons with no INN", "outbound HTTPS poll",
+                      "NOT solved yet", "never scans all buyer rows"):
+            self.assertIn(token,spec)
+        self.assertIn("No sync activation",spec)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
