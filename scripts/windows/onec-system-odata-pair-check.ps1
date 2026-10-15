@@ -1,6 +1,6 @@
 ﻿#requires -version 2
-# LocalService fixed first-item-and-warehouse read-only filtered Balance sample.
-# No parameters, arbitrary commands, writes, or raw identifiers exported.
+# Fixed item+warehouse balance check under LocalService only. No request arguments.
+# Strictly two local GET requests. No writes, no GUID or other raw data exported.
 # Both reference GUIDs stay local and are never printed or transmitted to GitHub.
 
 $ErrorActionPreference='Stop'
@@ -61,9 +61,7 @@ function ReadRow([string]$json) {
   return @{ ItemGuid=$values['Номенклатура_Key']; WarehouseGuid=$values['СтруктурнаяЕдиница_Key']; Qty=$qty }
 }
 try {
-  if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-19') {
-    throw 'NOT_LOCAL_SERVICE'
-  }
+  if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-19') { throw 'NOT_LOCAL_SERVICE' }
   if ($PSVersionTable.PSVersion.Major -ne 2) { throw 'WRONG_POWERSHELL' }
   if (-not (Test-Path -LiteralPath $secret -PathType Leaf)) { throw 'CREDENTIAL_NOT_ENROLLED' }
   $phase='UNSEAL_READONLY_ACCOUNT'
@@ -87,25 +85,7 @@ try {
   }
   if ($second.Qty -ne $first.Qty) { throw 'QUANTITY_MISMATCH' }
   $quantity=$first.Qty.ToString([Globalization.CultureInfo]::InvariantCulture)
-  if ($quantity -notmatch '^-?[0-9]{1,9}(?:\.[0-9]{1,3})?
-} catch {
-  $known=@('WRONG_MACHINE','WRONG_POWERSHELL','WRONG_OS','ADMIN_REQUIRED',
-    'CREDENTIAL_NOT_ENROLLED','INVALID_CREDENTIAL','NON_200',
-    'RESPONSE_TOO_LARGE','NO_ROWS','MULTIPLE_DIMENSIONS',
-    'DIMENSION_KEYS_MISSING','QUANTITY_NOT_UNIQUE',
-    'FILTER_RETURNED_WRONG_PAIR','QUANTITY_MISMATCH')
-  $reason=$_.Exception.Message
-  if ($known -notcontains $reason) { $reason='READ_ERROR' }
-  # Only fixed error marker may reach the queue. No HTTP bodies, GUIDs or secrets.
-  Write-Output 'ODATA_PAIR_READ_FAILED'
-  exit 1
-} finally {
-  $password=$null
-  $credentials=$null
-  if ($null -ne $clear) { [Array]::Clear($clear,0,$clear.Length) }
-  if ($null -ne $encrypted) { [Array]::Clear($encrypted,0,$encrypted.Length) }
-}
-) { throw 'INVALID_QUANTITY' }
+  if ($quantity -notmatch '^-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') { throw 'INVALID_QUANTITY' }
   Write-Output ('PAIR_Q_'+$quantity)
   exit 0
 } catch {
@@ -116,7 +96,7 @@ try {
     'FILTER_RETURNED_WRONG_PAIR','QUANTITY_MISMATCH')
   $reason=$_.Exception.Message
   if ($known -notcontains $reason) { $reason='READ_ERROR' }
-  Write-Output ('RESULT=FAIL;STAGE='+$phase+';GATE='+$reason)
+  Write-Output 'ODATA_PAIR_READ_FAILED'
   exit 1
 } finally {
   $password=$null
