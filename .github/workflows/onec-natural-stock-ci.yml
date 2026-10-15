@@ -9,6 +9,7 @@ on:
       - 'scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
       - 'scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
       - 'scripts/windows/onec-natural-stock-schema-v3.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-v4.ps1'
       - 'scripts/windows/onec-natural-stock-v3-once.ps1'
       - 'src/msp_onec_mcp/natural_stock_contract.py'
       - 'src/msp_onec_mcp/natural_stock_resolution.py'
@@ -82,8 +83,9 @@ jobs:
           $v2RunnerPath='scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
           $v2OncePath='scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
           $v3HelperPath='scripts/windows/onec-natural-stock-schema-v3.ps1'
+          $v4HelperPath='scripts/windows/onec-natural-stock-schema-v4.ps1'
           $v3OncePath='scripts/windows/onec-natural-stock-v3-once.ps1'
-          foreach($file in @($runnerPath,$oncePath,$bootstrapPath,$v2RunnerPath,$v2OncePath,$v3HelperPath,$v3OncePath)) {
+          foreach($file in @($runnerPath,$oncePath,$bootstrapPath,$v2RunnerPath,$v2OncePath,$v3HelperPath,$v3OncePath,$v4HelperPath)) {
             $raw=[IO.File]::ReadAllBytes($file)
             if($raw.Length -lt 4 -or $raw[0] -ne 239 -or $raw[1] -ne 187 -or $raw[2] -ne 191) {
               throw ('UTF8_BOM_MISSING='+$file)
@@ -193,6 +195,21 @@ jobs:
             $reader.Close()
           }
           if(-not $reject) { throw 'DTD_NOT_PROHIBITED' }
+          $v4=[IO.File]::ReadAllText($v4HelperPath)
+          foreach($needle in @('ProhibitDtd=$true','XmlResolver=$null',
+            'MAX','METADATA_HTTP_GET','METADATA_XML_PARSE',
+            'KNOWN_NAME_MATCHES','EXAMPLE_UPPER_MATCHES',
+            'WAREHOUSE_HTTP_GET','BALANCE_ROUTE_HTTP',
+            'AccumulationRegister_ЗапасыНаСкладах/Balance(Dimensions=',
+            "Method='GET'",'DATA_WRITES')) {
+            if(-not $v4.Contains($needle) -and $needle -ne 'MAX') {
+              throw ('V4_READONLY_GUARD_MISSING='+$needle)
+            }
+          }
+          if($v4 -match 'Invoke-Expression|Invoke-RestMethod|Start-Service|RegisterTaskDefinition|New-ScheduledTask|WebClient|HttpListener') {
+            throw 'V4_UNSAFE_OPERATION'
+          }
+          'ONEC_V4_FIXED_GET_STATIC=PASS'
           'ONEC_V3_CLR2_SAFE_STATIC=PASS'
           'ONEC_FORENSIC_V2_STATIC=PASS'
           'ONEC_ONESHOT_PS2_STATIC=PASS'
