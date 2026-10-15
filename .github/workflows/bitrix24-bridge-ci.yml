@@ -50,6 +50,7 @@ jobs:
                    'bin/diagnose-machine-store-install-failure.ps1',
                    'bin/diagnose-machine-store-tls-block.ps1',
                    'bin/resume-machine-customer-store.ps1',
+                   'bin/resume-machine-customer-store-from-zip.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f

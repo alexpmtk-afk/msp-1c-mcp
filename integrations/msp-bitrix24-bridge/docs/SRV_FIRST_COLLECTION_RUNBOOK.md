@@ -1,3 +1,23 @@
+## Recovery checkpoint: ZIP already verified on physical SRV
+
+Observed `CURL_SYSTEM_VERSION=PASS`, `CURL_SYSTEM_HASH=PASS`,
+`SQLITE_ARCHIVE_SHA256=PASS`, followed by
+`GATE=SQLITE_ENTRY_MISSING` in `SQLITE_EXTRACT`.
+Likely archive nesting; Shell.Application root `ParseName('sqlite3.exe')`
+does not traverse ZIP subfolders. This is a hypothesis until on-SRV
+inspection confirms the archive layout.
+
+**Do not rerun the earlier resume script.** Use only the stage-specific
+`bin/resume-machine-customer-store-from-zip.ps1` after CI acceptance.
+It accepts precisely one extra existing staged ZIP, rehashes the exact
+official file and searches both the root and one nested ZIP folder
+for `sqlite3.exe` using Shell.Application. Does not fetch ZIP again.
+If the entry remains absent, it prints the ZIP root entry names, then
+fails closed; no other files or tasks are changed in this stage.
+All other preconditions and LOCAL SERVICE empty-smoke requirements
+are retained. No Bitrix, OData, other system task changes.
+Do not auto-retry a failed stage-specific resume.
+
 ## 15 Oct 2026: curl version flag failure and safe resume
 
 Machine-owned runtime inventory and ACL diagnostic confirmed that the root

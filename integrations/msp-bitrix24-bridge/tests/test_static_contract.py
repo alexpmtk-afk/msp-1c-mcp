@@ -349,6 +349,23 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("DeleteTask", "Remove-Item", "Set-Acl", "MspOnecHttpsAgentSystem",
                           "Get-Credential", "Start-Service", "crm.company.add", "C:\\Users\\parshin"):
             self.assertNotIn(forbidden,s)
+    def test_zip_resume_does_not_redownload_or_change_existing_install(self):
+        s=read("resume-machine-customer-store-from-zip.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("VERIFIED_ZIP_NOT_PRESENT", "SQLITE_ARCHIVE_REUSED=YES",
+                      "SQLITE_ZIP_SHA256_MISMATCH", "SQLITE_ZIP_ENTRY_LAYOUT=",
+                      "$top.GetFolder", "$nestedFolder.ParseName('sqlite3.exe')",
+                      "MULTIPLE_SQLITE_EXE_ENTRIES",
+                      "MspCustomerStoreSync", "S-1-5-19",
+                      "$boot.Enabled=$false", "RUN_SERVICE_EMPTY_SMOKE",
+                      "CUSTOMERS_COUNT=0", "EXISTING_BRIDGE_CHANGED=NO",
+                      "ONEC_CALLS=NO", "BITRIX_CALLS=NO",
+                      "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(token,s)
+        self.assertNotIn("Fetch 'https://www.sqlite.org/",s)
+        for forbidden in ("Remove-Item", "DeleteTask", "Set-Acl",
+                          "MspOnecHttpsAgentSystem", "Get-Credential", "crm.company.add"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
