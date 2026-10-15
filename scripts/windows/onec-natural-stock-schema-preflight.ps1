@@ -55,7 +55,7 @@ function PropertyNames($doc,[string]$entity) {
     $name=$prop.GetAttribute('Name')
     if ($name) { $result+=@($name) }
   }
-  return ,$result
+  return $result
 }
 function Flag([bool]$b) { if($b){return 'YES'}else{return 'NO'} }
 try {
