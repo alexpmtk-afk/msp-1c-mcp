@@ -93,6 +93,12 @@ jobs:
           if($classUpgrade -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
              throw 'ERROR_CLASS_UPGRADE_UNSAFE'
           }
+          # PS2 defaults to system ANSI for .ps1 files with no Unicode BOM.
+          $filterBytes=[IO.File]::ReadAllBytes('scripts/windows/onec-odata-filter-selfcheck.ps1')
+          if($filterBytes.Length -lt 4 -or $filterBytes[0] -ne 239 -or
+             $filterBytes[1] -ne 187 -or $filterBytes[2] -ne 191) {
+             throw 'FILTER_SELF_CHECK_PS2_UTF8_BOM_MISSING'
+          }
           $filterCheck=[IO.File]::ReadAllText('scripts/windows/onec-odata-filter-selfcheck.ps1')
           foreach($required in @("Method='GET'",'127.0.0.1:8085/NewBase/',
             'GetResponse','ItemGuid','WarehouseGuid',
