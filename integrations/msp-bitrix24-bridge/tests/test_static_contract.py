@@ -104,6 +104,18 @@ class BootstrapSafety(unittest.TestCase):
             self.assertIn("ODATA_USERNAME_MISMATCH", s)
             self.assertNotIn("Get-Credential", s)
             self.assertNotIn("-UserName", s)
+    def test_local_ten_row_pilot_ps2_and_data_guard(self):
+        s=read("pilot-customers-local-10.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("127.0.0.1:8085/NewBase", "&$top=10", "&$select=",
+                      "Ref_Key", "Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString",
+                      "$req.Method='GET'", "AllowAutoRedirect=$false", "$req.Proxy=$null",
+                      "RESPONSE_TOO_LARGE", "PILOT_ONLY=YES", "CUSTOMER_RECORDS_EXPORTED=NO",
+                      "RAW_IDENTIFIERS_EXPORTED=NO", "DATA_WRITES=NO", "BITRIX_CALLS=NO"):
+            self.assertIn(token,s)
+        for forbidden in ("Get-Credential", "Invoke-Expression", ".Method='POST'",
+                          "crm.company.add", "WriteAllText", "Export-Csv"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
