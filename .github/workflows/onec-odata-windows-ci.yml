@@ -26,7 +26,10 @@ jobs:
                    'scripts/windows/onec-odata-error-class-upgrade.ps1',
                    'scripts/windows/onec-odata-filter-selfcheck.ps1',
                    'scripts/windows/onec-system-odata-pair-check.ps1',
-                   'scripts/windows/onec-odata-pair-upgrade.ps1')
+                   'scripts/windows/onec-odata-pair-upgrade.ps1',
+                   'scripts/windows/onec-system-odata-selected.ps1',
+                   'scripts/windows/onec-odata-selected-upgrade.ps1',
+                   'scripts/windows/onec-odata-sample-guids-local.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -73,7 +76,7 @@ jobs:
           }
           foreach($needed in @('ODATA_AUTH_DENIED','ODATA_UNAVAILABLE',
             'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_READ_ERROR',
-            'VERSION=ODATA_PAIR_V1')) {
+            'VERSION=ODATA_SELECTED_V1')) {
             if(-not $poll.Contains($needed)) { throw ('DIAGNOSTIC_REASON_GUARD_MISSING='+$needed) }
           }
           if($diag -match 'RegisterTaskDefinition|Invoke-Expression|New-ScheduledTask') {
@@ -136,8 +139,61 @@ jobs:
             if($pair.Contains($forbidden)) { throw ('PAIR_HELPER_UNSAFE='+$forbidden) }
           }
           foreach($needed in @('odata_pair_check','onec-system-odata-pair-check.ps1',
-            'VERSION=ODATA_PAIR_V1','PAIR_Q_')) {
+            'VERSION=ODATA_SELECTED_V1','PAIR_Q_')) {
             if(-not $poll.Contains($needed)) { throw ('PAIR_AGENT_GUARD_MISSING='+$needed) }
+          }
+          $selectedPath='scripts/windows/onec-system-odata-selected.ps1'
+          $bytes=[IO.File]::ReadAllBytes($selectedPath)
+          if($bytes.Length -lt 4 -or $bytes[0] -ne 239 -or
+            $bytes[1] -ne 187 -or $bytes[2] -ne 191) {
+            throw 'SELECTED_HELPER_UTF8_BOM_MISSING'
+          }
+          $selected=[IO.File]::ReadAllText($selectedPath)
+          foreach($needle in @('S-1-5-19','MCP_OData_ReadOnly',
+            'Method=','GET','127.0.0.1:8085/NewBase/','EscapeDataString',
+            'ODATA_SELECTED_FILTER_MISMATCH','SELECTED_Q_',
+            'AllowAutoRedirect=$false','ProtectedData]::Unprotect')) {
+            if(-not $selected.Contains($needle)) {
+              throw ('SELECTED_HELPER_GUARD_MISSING='+$needle)
+            }
+          }
+          foreach($denied in @('Invoke-Expression','Invoke-RestMethod',
+            'Start-Process','RegisterTaskDefinition','New-ScheduledTask')) {
+            if($selected.Contains($denied)) { throw ('SELECTED_HELPER_UNSAFE='+$denied) }
+          }
+          foreach($needle in @('odata_stock_selected','onec-system-odata-selected.ps1',
+            'SELECTED_Q_','VERSION=ODATA_SELECTED_V1')) {
+            if(-not $poll.Contains($needle)) {
+              throw ('SELECTED_AGENT_GUARD_MISSING='+$needle)
+            }
+          }
+          $selectedUpgrade=[IO.File]::ReadAllText('scripts/windows/onec-odata-selected-upgrade.ps1')
+          foreach($needle in @('OLD_AGENT_RESTORED=PASS','PINNED_SOURCE_MISMATCH',
+            'LIVE_SOURCE_UNEXPECTED','VERSION=ODATA_SELECTED_V1',
+            'S-1-5-19','PERSONAL_AGENT_DISABLED=YES','SYSTEM_TASK_UNCHANGED=YES',
+            'ODATA_READ=NOT_YET_TESTED','File]::Replace')) {
+            if(-not $selectedUpgrade.Contains($needle)) {
+              throw ('SELECTED_INSTALLER_GUARD_MISSING='+$needle)
+            }
+          }
+          foreach($denied in @('RegisterTaskDefinition','Start-ScheduledTask',
+            'New-ScheduledTask','Invoke-Expression')) {
+            if($selectedUpgrade.Contains($denied)) { throw ('SELECTED_INSTALLER_UNSAFE='+$denied) }
+          }
+          $samplePath='scripts/windows/onec-odata-sample-guids-local.ps1'
+          $sampleBytes=[IO.File]::ReadAllBytes($samplePath)
+          if($sampleBytes.Length -lt 4 -or $sampleBytes[0] -ne 239 -or
+             $sampleBytes[1] -ne 187 -or $sampleBytes[2] -ne 191) {
+            throw 'SAMPLE_GUID_HELPER_UTF8_BOM_MISSING'
+          }
+          $sample=[IO.File]::ReadAllText($samplePath)
+          foreach($needed in @('ADMIN_REQUIRED','MCP_OData_ReadOnly',
+            'http://127.0.0.1:8085/NewBase/','Method=','GET',
+            'FILTER_RETURNED_WRONG_PAIR','QUANTITY_MISMATCH',
+            'ITEM_GUID=','WAREHOUSE_GUID=','DATA_WRITES=NO')) {
+            if(-not $sample.Contains($needed)) {
+              throw ('SAMPLE_GUID_HELPER_GUARD_MISSING='+$needed)
+            }
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
