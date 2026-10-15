@@ -182,6 +182,15 @@ class BootstrapSafety(unittest.TestCase):
                      "MspBitrix24Bridge", "SAFE_IDLE"):
             self.assertIn(must,spec)
         self.assertNotIn("CUSTOMER_SCOPE=LEGAL_ONLY",spec)
+    def test_selected_option_b_covers_all_buyers_and_safe_idle(self):
+        spec=(ROOT/"docs/SYNC_ARCHITECTURE_OPTION_B.md").read_text(encoding="utf-8")
+        for term in ("Option B", "6,433", "ФизическоеЛицо",
+                     "INN", "SQLite", "customers.db", "change_inbox",
+                     "bitrix_outbox", "bitrix_links", "SAFE_IDLE",
+                     "NOT been created"):
+            self.assertIn(term,spec)
+        self.assertIn("NOT been proven",spec)
+        self.assertIn("no 1C writes",spec)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

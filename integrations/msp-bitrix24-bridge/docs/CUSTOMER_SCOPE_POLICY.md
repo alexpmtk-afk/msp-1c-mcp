@@ -52,6 +52,16 @@ a natural person**. Sync runs centrally, not once for each person searching.
    no 1C writes, no changes to the existing 1C agent/system task,
    until separately approved.
 
+## Selected update mechanism (15 Oct 2026)
+- User explicitly chose **Option B**: source-side native 1C change
+  registration (exchange-plan service), with a durable SRV inbox.
+- Preferred *local storage proposal* is SQLite at
+  `C:\ProgramData\MspBitrix24Bridge\data\customers.db`, subject
+  to legacy OS/provider and encryption/ACL validation.
+- JSON is for event/API transport only, not the master directory.
+- Integration remains conceptual; see [SYNC_ARCHITECTURE_OPTION_B.md](SYNC_ARCHITECTURE_OPTION_B.md).
+- No 1C metadata/config write or Bitrix24 sync enabled without approval.
+
 ## Next acceptance work
 - Inspect safe **per-type aggregate** name completeness, plus the
   six unknown type values, without record export.
