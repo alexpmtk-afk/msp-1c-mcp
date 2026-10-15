@@ -48,6 +48,7 @@ jobs:
                    'bin/smoke-customer-store-service.ps1','config/collector.ini',
                    'bin/install-machine-customer-store.ps1',
                    'bin/diagnose-machine-store-install-failure.ps1',
+                   'bin/diagnose-machine-store-tls-block.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f

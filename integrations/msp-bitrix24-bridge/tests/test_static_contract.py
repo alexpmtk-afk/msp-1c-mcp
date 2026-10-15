@@ -316,6 +316,20 @@ class BootstrapSafety(unittest.TestCase):
                           "WriteAllText(", "Copy-Item", "RegisterTaskDefinition(",
                           "icacls.exe' /", "Invoke-WebRequest", "Get-Credential"):
             self.assertNotIn(forbidden,s)
+    def test_partial_installer_tls_diagnostic_readonly_ps2(self):
+        s=read("diagnose-machine-store-tls-block.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("C:\\ProgramData\\MspCustomerStore",
+                      "TARGET_CA_PRESENT=", "TARGET_CURL_VERSION_STATUS=",
+                      "TLS_DLL_MISSING_COUNT=", "SOURCE_DLL_COUNT=",
+                      "CURL_COPY_HASH_MATCH=", "SQLITE_ZIP_PRESENT=",
+                      "FILES_WRITTEN=NO", "ACL_CHANGES=NO",
+                      "TASK_CHANGES=NO", "INSTALL_RETRY=NO"):
+            self.assertIn(token,s)
+        for forbidden in ("WriteAllText(", "CreateDirectory(", "Copy-Item",
+                          "RegisterTaskDefinition(", "Set-Acl",
+                          "Invoke-WebRequest", ".Method='POST'"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
