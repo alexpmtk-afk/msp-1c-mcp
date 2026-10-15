@@ -518,6 +518,22 @@ class BootstrapSafety(unittest.TestCase):
             self.assertNotIn(forbidden,s)
         self.assertIn("UTF8.GetBytes",s)
         self.assertIn("$script:base='http://127.0.0.1:8085/NewBase",s)
+    def test_initial_full_load_runner_exactly_one_service_task(self):
+        s=read("run-customer-store-initial-6433.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("MspCustomerStoreInitial6433", "MspCustomerStoreSync",
+                      "S-1-5-19", "INITIAL_WORKER_SHA256=PASS",
+                      "a06c3c2155434557e9fb106dad820588aefedcf22afec72f9a8ec56ae7eabc98",
+                      "EXPECTED_TEN_PILOT_ROWS", "TEMPORARY_TASK_HAS_AUTO_TRIGGER",
+                      "FULL_LOAD_FAILURE_PHASE=", "S3_ROWS=6433",
+                      "S3_NEW_GUIDS=6423", "S3_EXISTING_PILOT_GUIDS=10",
+                      "COLLECTOR_BOOT_AUTOSTART=OFF",
+                      "ONEC_WRITES=NO", "BITRIX_CALLS=NO",
+                      "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(token,s)
+        self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
+        self.assertNotIn("Get-Credential",s)
+        self.assertNotIn("Method='POST'",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

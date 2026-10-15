@@ -1,3 +1,30 @@
+## S3 full initial load (only after pilot10 PASS)
+
+The existing 10 SQLite customer records have been independently verified
+with 10 unique GUIDs and `LOCAL SERVICE` PASS status. They are not deleted.
+
+The native PS2 worker `bin/initial-load-customers-6433.ps1` reads all
+6,433 eligible buyers from localhost TEST 1C OData in deterministic pages
+of 100, with 3 MiB response cap and no 1C writes.
+It checks count before and after, and detects duplicate GUIDs,
+missing original 10 GUIDs, unknown types and maximum statement size.
+All records are staged **only in memory**. After validation, one
+`BEGIN IMMEDIATE` SQLite UPSERT transaction writes all 6,433,
+with acceptance constraints on total and active rows and one `scan_runs`
+audit record. Failed transaction rolls back; no raw XML, INN, names or
+GUID lists are exported to logs/GitHub. Local DB stays ACL-protected.
+Note: local SQLite DB is NOT encrypted by default; NTFS ACL protects access.
+
+The bootless, one-off task is `MspCustomerStoreInitial6433`, run under
+`NT AUTHORITY\LOCAL SERVICE` by
+`bin/run-customer-store-initial-6433.ps1`. On PASS this temporary task
+is removed; existing main collector `MspCustomerStoreSync` is unchanged,
+with boot trigger still OFF. Expected 6,433 total, 6,433 unique,
+6,423 new GUIDs beyond existing pilot10.
+The selected native change registration (Option B) is still UNIMPLEMENTED,
+so database will not yet update autonomously after this snapshot.
+Do not enable Bitrix24. No automatic retry after any failure.
+
 ## S3: isolated 10-row customer ingestion acceptance
 
 After LOCAL SERVICE DPAPI and TEST 1C count gate PASS (6,433), run only
