@@ -466,6 +466,23 @@ class BootstrapSafety(unittest.TestCase):
                       "RegisterTaskDefinition('MspCustomerStoreSync'",
                       "Invoke-Expression"):
             self.assertNotIn(value,s)
+    def test_pilot10_machine_owned_customer_transfer(self):
+        s=read("pilot-machine-customer-store-10.ps1")
+        self.assertTrue(s.isascii())
+        for fragment in ("S-1-5-19", "MCP_OData_ReadOnly",
+                         "DataProtectionScope]::LocalMachine",
+                         "ACTIVE=0", "ONEC_READ=0", "DELTA_READ=0", "BITRIX=0",
+                         "PILOT_ROWS=10", "SOURCE_GUID_DUPLICATE", "UTF8.GetBytes",
+                         "BEGIN IMMEDIATE;", "COMMIT;", "SQLITE_BACKREAD=PASS",
+                         "PRAGMA quick_check", "PILOT_PERSON=", "PILOT_REVIEW=",
+                         "CUSTOMER_RECORDS_EXPORTED=NO", "ONEC_WRITES=NO",
+                         "BITRIX_CALLS=NO"):
+            self.assertIn(fragment,s)
+        self.assertNotIn("Get-Credential",s)
+        self.assertNotIn("RegisterTaskDefinition",s)
+        self.assertNotIn("127.0.0.1:9786",s)
+        self.assertNotIn("Method='POST'",s)
+        self.assertNotIn("Invoke-WebRequest",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
