@@ -79,14 +79,9 @@ def test_does_not_fuzzy_normalize_or_guess_sku():
     assert validate_term("Склад-01", max_length=100, label="warehouse") == "Склад-01"
 
 
-def test_safely_encode_code_for_duplicate_named_newbase_items():
-    msg=encode_lookup("code","НФ-00001359","Основной склад")
-    assert msg.isascii()
-    assert msg.startswith("LOOKUP1|code|")
-    assert decode_lookup(msg)=={
-        "kind":"code",
-        "item_text":"НФ-00001359",
-        "warehouse_name":"Основной склад",
-    }
+def test_user_may_search_only_article_or_name_not_internal_code():
     with pytest.raises(ValueError):
-        encode_lookup("code","НФ-00001359\nDELETE")
+        encode_lookup("code","НФ-00001359","Основной склад")
+    with pytest.raises(ValueError):
+        decode_lookup("LOOKUP1|code|0J3QpC0wMDAwMTM1OQ|-")
+    assert decode_lookup(encode_lookup("name","Слэмбол 6 кг","Основной склад"))["kind"]=="name"
