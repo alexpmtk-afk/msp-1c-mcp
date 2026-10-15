@@ -42,7 +42,7 @@ def queue(status_result: str):
 
 
 @pytest.mark.parametrize("invalid", [
-    "", "Z", ITEM.upper(), "00000000-0000-0000-0000-000000000000",
+    "", "Z", WAREHOUSE.upper(), "00000000-0000-0000-0000-000000000000",
     ITEM + ";rm -rf /", "../" + ITEM, "STOCK|" + ITEM, ITEM + "\n",
     "g" * 36, "a" * 200,
 ])
