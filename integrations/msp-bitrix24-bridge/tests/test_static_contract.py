@@ -45,6 +45,17 @@ class BootstrapSafety(unittest.TestCase):
         self.assertIn("$req.Method='GET'",s)
         self.assertIn("$req.AllowAutoRedirect=$false",s)
         self.assertIn("$req.Proxy=$null",s)
+    def test_read_only_customer_schema_ps2_ascii(self):
+        s=read("inspect-customers-schema.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("'GET'", "'$metadata'", "127.0.0.1:8085/NewBase", "$request.Proxy=$null",
+                      "$request.AllowAutoRedirect=$false", "COUNTERPARTIES", "COUNTERPARTY_CONTACT_INFO",
+                      "CUSTOMER_RECORDS_EXPORTED=NO", "DATA_WRITES=NO",
+                      "FIELD=", "KEY=", "ENTITY_TYPE="):
+            self.assertIn(token,s)
+        for forbidden in ("Invoke-Expression", ".Method='POST'", "crm.company.add",
+                          "crm.contact.add","Get-Acl -LiteralPath"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
