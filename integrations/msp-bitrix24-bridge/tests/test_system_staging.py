@@ -29,6 +29,15 @@ class StagingTest(unittest.TestCase):
         self.assertIn("Sysnative\icacls.exe", s)
         self.assertIn("ICACLS_MISSING", s)
         self.assertNotIn("& icacls.exe", s)
+    def test_readonly_runtime_diagnostic(self):
+        s=src("diagnose-runtime.ps1")
+        for token in ("TASK_LAST_RESULT", "TASK_ACTIONS", "ACTION_FILE_ARGUMENT_EXPECTED",
+                      "TASK_IDENTITY_LOCAL_SERVICE", "SCRIPT_HASH_VALID",
+                      "POLICY_HASH_VALID", "TASK_EVENT=", "NO_CHANGES=YES"):
+            self.assertIn(token, s)
+        for forbidden in ("RegisterTaskDefinition", "Invoke-WebRequest", "Run($null)",
+                          "DeleteTask(", "Remove-Item", "Get-Content -Path", "MspOnecHttpsAgentSystem"):
+            self.assertNotIn(forbidden, s)
     def test_native_system_smoke(self):
         s=src("smoke-system.ps1")
         for token in ("S-1-5-19","Run($null)","SAFE_IDLE","FRESH_SYSTEM_HEARTBEAT_MISSING"):
