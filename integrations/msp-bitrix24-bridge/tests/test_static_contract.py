@@ -274,6 +274,20 @@ class BootstrapSafety(unittest.TestCase):
                        "S-1-5-19", "SAFE_IDLE", "backups", "secrets",
                        "C:\\ProgramData\\MspBitrix24Bridge"):
             self.assertIn(marker,pol)
+    def test_service_owned_empty_smoke_never_calls_onec(self):
+        s=read("smoke-customer-store-service.ps1")
+        self.assertTrue(s.isascii())
+        for term in ("S-1-5-19", "C:\\ProgramData\\MspCustomerStore",
+                     "PRAGMA quick_check", "ROLLBACK;", "CUSTOMERS_COUNT=0",
+                     "ONEC_CALLS=NO", "BITRIX_CALLS=NO",
+                     "STATUS=EMPTY_DB_PASS", "SCHEMA_TABLES=4"):
+            self.assertIn(term,s)
+        for banned in ("C:\\Users\\", "Invoke-WebRequest", "HttpWebRequest",
+                       "Get-Credential", "RegisterTaskDefinition", "crm.company.add"):
+            self.assertNotIn(banned,s)
+        cfg=(ROOT/"config/collector.ini").read_text(encoding="ascii")
+        for key in ("ACTIVE=0", "ONEC_READ=0", "DELTA_READ=0", "BITRIX=0"):
+            self.assertIn(key,cfg)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
