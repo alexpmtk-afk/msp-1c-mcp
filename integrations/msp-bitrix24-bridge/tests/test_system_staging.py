@@ -11,18 +11,18 @@ class StagingTest(unittest.TestCase):
                       "RUN_AS_LOCAL_SERVICE=YES","CUSTOMERS_SYNC=OFF","ONEC_WRITES=OFF"):
             self.assertIn(token,s)
         self.assertNotIn("MspOnecHttpsAgentSystem",s)
-    def test_partial_stage_resume_has_strict_guards(self):
+    def test_partial_stage_resume_is_deprecated(self):
         s=src("resume-system.ps1")
-        for token in ("S-1-5-19", "ROOT_REPARSE_POINT", "FOLDER_REPARSE_POINT",
-                      "BRIDGE_FILE_HASH_MISMATCH", "POLICY_HASH_MISMATCH",
-                      "UNEXPECTED_RUNTIME_CONTENTS", "TASK_ALREADY_EXISTS",
-                      "MANUAL_TEST_REQUIRED=YES", "CUSTOMERS_SYNC=OFF", "ONEC_WRITES=OFF",
-                      "Triggers.Create(8)", "Triggers.Create(2)",
-                      "$boot.Enabled=$false", "$daily.Enabled=$false",
-                      "System32\icacls.exe", "Sysnative\icacls.exe"):
-            self.assertIn(token, s)
-        self.assertNotIn("& icacls.exe", s)
-        self.assertNotIn("MspOnecHttpsAgentSystem", s)
+        self.assertIn("DEPRECATED_REQUIRES_ACL_REVIEW", s)
+        self.assertNotIn("RegisterTaskDefinition", s)
+        self.assertNotIn("/inheritance:r", s)
+
+    def test_install_acl_before_children_and_no_recursive_acl(self):
+        s=src("install-system.ps1")
+        self.assertLess(s.index("$phase='APPLY_ROOT_ACL'"),s.index("$phase='STAGE_LOCAL_FILES'"))
+        self.assertIn("VERIFY_STAGED_ACCESS",s)
+        self.assertNotIn("'/T' | Out-Null",s)
+
     def test_new_installs_resolve_icacls_absolutely(self):
         s=src("install-system.ps1")
         self.assertIn("System32\icacls.exe", s)

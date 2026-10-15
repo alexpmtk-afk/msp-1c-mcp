@@ -31,18 +31,31 @@ try {
   try{$existing=$folder.GetTask('MspBitrix24Bridge')}catch{$existing=$null}
   if($null -ne $existing){Fail 'TASK_EXISTS'}
   if(Test-Path -LiteralPath $root){Fail 'ROOT_EXISTS'}
+  $phase='CREATE_ROOT'
+  [void](New-Item -ItemType Directory -Path $root -ErrorAction Stop)
+  $phase='APPLY_ROOT_ACL'
+  # IMPORTANT: secure the EMPTY root first, then create children which inherit.
+  # NEVER use /inheritance:r together with /T over existing files.
+  & $icacls $root '/inheritance:r' '/grant:r' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' | Out-Null
+  if($LASTEXITCODE -ne 0){Fail 'ACL_ROOT_FAILED'}
   $phase='STAGE_LOCAL_FILES'
   foreach($name in @('bin','config','state','secrets','logs')){
-    [void](New-Item -ItemType Directory -Force -Path (Join-Path $root $name))
+    [void](New-Item -ItemType Directory -Path (Join-Path $root $name) -ErrorAction Stop)
   }
   Copy-Item -LiteralPath $f -Destination (Join-Path $root 'bin\bridge.ps1') -ErrorAction Stop
   Copy-Item -LiteralPath $c -Destination (Join-Path $root 'config\bridge.ini') -ErrorAction Stop
-  $phase='APPLY_ROOT_ACL'
-  & $icacls $root '/inheritance:r' '/grant:r' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' '/T' | Out-Null
-  if($LASTEXITCODE -ne 0){Fail 'ACL_ROOT_FAILED'}
   $phase='APPLY_STATE_ACL'
-  & $icacls (Join-Path $root 'state') '/grant:r' '*S-1-5-19:(OI)(CI)M' '/T' | Out-Null
+  & $icacls (Join-Path $root 'state') '/grant:r' '*S-1-5-19:(OI)(CI)M' | Out-Null
   if($LASTEXITCODE -ne 0){Fail 'ACL_STATE_FAILED'}
+  $phase='VERIFY_STAGED_ACCESS'
+  $srcHash=New-Object System.Security.Cryptography.SHA256Managed
+  try {
+    foreach($pair in @(@($f,(Join-Path $root 'bin\bridge.ps1')),@($c,(Join-Path $root 'config\bridge.ini')))){
+      $left=[BitConverter]::ToString($srcHash.ComputeHash([IO.File]::ReadAllBytes($pair[0])))
+      $right=[BitConverter]::ToString($srcHash.ComputeHash([IO.File]::ReadAllBytes($pair[1])))
+      if($left -ne $right){Fail 'STAGED_HASH_MISMATCH'}
+    }
+  } finally { $srcHash.Clear() }
   $phase='DEFINE_TASK'
   # NT AUTHORITY\LOCAL SERVICE is translated from its SID, independent of UI language.
   $id=New-Object Security.Principal.SecurityIdentifier -ArgumentList 'S-1-5-19'
