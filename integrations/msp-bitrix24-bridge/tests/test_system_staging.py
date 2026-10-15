@@ -67,6 +67,15 @@ class StagingTest(unittest.TestCase):
                       "UNSAFE_POLICY","Triggers.Item(1).Enabled=$true",
                       "Triggers.Item(2).Enabled=$true"):
             self.assertIn(token,s)
+    def test_enable_uses_localized_verified_account_and_pinned_safe_files(self):
+        s=src("enable-system.ps1")
+        self.assertIn("$account=$d.Principal.UserId", s)
+        self.assertIn("RegisterTaskDefinition('MspBitrix24Bridge',$d,6,$account,$null,5,$null)",s)
+        self.assertNotIn("RegisterTaskDefinition('MspBitrix24Bridge',$d,6,'NT AUTHORITY",s)
+        for marker in ("ALREADY_ENABLED_OR_INCONSISTENT","TASK_DISABLED",
+                       "BRIDGE_HASH_CHANGED","POLICY_HASH_CHANGED",
+                       "POST_ENABLE_IDENTITY_MISMATCH","WRONG_ENTRYPOINT"):
+            self.assertIn(marker,s)
     def test_no_bitrix_network_config(self):
         s=src("bridge.ps1")
         self.assertNotIn("Invoke-WebRequest",s)
