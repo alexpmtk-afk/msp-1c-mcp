@@ -419,6 +419,22 @@ class BootstrapSafety(unittest.TestCase):
         self.assertIn("$id.User.Value -ne 'S-1-5-19'",s)
         self.assertIn("STATUS=EMPTY_DB_PASS",s)
         self.assertIn("ROLLBACK;",s)
+    def test_schema_path_repair_preserves_machine_task_and_data(self):
+        s=read("repair-customer-store-schema-path.ps1")
+        self.assertTrue(s.isascii())
+        for term in ("S-1-5-19", "MspCustomerStoreSync",
+                     "SQLITE_MEMORY_SCHEMA_PATH=PASS", "STATUS=FAIL;GATE=RUNTIME_ERROR;PHASE=SCHEMA",
+                     "smoke-before-schema-path-fix.ps1.bak",
+                     "smoke-schema-path-fixed.ps1.new", "[IO.File]::Replace",
+                     "56f6d629241380828563cdf8551fefb1b53fbb71aeb06cfa4e2ab4a71ad3131d",
+                     "b2753f937e1e2c941440b69cbb2596655909f7a11892c61d34e44aa95c49b388",
+                     "COLLECTOR_BOOT_AUTOSTART=OFF", "CUSTOMERS_COUNT=0",
+                     "TASK_DEFINITION_CHANGED=NO", "ONEC_CALLS=NO",
+                     "BITRIX_CALLS=NO", "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(term,s)
+        for forbidden in ("RegisterTaskDefinition(", "DeleteTask", "Set-Acl",
+                          "Remove-Item", "Get-Credential", "MspOnecHttpsAgentSystem"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
