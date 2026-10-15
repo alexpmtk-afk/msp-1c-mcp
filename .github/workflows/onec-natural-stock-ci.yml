@@ -8,8 +8,10 @@ on:
       - 'scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
       - 'src/msp_onec_mcp/natural_stock_contract.py'
       - 'src/msp_onec_mcp/natural_stock_resolution.py'
+      - 'src/msp_onec_mcp/natural_stock_odata_pages.py'
       - 'tests/test_onec_natural_stock_contract.py'
       - 'tests/test_onec_natural_stock_resolution.py'
+      - 'tests/test_onec_natural_stock_odata_pages.py'
       - '.github/workflows/onec-natural-stock-ci.yml'
 permissions:
   contents: read
@@ -29,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install 'pytest>=8,<10'
-          PYTHONPATH=src python -m pytest -q tests/test_onec_natural_stock_contract.py tests/test_onec_natural_stock_resolution.py tests/test_onec_stock_stdio.py
+          PYTHONPATH=src python -m pytest -q tests/test_onec_natural_stock_contract.py tests/test_onec_natural_stock_resolution.py tests/test_onec_natural_stock_odata_pages.py tests/test_onec_stock_stdio.py
   windows-readonly-schema:
     runs-on: windows-latest
     timeout-minutes: 5
