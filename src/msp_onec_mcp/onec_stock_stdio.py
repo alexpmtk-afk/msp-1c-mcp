@@ -7,6 +7,7 @@ JSON-RPC messages use one JSON object per line. No logs on stdout.
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 try:
@@ -82,6 +83,8 @@ def tool_call(params: object) -> dict:
             raise ValueError("Two GUID inputs are required; extra parameters forbidden")
         result = selected_stock(args["item_guid"], args["warehouse_guid"])
     elif params.get("name") == NATURAL_TOOL["name"]:
+        if os.environ.get("ONEC_ENABLE_NATURAL_STOCK") != "1":
+            raise ValueError("Natural tool not enabled")
         if not {"kind", "query"} <= set(args) or set(args) - {"kind", "query", "warehouse_name"}:
             raise ValueError("Only name/article and optional warehouse name allowed")
         if args["kind"] not in ("name", "article"):
@@ -114,7 +117,7 @@ def dispatch(message: dict) -> dict | None:
         elif method == "ping":
             result = {}
         elif method == "tools/list":
-            result = {"tools": [TOOL, NATURAL_TOOL]}
+            result = {"tools": [TOOL] + ([NATURAL_TOOL] if os.environ.get("ONEC_ENABLE_NATURAL_STOCK") == "1" else [])}
         elif method == "tools/call":
             result = tool_call(message.get("params"))
         else:
