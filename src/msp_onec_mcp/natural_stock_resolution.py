@@ -1,9 +1,13 @@
-"""Deterministic article/name/1C code and warehouse name resolution (offline core).
+"""Read-only multi-card stock result for exact article OR product name.
 
-All inputs are *verified data* read from fixed NewBase OData entities by an
-authorized SRV handler. This function cannot read 1C, choose OData URLs,
-write anything, or infer missing inventory. Does not silently replace
-missing balance rows with zero.
+A correct, complete OData query must return *every* matching catalog card.
+Code is an internal 1C display field ONLY and is never a search selector.
+All cards are returned with their own balance; no card is silently chosen.
+No stock/warehouse GUID is exposed in the result.
+
+A missing Balance row is displayed as a qualified zero per the user-facing
+business rule, with an explicit NO_BALANCE_ROW marker. It must never be
+misrepresented as a verified numeric-zero row.
 """
 from __future__ import annotations
 
@@ -12,11 +16,11 @@ import re
 
 from .natural_stock_contract import validate_term
 
-UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
-QTY = re.compile(r"-?[0-9]{1,9}(?:\.[0-9]{1,3})?\Z")
-MAX_ITEMS = 2                  # $top=2, detects ambiguity
-MAX_WAREHOUSES = 50           # SRV fetches $top=51 and rejects overflow
-MAX_BALANCES = 50             # SRV fetches $top=51 and rejects overflow
+UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\\Z")
+QTY = re.compile(r"-?[0-9]{1,9}(?:\\.[0-9]{1,3})?\\Z")
+MAX_ITEMS = 50            # 51st item is overflow, not silently truncated
+MAX_WAREHOUSES = 50       # 51st warehouse is overflow
+MAX_BALANCES = 2500       # 50 items x 50 warehouses max
 
 
 def _ref(value: object) -> str:
@@ -48,21 +52,23 @@ def resolve_stock(
     *, item_query_complete: bool, warehouse_query_complete: bool,
     balance_query_complete: bool,
 ) -> dict:
-    """Resolve only an exact article/name/1C code and optional real warehouse name.
+    """Return all matching catalog cards, separately, with no GUID exposure.
 
-    items have keys guid/article/name/code. warehouses: guid/name.
-    balances: item_guid/warehouse_guid/quantity (decimal strings).
-    Query-complete booleans are supplied by the OData handler after verifying
-    that no nextLink, pagination, or cap could suppress matching rows.
+    items: guid/article/name/code. warehouses: guid/name.
+    balances: item_guid/warehouse_guid/quantity as decimal strings.
+
+    The caller MUST verify complete, bounded OData enumeration for all
+    matching items and their balances, including server-side pagination.
+    A capped or incomplete result never returns an apparently valid subset.
     """
-    if kind not in ("article", "name", "code"):
-        raise ValueError("Invalid kind")
-    validate_term(item_text, max_length=160 if kind == "name" else 96, label="item")
+    if kind not in ("article", "name"):
+        raise ValueError("Only article and name are searchable")
+    validate_term(item_text, max_length=96 if kind == "article" else 160, label="item")
     if warehouse_name is not None:
         validate_term(warehouse_name, max_length=100, label="warehouse")
     if not isinstance(items, list) or not isinstance(warehouses, list) or not isinstance(balances, list):
         raise ValueError("Invalid rows")
-    if any(not isinstance(x, dict) for x in items+warehouses+balances):
+    if any(not isinstance(row, dict) for row in items + warehouses + balances):
         raise ValueError("Malformed records")
     if not item_query_complete or len(items) > MAX_ITEMS:
         return _status("ITEM_RESULT_INCOMPLETE")
@@ -70,95 +76,122 @@ def resolve_stock(
         return _status("WAREHOUSE_RESULT_INCOMPLETE")
     if not balance_query_complete or len(balances) > MAX_BALANCES:
         return _status("BALANCE_RESULT_INCOMPLETE")
-    requested_field = kind
-    matches = []
+
+    items_by_guid = {}
+    matching = []
     for row in items:
-        _ref(row.get("guid"))
-        value = row.get(requested_field)
-        # Empty business articles are common in the verified NewBase sample.
-        # Treat them as unmatched, not as a failure of name/code resolution.
-        if value is not None and not isinstance(value, str):
-            raise ValueError("Invalid OData selector field")
-        if value == item_text:
-            matches.append(row)
-    if not matches:
+        guid = _ref(row.get("guid"))
+        if guid in items_by_guid:
+            raise ValueError("Repeated item GUID")
+        name = _text(row.get("name"))
+        article = row.get("article")
+        code = row.get("code")
+        if article is not None and article != "":
+            article = _text(article, 96)
+        else:
+            article = None
+        if code is not None and code != "":
+            code = _text(code, 96)
+        else:
+            code = None
+        normalized = {"guid": guid, "name": name, "article": article, "code": code}
+        items_by_guid[guid] = normalized
+        if normalized[kind] == item_text:
+            matching.append(normalized)
+    if not matching:
         return _status("ITEM_NOT_FOUND")
-    if len(matches) > 1:
-        # The selected record must never be inferred from which of the
-        # same-named cards happens to have a positive balance. Offer only
-        # validated human-readable, bounded identifiers; never GUIDs.
-        choices = []
-        for row in matches:
-            code = row.get("code")
-            article = row.get("article")
-            name = row.get("name")
-            choices.append({
-                "name": _text(name),
-                "code": _text(code, 96) if code else None,
-                "article": _text(article, 96) if article else None,
-            })
-        return _status("ITEM_AMBIGUOUS", candidates=choices)
-    item = matches[0]
-    item_guid = item["guid"]
-    name = _text(item.get("name"))
-    article = item.get("article")
-    if article:
-        article = _text(article, 96)
-    else:
-        article = None
-    code = item.get("code")
-    if code:
-        code = _text(code, 96)
-    else:
-        code = None
+
     warehouse_by_guid = {}
-    candidates = []
+    warehouse_matches = []
     for row in warehouses:
         guid = _ref(row.get("guid"))
-        warehouse_title = _text(row.get("name"), 100)
         if guid in warehouse_by_guid:
-            raise ValueError("Duplicate warehouse GUID")
-        warehouse_by_guid[guid] = warehouse_title
-        if warehouse_name is not None and warehouse_title == warehouse_name:
-            candidates.append(guid)
+            raise ValueError("Repeated warehouse GUID")
+        name = _text(row.get("name"), 100)
+        warehouse_by_guid[guid] = name
+        if warehouse_name is not None and name == warehouse_name:
+            warehouse_matches.append(guid)
     if warehouse_name is not None:
-        if not candidates:
+        if not warehouse_matches:
             return _status("WAREHOUSE_NOT_FOUND")
-        if len(candidates) > 1:
+        if len(warehouse_matches) > 1:
             return _status("WAREHOUSE_AMBIGUOUS")
-    selected = set(candidates) if warehouse_name is not None else set(warehouse_by_guid)
-    if not selected:
+        chosen_warehouses = set(warehouse_matches)
+    else:
+        chosen_warehouses = set(warehouse_by_guid)
+    if not chosen_warehouses:
         return _status("WAREHOUSES_UNAVAILABLE")
-    found = []
-    seen = set()
+
+    match_guids = {row["guid"] for row in matching}
+    seen_pairs = set()
+    stocks = {guid: [] for guid in match_guids}
     for record in balances:
-        if _ref(record.get("item_guid")) != item_guid:
-            # Fixed server-side filter should have excluded unrelated items.
-            raise ValueError("Unexpected item balance")
-        warehouse_guid = _ref(record.get("warehouse_guid"))
-        if warehouse_guid in seen:
-            raise ValueError("Duplicate balance for warehouse")
-        seen.add(warehouse_guid)
-        if warehouse_guid not in warehouse_by_guid:
+        item_guid = _ref(record.get("item_guid"))
+        unit_guid = _ref(record.get("warehouse_guid"))
+        if item_guid not in match_guids:
+            raise ValueError("Unexpected item Balance result")
+        if unit_guid not in warehouse_by_guid:
             return _status("WAREHOUSE_RESULT_INCOMPLETE")
-        if warehouse_guid in selected:
-            found.append({
-                "warehouse": warehouse_by_guid[warehouse_guid],
-                "quantity": _quantity(record.get("quantity"))
+        pair = (item_guid, unit_guid)
+        if pair in seen_pairs:
+            raise ValueError("Duplicate item/warehouse Balance row")
+        seen_pairs.add(pair)
+        qty = _quantity(record.get("quantity"))
+        if unit_guid in chosen_warehouses:
+            stocks[item_guid].append({
+                "name": warehouse_by_guid[unit_guid],
+                "quantity": str(qty),
+                "balance_state": "ROW_PRESENT",
             })
-    if not found:
-        # A missing Balance record is not enough to claim an actual zero.
-        return _status("NO_BALANCE_ROW")
-    found.sort(key=lambda x: x["warehouse"])
-    total = sum((row["quantity"] for row in found), Decimal(0))
-    return _status(
+
+    # Each matching card is returned, even when it has no Balance rows.
+    # Never sum different catalog cards together just because names match.
+    results = []
+    for row in matching:
+        found = sorted(stocks[row["guid"]], key=lambda rec: rec["name"])
+        has_rows = bool(found)
+        if warehouse_name is not None and not found:
+            found = [{
+                "name": warehouse_name,
+                "quantity": "0",
+                "balance_state": "NO_BALANCE_ROW",
+            }]
+        total = sum((Decimal(entry["quantity"]) for entry in found), Decimal(0))
+        results.append({
+            "name": row["name"],
+            "article": row["article"],
+            "code": row["code"],
+            "total_quantity": str(total),
+            "balance_state": "HAS_BALANCE_ROWS" if has_rows else "NO_BALANCE_ROW",
+            "warehouses": found,
+        })
+    # Preserve a deterministic presentation order while retaining every card.
+    results.sort(key=lambda row: (row["name"], row["article"] or "", row["code"] or ""))
+    output = _status(
         "PASS",
-        item_name=name,
-        article=article,
-        code=code,
+        search_kind=kind,
+        search_term=item_text,
         scope="specified_warehouse" if warehouse_name is not None else "all_warehouses",
-        warehouses=[{"name": r["warehouse"], "quantity": str(r["quantity"])} for r in found],
-        total_quantity=str(total),
+        requested_warehouse=warehouse_name,
+        match_count=len(results),
+        items=results,
+        missing_balance_display_rule="0 means no Balance row when balance_state=NO_BALANCE_ROW; not an observed zero",
         source="1C NewBase Balance",
         mode="read-only",
     )
+    # Retain existing single-card output fields; plural results never carry
+    # an aggregated quantity that could conflate distinct catalog cards.
+    if len(results) == 1:
+        one = results[0]
+        output.update({
+            "item_name": one["name"],
+            "article": one["article"],
+            "code": one["code"],
+            "total_quantity": one["total_quantity"],
+            "warehouses": [
+                {"name": x["name"], "quantity": x["quantity"]}
+                for x in one["warehouses"]
+            ],
+            "balance_state": one["balance_state"],
+        })
+    return output
