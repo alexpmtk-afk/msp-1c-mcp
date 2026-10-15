@@ -14,7 +14,7 @@ tools:
   - id: onec_stock_by_guid
     status: deployed-on-vps-mcp-live-tested-2026-10-15
     mode: read-only
-    note: "Isolated STDIO MCP onec-stock registered in both Codex profiles; verified tools/list and tools/call returned 6. Two lowercase item/warehouse GUIDs; local VPS allowlisted queue, test NewBase only. No name lookup or writes."
+    note: "Isolated STDIO MCP onec-stock registered in both Codex profiles; verified tools/list and tools/call returned 6. Two lowercase item/warehouse GUIDs; local VPS allowlisted queue, test NewBase only. Headless Codex exec model-tool discovery FAIL (#355), so automatic agent selection is not yet accepted; no name lookup or writes."
   - id: onec_stocks
     status: planned
     mode: read-only
