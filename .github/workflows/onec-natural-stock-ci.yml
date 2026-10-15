@@ -5,6 +5,7 @@ on:
       - 'scripts/windows/onec-natural-stock-schema-preflight.ps1'
       - 'scripts/windows/onec-natural-stock-schema-runner.ps1'
       - 'scripts/windows/onec-natural-stock-schema-once.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
       - 'src/msp_onec_mcp/natural_stock_contract.py'
       - 'src/msp_onec_mcp/natural_stock_resolution.py'
       - 'tests/test_onec_natural_stock_contract.py'
@@ -71,7 +72,8 @@ jobs:
           }
           $runnerPath='scripts/windows/onec-natural-stock-schema-runner.ps1'
           $oncePath='scripts/windows/onec-natural-stock-schema-once.ps1'
-          foreach($file in @($runnerPath,$oncePath)) {
+          $bootstrapPath='scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
+          foreach($file in @($runnerPath,$oncePath,$bootstrapPath)) {
             $raw=[IO.File]::ReadAllBytes($file)
             if($raw.Length -lt 4 -or $raw[0] -ne 239 -or $raw[1] -ne 187 -or $raw[2] -ne 191) {
               throw ('UTF8_BOM_MISSING='+$file)
@@ -104,6 +106,15 @@ jobs:
               $installer -match 'Start-ScheduledTask|Invoke-Expression|RegisterService') {
             throw 'ONE_SHOT_UNSAFE_OPERATION'
           }
+          $bootstrap=[IO.File]::ReadAllText($bootstrapPath)
+          foreach($required in @('ADMIN_REQUIRED','STAGING_ALREADY_PRESENT',
+            'PINNED_FILE_DOWNLOAD_FAILED','BlobHash $target','--max-redirs',
+            '--cacert',$null)) {
+            if($null -ne $required -and -not $bootstrap.Contains($required)) {
+              throw ('BOOTSTRAP_GUARD_MISSING='+$required)
+            }
+          }
+          if($bootstrap -match 'Invoke-Expression|RegisterTaskDefinition|Start-Service|New-ScheduledTask') { throw 'BOOTSTRAP_PRIVILEGE_BYPASS' }
           'ONEC_ONESHOT_PS2_STATIC=PASS'
           'ONEC_SCHEMA_PS2_STATIC=PASS'
           'NATIVE_SERVER_2008_R2_RUNTIME=NOT_TESTED'
