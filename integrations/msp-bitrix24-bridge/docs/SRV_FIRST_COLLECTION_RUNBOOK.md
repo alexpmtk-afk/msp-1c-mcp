@@ -1,3 +1,23 @@
+## Verified LF/CRLF mismatch and offline schema-only resume
+
+Physical SRV failed with `SOURCE_SHA256_MISMATCH` after
+`SQLITE_VERSION=3.43.2`. Investigation: raw GitHub LF SQLite schema hash
+`50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3`;
+Windows checkout CRLF schema hash
+`309b0bcfb0487369dc6d6a5d9bf639b90a2b36f65de2e1738ea0e440a622e958`.
+Mistake: installer pinned checkout hash, not downloaded LF hash.
+
+Smoke script and INI manifest hashes were already correct. Previous
+operation should have downloaded/staged them and copied them into the
+machine-owned tree, then downloaded the SQL to staging, failing on hash.
+New `bin/resume-machine-customer-store-from-schema.ps1` verifies
+that EXACT partial state, hashes, no unexpected files/tasks, service ACLs,
+and existing SQLite runtime. No network downloads or deletion.
+Copies only the already staged, LF SHA-256 verified SQL schema and
+then creates an on-demand service task with disabled boot trigger and
+tests empty SQLite DB as LOCAL SERVICE. If unexpected, fail closed.
+No 1C, Bitrix or existing bridge changes; never auto-retry.
+
 ## Recovery checkpoint: ZIP already verified on physical SRV
 
 Observed `CURL_SYSTEM_VERSION=PASS`, `CURL_SYSTEM_HASH=PASS`,

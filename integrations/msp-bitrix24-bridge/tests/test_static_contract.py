@@ -366,6 +366,21 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Remove-Item", "DeleteTask", "Set-Acl",
                           "MspOnecHttpsAgentSystem", "Get-Credential", "crm.company.add"):
             self.assertNotIn(forbidden,s)
+    def test_schema_lf_resume_offline_and_service_only(self):
+        s=read("resume-machine-customer-store-from-schema.ps1")
+        self.assertTrue(s.isascii())
+        for term in ("PINNED_STAGED_SQL_SHA256=PASS",
+                     "50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3",
+                     "SCHEMA_COPY_SHA256=PASS", "SQL_TARGET_COLLISION",
+                     "LOCAL_SERVICE_WRITABLE_ACL_MISSING",
+                     "UNEXPECTED_ITEM", "MspCustomerStoreSync", "S-1-5-19",
+                     "$boot.Enabled=$false", "SERVICE_EMPTY_SMOKE=PASS",
+                     "CUSTOMERS_COUNT=0", "COLLECTOR_BOOT_TRIGGER_ENABLED=NO",
+                     "ONEC_CALLS=NO", "BITRIX_CALLS=NO"):
+            self.assertIn(term,s)
+        for forbidden in ("Invoke-WebRequest", "raw.githubusercontent.com", "Set-Acl",
+                          "Remove-Item", "DeleteTask", "Get-Credential", "crm.company.add"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
