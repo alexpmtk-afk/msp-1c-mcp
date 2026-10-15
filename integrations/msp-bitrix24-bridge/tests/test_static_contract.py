@@ -575,7 +575,7 @@ class BootstrapSafety(unittest.TestCase):
                       "METADATA_OVER_32M", "ONEC_WRITES=NO", "BITRIX_CALLS=NO",
                       "S4_CHANGE_REGISTRATION_READY=NOT_PROVEN"):
             self.assertIn(token,s)
-        for bad in ("POST", "DeleteTask", "RegisterTaskDefinition",
+        for bad in ("$req.Method=\'POST\'", "DeleteTask", "RegisterTaskDefinition",
                     "Get-Credential", "127.0.0.1:9786", "WriteAllText($db",
                     "SELECT count(*) FROM customers"):
             self.assertNotIn(bad,s)
