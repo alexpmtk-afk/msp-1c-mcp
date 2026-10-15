@@ -1,4 +1,5 @@
 ﻿#requires -version 2
+# VERSION=ODATA_SELECTED_V1 (legacy accepted task retained for compatibility)
 # LocalService fixed operations: probe or sandbox OData Balance GET. No arbitrary commands.
 # NEVER run with the personal user-scoped token or personal state directory.
 # PowerShell 2.0 / Windows Server 2008 R2. TLS handled by approved portable curl.
@@ -105,12 +106,21 @@ try {
       Remove-Item -LiteralPath $file.FullName -Force
       Write-Output 'PENDING_RESULT_RECOVERED=YES'
     }
-    # Recover only rigorously bounded, existing natural job receipts.
+    # Recover only securely shaped completed natural receipts.
     $naturalPending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'natural-result-*.txt' -ErrorAction SilentlyContinue)
     foreach($file in $naturalPending) {
       if ($file.Length -gt 360100) { throw 'NATURAL_PENDING_TOO_LARGE' }
       $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
-      if (-not ($payload -match '^NRESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|([A-Za-z0-9_-]{3,360000})
+      if ($payload -notmatch '^NRESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|([A-Za-z0-9_-]{3,360000})$') {
+        throw 'INVALID_NATURAL_PENDING_RESULT'
+      }
+      $jid=$Matches[1]
+      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $file.FullName
+      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_NATURAL_PENDING_ACK' }
+      Remove-Item -LiteralPath $file.FullName -Force
+      Write-Output 'NATURAL_RESULT_RECOVERED=YES'
+    }
+    $task=AgentRequest 'GET' '/v1/agent/poll' $null
     if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
     $itemGuid=$null;$warehouseGuid=$null
     $naturalKind=$null;$naturalItem=$null;$naturalWarehouse=$null
@@ -123,7 +133,13 @@ try {
           $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
         throw 'INVALID_SELECTED_GUID'
       }
-    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_natural_stock\|([0-9a-f]{32})\|(name|article)\|([A-Za-z0-9_-]{1,700})\|([A-Za-z0-9_-]{1,400}|-)Join-Path $StateDir ('task-'+$jid+'.txt')
+    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_natural_stock\|([0-9a-f]{32})\|(name|article)\|([A-Za-z0-9_-]{1,700})\|([A-Za-z0-9_-]{1,400}|-)$') {
+      $jid=$Matches[1];$operation='odata_natural_stock';$lease=$Matches[2]
+      $naturalKind=$Matches[3];$naturalItem=$Matches[4];$naturalWarehouse=$Matches[5]
+    } else {
+      throw 'UNRECOGNIZED_TASK'
+    }
+    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
     if (Test-Path -LiteralPath $marker) {
       $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
       if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
@@ -188,613 +204,27 @@ try {
       }
     }
     if ($operation -eq 'odata_natural_stock') {
-      # No URLs/commands/GUIDs are accepted here. The helper is a fixed local
-      # PowerShell2 script with only name/article/warehouse base64url fields.
       $naturalHelper=Join-Path $bin 'onec-system-odata-natural.ps1'
       $encoded=$null
       if (Test-Path -LiteralPath $naturalHelper -PathType Leaf) {
         $native=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $naturalHelper -Kind $naturalKind -ItemB64 $naturalItem -WarehouseB64 $naturalWarehouse
         if ($LASTEXITCODE -eq 0 -and $native -is [string] -and
-            $native -match '^NAT_([A-Za-z0-9_-]{3,360000})
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-)) {
-        throw 'INVALID_NATURAL_PENDING_RESULT'
-      }
-      $jid=$Matches[1]
-      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $file.FullName
-      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_NATURAL_PENDING_ACK' }
-      Remove-Item -LiteralPath $file.FullName -Force
-      Write-Output 'NATURAL_RESULT_RECOVERED=YES'
-    }
-    $task=AgentRequest 'GET' '/v1/agent/poll' $null
-    if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    $itemGuid=$null;$warehouseGuid=$null
-    if ($task -match '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
-      $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
-    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_stock_selected\|([0-9a-f]{32})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
-      $jid=$Matches[1];$operation='odata_stock_selected';$lease=$Matches[2]
-      $itemGuid=$Matches[3];$warehouseGuid=$Matches[4]
-      if ($itemGuid -eq '00000000-0000-0000-0000-000000000000' -or
-          $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
-        throw 'INVALID_SELECTED_GUID'
-      }
-    } else {
-      throw 'UNRECOGNIZED_TASK'
-    }
-    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
-    if (Test-Path -LiteralPath $marker) {
-      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
-      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
-    } else {
-      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
-    }
-    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS';$reason='SRV_ALIVE'
-    if ($operation -eq 'odata_balance') {
-      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
-      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
-      else {
-        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$value
-        } else {
-          $status='FAIL';$reason='ODATA_READ_FAILED'
-          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
-          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
-            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
-            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
-            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
-            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
-            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
-            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
-            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
-          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
-        }
-      }
-    }
-    elseif ($operation -eq 'odata_pair_check') {
-      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
-      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
-      } else {
-        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
-        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
-            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$pairOutput
-        } else {
-          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
-        }
-      }
-    }
-    if ($operation -eq 'odata_stock_selected') {
-      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
-      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
-      } else {
-        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
-        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
-            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$selectedValue
-        } else {
-          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
-          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
-            $reason=$selectedValue
-          }
-        }
-      }
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-) {
-      $jid=$Matches[1];$operation='odata_natural_stock';$lease=$Matches[2]
-      $naturalKind=$Matches[3];$naturalItem=$Matches[4];$naturalWarehouse=$Matches[5]
-    } else {
-      throw 'UNRECOGNIZED_TASK'
-    }
-    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
-    if (Test-Path -LiteralPath $marker) {
-      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
-      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
-    } else {
-      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
-    }
-    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS';$reason='SRV_ALIVE'
-    if ($operation -eq 'odata_balance') {
-      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
-      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
-      else {
-        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$value
-        } else {
-          $status='FAIL';$reason='ODATA_READ_FAILED'
-          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
-          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
-            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
-            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
-            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
-            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
-            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
-            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
-            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
-          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
-        }
-      }
-    }
-    elseif ($operation -eq 'odata_pair_check') {
-      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
-      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
-      } else {
-        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
-        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
-            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$pairOutput
-        } else {
-          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
-        }
-      }
-    }
-    if ($operation -eq 'odata_stock_selected') {
-      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
-      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
-      } else {
-        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
-        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
-            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$selectedValue
-        } else {
-          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
-          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
-            $reason=$selectedValue
-          }
-        }
-      }
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-)) {
-        throw 'INVALID_NATURAL_PENDING_RESULT'
-      }
-      $jid=$Matches[1]
-      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $file.FullName
-      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_NATURAL_PENDING_ACK' }
-      Remove-Item -LiteralPath $file.FullName -Force
-      Write-Output 'NATURAL_RESULT_RECOVERED=YES'
-    }
-    $task=AgentRequest 'GET' '/v1/agent/poll' $null
-    if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    $itemGuid=$null;$warehouseGuid=$null
-    if ($task -match '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
-      $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
-    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_stock_selected\|([0-9a-f]{32})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
-      $jid=$Matches[1];$operation='odata_stock_selected';$lease=$Matches[2]
-      $itemGuid=$Matches[3];$warehouseGuid=$Matches[4]
-      if ($itemGuid -eq '00000000-0000-0000-0000-000000000000' -or
-          $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
-        throw 'INVALID_SELECTED_GUID'
-      }
-    } else {
-      throw 'UNRECOGNIZED_TASK'
-    }
-    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
-    if (Test-Path -LiteralPath $marker) {
-      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
-      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
-    } else {
-      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
-    }
-    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS';$reason='SRV_ALIVE'
-    if ($operation -eq 'odata_balance') {
-      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
-      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
-      else {
-        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$value
-        } else {
-          $status='FAIL';$reason='ODATA_READ_FAILED'
-          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
-          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
-            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
-            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
-            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
-            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
-            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
-            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
-            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
-          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
-        }
-      }
-    }
-    elseif ($operation -eq 'odata_pair_check') {
-      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
-      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
-      } else {
-        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
-        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
-            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$pairOutput
-        } else {
-          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
-        }
-      }
-    }
-    if ($operation -eq 'odata_stock_selected') {
-      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
-      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
-      } else {
-        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
-        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
-            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$selectedValue
-        } else {
-          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
-          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
-            $reason=$selectedValue
-          }
-        }
-      }
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-) {
+            $native -match '^NAT_([A-Za-z0-9_-]{3,360000})$') {
           $encoded=$Matches[1]
         }
       }
       if ($null -eq $encoded) {
-        # Explicit fail-closed result, not a fake numeric zero or raw exception.
-        $failBytes=[Text.Encoding]::UTF8.GetBytes('{"status":"UNAVAILABLE"}')
-        $encoded=[Convert]::ToBase64String($failBytes).TrimEnd('=').Replace('+','-').Replace('/','_')
+        $fail=[Text.Encoding]::UTF8.GetBytes('{"status":"UNAVAILABLE"}')
+        $encoded=[Convert]::ToBase64String($fail).TrimEnd('=').Replace('+','-').Replace('/','_')
       }
-      $result=Join-Path $StateDir ('natural-result-'+$jid+'.txt')
-      [IO.File]::WriteAllText($result,('NRESULT|'+$jid+'|'+$lease+'|'+$encoded),[Text.Encoding]::ASCII)
-      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $result
+      $naturalResult=Join-Path $StateDir ('natural-result-'+$jid+'.txt')
+      [IO.File]::WriteAllText($naturalResult,('NRESULT|'+$jid+'|'+$lease+'|'+$encoded),[Text.Encoding]::ASCII)
+      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $naturalResult
       if ($ack -ne ('RECORDED|'+$jid)) { throw 'NATURAL_ACK_MISMATCH' }
-      Remove-Item -LiteralPath $result -Force
+      Remove-Item -LiteralPath $naturalResult -Force
       Health 'PROBE_ACK'
       Write-Output ('RESULT=PASS;STAGE=NATURAL_ACK;TASK_ID='+$jid)
       exit 0
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-)) {
-        throw 'INVALID_NATURAL_PENDING_RESULT'
-      }
-      $jid=$Matches[1]
-      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $file.FullName
-      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_NATURAL_PENDING_ACK' }
-      Remove-Item -LiteralPath $file.FullName -Force
-      Write-Output 'NATURAL_RESULT_RECOVERED=YES'
-    }
-    $task=AgentRequest 'GET' '/v1/agent/poll' $null
-    if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    $itemGuid=$null;$warehouseGuid=$null
-    if ($task -match '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
-      $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
-    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_stock_selected\|([0-9a-f]{32})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
-      $jid=$Matches[1];$operation='odata_stock_selected';$lease=$Matches[2]
-      $itemGuid=$Matches[3];$warehouseGuid=$Matches[4]
-      if ($itemGuid -eq '00000000-0000-0000-0000-000000000000' -or
-          $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
-        throw 'INVALID_SELECTED_GUID'
-      }
-    } else {
-      throw 'UNRECOGNIZED_TASK'
-    }
-    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
-    if (Test-Path -LiteralPath $marker) {
-      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
-      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
-    } else {
-      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
-    }
-    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS';$reason='SRV_ALIVE'
-    if ($operation -eq 'odata_balance') {
-      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
-      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
-      else {
-        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$value
-        } else {
-          $status='FAIL';$reason='ODATA_READ_FAILED'
-          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
-          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
-            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
-            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
-            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
-            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
-            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
-            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
-            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
-          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
-        }
-      }
-    }
-    elseif ($operation -eq 'odata_pair_check') {
-      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
-      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
-      } else {
-        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
-        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
-            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$pairOutput
-        } else {
-          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
-        }
-      }
-    }
-    if ($operation -eq 'odata_stock_selected') {
-      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
-      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
-      } else {
-        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
-        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
-            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$selectedValue
-        } else {
-          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
-          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
-            $reason=$selectedValue
-          }
-        }
-      }
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-) {
-      $jid=$Matches[1];$operation='odata_natural_stock';$lease=$Matches[2]
-      $naturalKind=$Matches[3];$naturalItem=$Matches[4];$naturalWarehouse=$Matches[5]
-    } else {
-      throw 'UNRECOGNIZED_TASK'
-    }
-    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
-    if (Test-Path -LiteralPath $marker) {
-      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
-      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
-    } else {
-      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
-    }
-    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS';$reason='SRV_ALIVE'
-    if ($operation -eq 'odata_balance') {
-      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
-      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
-      else {
-        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$value
-        } else {
-          $status='FAIL';$reason='ODATA_READ_FAILED'
-          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
-          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
-            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
-            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
-            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
-            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
-            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
-            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
-            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
-          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
-        }
-      }
-    }
-    elseif ($operation -eq 'odata_pair_check') {
-      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
-      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
-      } else {
-        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
-        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
-            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$pairOutput
-        } else {
-          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
-        }
-      }
-    }
-    if ($operation -eq 'odata_stock_selected') {
-      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
-      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
-      } else {
-        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
-        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
-            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$selectedValue
-        } else {
-          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
-          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
-            $reason=$selectedValue
-          }
-        }
-      }
-    }
-    [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
-    $ack=AgentRequest 'POST' '/v1/agent/result' $result
-    if ($ack -ne ('RECORDED|'+$jid)) { throw 'ACK_MISMATCH' }
-    Remove-Item -LiteralPath $result -Force
-    Health 'PROBE_ACK'
-    Write-Output ('RESULT=PASS;STAGE=PROBE_ACK;TASK_ID='+$jid)
-  } finally {
-    if ($owned) { [void]$mutex.ReleaseMutex() }
-    $mutex.Close()
-  }
-} catch {
-  StopSafe 'GENERAL_FAILURE'
-}
-)) {
-        throw 'INVALID_NATURAL_PENDING_RESULT'
-      }
-      $jid=$Matches[1]
-      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $file.FullName
-      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_NATURAL_PENDING_ACK' }
-      Remove-Item -LiteralPath $file.FullName -Force
-      Write-Output 'NATURAL_RESULT_RECOVERED=YES'
-    }
-    $task=AgentRequest 'GET' '/v1/agent/poll' $null
-    if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    $itemGuid=$null;$warehouseGuid=$null
-    if ($task -match '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
-      $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
-    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_stock_selected\|([0-9a-f]{32})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
-      $jid=$Matches[1];$operation='odata_stock_selected';$lease=$Matches[2]
-      $itemGuid=$Matches[3];$warehouseGuid=$Matches[4]
-      if ($itemGuid -eq '00000000-0000-0000-0000-000000000000' -or
-          $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
-        throw 'INVALID_SELECTED_GUID'
-      }
-    } else {
-      throw 'UNRECOGNIZED_TASK'
-    }
-    $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
-    if (Test-Path -LiteralPath $marker) {
-      $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
-      if ($old -ne $lease) { throw 'REPLAY_LEASE_MISMATCH' }
-    } else {
-      [IO.File]::WriteAllText($marker,$lease,[Text.Encoding]::ASCII)
-    }
-    $result=Join-Path $StateDir ('result-'+$jid+'.txt')
-    $status='PASS';$reason='SRV_ALIVE'
-    if ($operation -eq 'odata_balance') {
-      $helper=Join-Path $bin 'onec-system-odata-balance.ps1'
-      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { $status='FAIL';$reason='ODATA_HELPER_MISSING' }
-      else {
-        $value=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper
-        if ($LASTEXITCODE -eq 0 -and $value -is [string] -and
-            $value -match '^STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$value
-        } else {
-          $status='FAIL';$reason='ODATA_READ_FAILED'
-          # Exact allowlist: no exception text, raw OData data or credentials leave SRV.
-          $allowed=@('ODATA_NOT_LOCAL_SERVICE','ODATA_NOT_ENROLLED',
-            'ODATA_BAD_CREDENTIAL','ODATA_HTTP_ERROR','ODATA_RESPONSE_TOO_LARGE',
-            'ODATA_INVALID_RESPONSE','ODATA_NO_BALANCE_ROW','ODATA_AUTH_DENIED',
-            'ODATA_UNAVAILABLE','ODATA_READ_ERROR','ODATA_HTTP_FORBIDDEN',
-            'ODATA_HTTP_NOT_FOUND','ODATA_HTTP_SERVER_ERROR','ODATA_HTTP_OTHER',
-            'ODATA_WEB_TIMEOUT','ODATA_WEB_CONNECT_FAILURE','ODATA_WEB_RECEIVE_FAILURE',
-            'ODATA_WEB_SEND_FAILURE','ODATA_WEB_CONNECTION_CLOSED',
-            'ODATA_WEB_KEEPALIVE_FAILURE','ODATA_WEB_NAME_RESOLUTION',
-            'ODATA_WEB_TRUST_FAILURE','ODATA_WEB_PROTOCOL_ERROR','ODATA_WEB_OTHER')
-          if ($value -is [string] -and $allowed -contains $value) { $reason=$value }
-        }
-      }
-    }
-    elseif ($operation -eq 'odata_pair_check') {
-      $pairHelper=Join-Path $bin 'onec-system-odata-pair-check.ps1'
-      if (-not (Test-Path -LiteralPath $pairHelper -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_PAIR_HELPER_MISSING'
-      } else {
-        $pairOutput=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pairHelper
-        if ($LASTEXITCODE -eq 0 -and $pairOutput -is [string] -and
-            $pairOutput -match '^PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$pairOutput
-        } else {
-          $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
-        }
-      }
-    }
-    if ($operation -eq 'odata_stock_selected') {
-      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
-      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
-        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
-      } else {
-        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
-        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
-            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
-          $reason=$selectedValue
-        } else {
-          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
-          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
-            $reason=$selectedValue
-          }
-        }
-      }
     }
     [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
     $ack=AgentRequest 'POST' '/v1/agent/result' $result
