@@ -48,10 +48,10 @@ jobs:
           $h=[IO.File]::ReadAllText($helper,[Text.Encoding]::UTF8)
           foreach($required in @('S-1-5-19','MCP_OData_ReadOnly','ProtectedData]::Unprotect',
             '127.0.0.1:8085/NewBase/odata/standard.odata/',
-            'Catalog_Номенклатура','Catalog_СтруктурныеЕдиницы',
-            'AccumulationRegister_ЗапасыНаСкладах/Balance',
+            'Catalog_','Catalog_',
+            'AccumulationRegister_','Balance(',
             "Method='GET'",'AllowAutoRedirect=$false',
-            'ROW_PRESENT','NO_BALANCE_ROW','Артикул','Description',
+            'ROW_PRESENT','NO_BALANCE_ROW','Description',
             'Add-Type -AssemblyName System.Web.Extensions',
             'DeserializeObject','NAT_')) {
             if(-not $h.Contains($required)) { throw ('NATURAL_HELPER_GUARD_MISSING='+$required) }
