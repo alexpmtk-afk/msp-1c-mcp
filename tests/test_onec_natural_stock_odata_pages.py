@@ -149,5 +149,5 @@ def test_invalid_code_rejected_in_odata_page():
     with pytest.raises(ValueError):
         parse_item_page(fixture([
             {"Ref_Key":ITEM,"Description":"Слэмбол 6 кг",
-             "Code":"нф-1\\nDROP","Артикул":""},
+             "Code":"нф-1\nDROP","Артикул":""},
         ]),article_field="Артикул")
