@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 import re
+import unicodedata
 
 from .natural_stock_contract import validate_term
 
@@ -30,7 +31,19 @@ def _ref(value: object) -> str:
 
 
 def _text(value: object, length: int = 160) -> str:
-    return validate_term(value, max_length=length, label="1C field")
+    """Preserve catalog text exactly, including valid leading spaces (seen on SRV).
+
+    User-supplied search terms remain strictly trimmed via validate_term.
+    A valid OData field does not have to meet that input restriction.
+    """
+    if not isinstance(value, str) or not value.strip() or len(value) > length:
+        raise ValueError("Invalid catalog text")
+    if unicodedata.normalize("NFC", value) != value:
+        raise ValueError("Noncanonical catalog text")
+    for char in value:
+        if unicodedata.category(char) in {"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"}:
+            raise ValueError("Unsafe catalog text")
+    return value
 
 
 def _quantity(value: object) -> Decimal:
