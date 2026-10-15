@@ -330,6 +330,23 @@ class BootstrapSafety(unittest.TestCase):
                           "RegisterTaskDefinition(", "Set-Acl",
                           "Invoke-WebRequest", ".Method='POST'"):
             self.assertNotIn(forbidden,s)
+    def test_store_resume_requires_exact_partial_state_and_service_smoke(self):
+        s=read("resume-machine-customer-store.ps1")
+        self.assertTrue(s.isascii())
+        for must in ("C:\\ProgramData\\MspCustomerStore",
+                     "UNEXPECTED_FILE_OR_DIRECTORY", "STAGING_FILE_COLLISION",
+                     "CURL_SYSTEM_VERSION=PASS", "SQLITE_ZIP_SHA256_MISMATCH",
+                     "SOURCE_SHA256_MISMATCH", "MspCustomerStoreSync",
+                     "S-1-5-19", "$boot.Enabled=$false",
+                     "RUN_SERVICE_EMPTY_SMOKE", "DB_QUICK_CHECK=ok",
+                     "CUSTOMERS_COUNT=0", "RUNTIME_DEPENDENCY_USER_PROFILE=NO",
+                     "ONEC_CALLS=NO", "BITRIX_CALLS=NO", "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(must,s)
+        self.assertIn("& $curl --version",s)
+        self.assertNotIn("& $curl -version",s)
+        for forbidden in ("DeleteTask", "Remove-Item", "Set-Acl", "MspOnecHttpsAgentSystem",
+                          "Get-Credential", "Start-Service", "crm.company.add", "C:\\Users\\parshin"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

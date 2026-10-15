@@ -1,3 +1,25 @@
+## 15 Oct 2026: curl version flag failure and safe resume
+
+Machine-owned runtime inventory and ACL diagnostic confirmed that the root
+and nine directories exist, appropriate ACLs are in place, curl.exe and
+CA bundle were copied with matching SHA-256, no DLLs are needed,
+while SQLite ZIP, executable, DB and collector scheduled task are absent.
+
+**Root cause**: installer invoked `curl -version` (invalid curl option
+syntax), which produced stderr and a PowerShell `RemoteException`.
+Correct check is `curl --version`. The partial install needs NO deletion.
+
+The resumed script `bin/resume-machine-customer-store.ps1` requires
+an exact partially installed state and must run only once after pinning
+GitHub SHA256. It uses the machine-owned curl.exe and CA to obtain
+SQLite 3.43.2 and pinned scripts, then registers an on-demand
+`MspCustomerStoreSync` task under LOCAL SERVICE with DISABLED boot
+trigger. A manual service smoke creates an empty SQLite DB, verifies
+four tables, a synthetic transaction rollback, and back-reads zero
+customer rows. No 1C, no Bitrix calls. Changes to any other task
+are prohibited. Do not retry after any partial failure without another
+read-only inspection.
+
 # SRV-first customer collection — execution order (2026-10-15)
 
 **Current priority**: Build an autonomous complete source→local store pipeline
