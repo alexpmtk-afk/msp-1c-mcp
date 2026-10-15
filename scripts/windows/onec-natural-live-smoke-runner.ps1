@@ -29,8 +29,10 @@ try {
   $value=$value+('=' * ((4-$value.Length%4)%4))
   $bytes=[Convert]::FromBase64String($value)
   if ($bytes.Length -gt 262144) { throw 'OVERSIZED_RESULT' }
-  Add-Type -AssemblyName System.Web.Extensions
-  $serializer=New-Object Web.Script.Serialization.JavaScriptSerializer
+  $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
+  if (-not (Test-Path -LiteralPath $jsonLibrary -PathType Leaf)) { throw 'JSON_LIB_NOT_INSTALLED' }
+  . $jsonLibrary
+  $serializer=New-Object MspLegacyJson
   $serializer.MaxJsonLength=262144
   $data=$serializer.DeserializeObject([Text.Encoding]::UTF8.GetString($bytes))
   if ($data['status'] -ne 'PASS' -or [int]$data['match_count'] -ne 2 -or
