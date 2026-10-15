@@ -9,14 +9,14 @@ Status: **SCHEMA PREFLIGHT + OFFLINE REQUEST/RESOLUTION LOGIC; NOT YET DEPLOYED*
 - `Остаток артикула ТРН-123 на Основном складе?` → exact 1C article plus **real warehouse name**.
 - `Найди [название] на складе «Готовая продукция»` → exact 1C name plus real warehouse name.
 
-A user is **never asked for product/warehouse GUIDs**. Model must not hallucinate a match, use a third-party stock database as 1C, or convert a missing balance row into numerical zero.
+A user is **never asked for product/warehouse GUIDs**. For duplicate names with empty business article, ask for the visible 1C Code instead; never select based on which duplicate happens to have a Balance row. Model must not hallucinate a match, use a third-party stock database as 1C, or convert a missing balance row into numerical zero.
 
 ## Flow / trust boundaries
 
-1. Telegram / Hermes parses text into one of two explicit modes: `article` or `name`, plus optional `warehouse_name`. Ambiguity is clarified, not silently guessed.
+1. Telegram / Hermes parses text into one of three explicit modes: `article`, `name`, or 1C catalog `code`, plus optional `warehouse_name`. Ambiguity is clarified, not silently guessed.
 2. One future read-only MCP tool passes only this typed request to the existing localhost VPS relay. An exact Unicode NFC wire contract is implemented in `natural_stock_contract.py`. No user-supplied OData URL, filter, SQL, arbitrary command, GUID, or credentials.
 3. The VPS relay creates a restricted new job type for the NewBase read-only system poller. **Current production relay does NOT yet support this type.** The existing GUID-based `STOCK|guid|guid` operation must remain unchanged.
-4. On SRV Windows Server 2008 R2, the existing LocalService identity reads *only* the fixed `NewBase` OData site, using the already enrolled `MCP_OData_ReadOnly` credential. First resolve the 1C item entity and exact article/name field into `Ref_Key`. Resolve real warehouse name to its authoritative 1C reference (the warehouse catalog name is **pending live metadata verification**).
+4. On SRV Windows Server 2008 R2, the existing LocalService identity reads *only* the fixed `NewBase` OData site, using the already enrolled `MCP_OData_ReadOnly` credential. First resolve the 1C item entity and exact article/name/code field into `Ref_Key`. Resolve real warehouse name to its authoritative 1C reference (the warehouse catalog name is **pending live metadata verification**).
 5. Execute the fixed Balance request for the resolved item and selected warehouse or all warehouses. Obtain complete, bounded results, map warehouse GUIDs to actual names on the trusted side, then return only the authorized display fields and quantities. The pure `natural_stock_resolution.py` implements exact matching, ambiguity/error handling, Decimal summation and refusal to return partial results.
 6. MCP returns product name, article, warehouse name(s), quantities and total, with provenance `1C NewBase Balance`. Telegram reports that naturally. GUIDs and secrets are not normally exposed to the user.
 
@@ -42,3 +42,36 @@ A user is **never asked for product/warehouse GUIDs**. Model must not hallucinat
 | `UNAVAILABLE` / transport failure | Cannot determine quantity; never invent a value |
 
 Existing `onec_stock_by_guid` remains unchanged. These are target semantics and offline-verified logic, **not a claim that live article/name lookup already works**.
+
+
+## Live NewBase evidence: duplicate product names (15 Oct 2026)
+
+Authenticated GET from physical SRV confirmed exact name `Слэмбол 6 кг` matches
+**two** catalog cards. Exact warehouse `Основной склад` matches one
+structural-unit card:
+
+| 1C Code | Published article | Existing Balance row at «Основной склад» |
+|---|---|---|
+| `НФ-00001359` | Blank | Verified quantity `6` |
+| `НФ-00000879` | Blank | `NO_BALANCE_ROW` — **not zero** |
+
+A separate successful reverse lookup from one existing Balance row established
+`Слэмбол 6 кг` / `Основной склад` / `6`; this is **not** sufficient
+to resolve a free-text name query because both catalog items share that name.
+For `name` the offline resolution must return `ITEM_AMBIGUOUS` with safe
+human-readable identifiers (`Code` and optional article), not a fabricated
+single-item balance. After the user chooses `НФ-00001359`, a separate exact
+`code` lookup may safely identify its stock. For `НФ-00000879`, missing
+Balance row remains `NO_BALANCE_ROW`.
+
+Also confirmed `Catalog_СтруктурныеЕдиницы` has mixed structural units
+(warehouses, office, people, subdivisions). Do not infer a physical warehouse
+solely from its name. The actual read-only balance URL uses the route
+`AccumulationRegister_ЗапасыНаСкладах/Balance(Dimensions='Номенклатура,СтруктурнаяЕдиница')`.
+The earlier schema probe was incorrect to search for a separate
+`AccumulationRegister_ЗапасыНаСкладахBalance` EntityType.
+
+**Status boundary:** all of these item/warehouse/stock lookups were made
+manually from SRV with the restricted read-only 1C user. Updated
+`LOOKUP1|code|...` and result resolution code are still **offline**,
+pending approved new queue mode, agent handler and Hermes end-to-end test.
