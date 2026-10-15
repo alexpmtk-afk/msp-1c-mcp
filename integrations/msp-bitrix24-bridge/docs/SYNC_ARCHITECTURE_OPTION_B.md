@@ -1,6 +1,6 @@
 # MSP Bitrix24: selected synchronization architecture — Option B
 
-**Status 2026-10-15: CHOSEN BY USER, DESIGN ONLY, NOT DEPLOYED.**
+**Status 2026-10-15: initial local SQLite snapshot ACCEPTED (6433 buyers); native change-registration mechanism NOT DEPLOYED.**
 
 ## Business scope (non-negotiable)
 
@@ -51,7 +51,7 @@ Authorization for machine ACL changes is separate from read-only diagnostics.
 ## Local store on physical SRV (proposed technology)
 
 Preferred format: **SQLite**, `C:\ProgramData\MspCustomerStore\data\customers.db`.
-This path is a proposal only. It has NOT been created or deployed.
+This is the deployed and S3-accepted machine-owned path. Initial 6433-row snapshot is verified; ongoing automatic refresh is not enabled.
 It is a transactional indexed local database, **not** a huge JSON array/file,
 Excel sheet, or a file on a network share.
 Verify compatible SQLite provider and bitness for Windows Server 2008 R2,
@@ -124,7 +124,7 @@ Existing SAFE_IDLE remains unchanged.
 - `MspBitrix24Bridge` Windows task remains **SAFE_IDLE** with
   `ACTIVE=0`, `CUSTOMERS_READ=0`, `PRODUCTS_READ=0`,
   `INVOICES_WRITE=0`.
-- No SQLite file created, no plan/exchange node added, no 1C writes,
+- SQLite database is deployed with 6433 verified customers; no exchange plan or node added, no 1C writes,
   no Bitrix24 API calls and no customer records exported by this design.
 - Change-registration access through 1C OData is **UNVERIFIED**.
 - Next safe work: check TEST UNF 1C existing exchange plans and extension

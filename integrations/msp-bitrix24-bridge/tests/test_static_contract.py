@@ -579,6 +579,22 @@ class BootstrapSafety(unittest.TestCase):
                     "Get-Credential", "127.0.0.1:9786", "WriteAllText($db",
                     "SELECT count(*) FROM customers"):
             self.assertNotIn(bad,s)
+    def test_s4_readonly_option_b_survey_one_shot_task(self):
+        s=read("run-exchange-plan-survey.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("MspCustomerStoreExchangeSurvey", "MspCustomerStoreSync",
+                      "S-1-5-19", "S4_GET_PROBE_SHA256=PASS",
+                      "492272aa431752620d2a5266166e3387c68bcc9b7748854cf2a5cb01cb94dc79",
+                      "S4_6433_CUSTOMER_DB_UNCHANGED=YES",
+                      "S4_MAIN_COLLECTOR_AUTOSTART=OFF",
+                      "S4_REGISTERED_DELTA=NOT_YET_PROVEN",
+                      "S4_EXCHANGE_PLAN_SET_COUNT=", "S4_TEMP_TASK_DELETED=YES",
+                      "ONEC_WRITES=NO", "BITRIX_CALLS=NO",
+                      "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(token,s)
+        self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
+        self.assertNotIn("Get-Credential",s)
+        self.assertNotIn("Method='POST'",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

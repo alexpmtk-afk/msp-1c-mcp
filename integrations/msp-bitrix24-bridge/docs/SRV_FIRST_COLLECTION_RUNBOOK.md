@@ -1,3 +1,39 @@
+## S4 read-only feasibility probe after S3 PASS 6433
+
+15 Oct 2026: real SRV `S3_FULL_INITIAL_IMPORT=PASS` reconciliation.
+`C:\ProgramData\MspCustomerStore\data\customers.db`:
+6433 active and distinct GUIDs, types 1941/4486/6,
+one complete initial scan_run, quick_check=ok,
+temporary initial task removed, acceptance file created.
+The old BACKREAD failure status is preserved as audit evidence.
+The independent main MspCustomerStoreSync remains boot-OFF.
+
+Next S4 requires a capability survey BEFORE enabling delta ingestion:
+`bin/survey-exchange-plan-metadata-service.ps1` uses DPAPI from
+LOCAL SERVICE and a single **GET** of TEST 1C OData `$metadata`.
+It reports published `ExchangePlan_*` EntitySet names (safe Unicode
+escape, metadata only) and presence of `SelectChanges` and
+`ConfirmChanges` function imports. This only shows what the
+read-only principal can see through the OData publication.
+**It does not prove an exchange-plan node exists, that
+counterparties are registered, or that change messages are available.**
+It never calls SelectChanges/ConfirmChanges because those operations
+can require POST and may influence registration state.
+No 1C metadata writes or Bitrix requests.
+
+`bin/run-exchange-plan-survey.ps1` checks the accepted 6433-row
+SQLite state and SAFE_IDLE policy, downloads the SHA256-pinned
+read-only worker into machine-owned bin, creates an on-demand
+zero-trigger LOCAL SERVICE task `MspCustomerStoreExchangeSurvey`,
+receives only a metadata-count summary into machine-owned state,
+then removes only this one-time task after PASS.
+The permanent collector remains boot-OFF. Stop on FAIL; do not repeat.
+
+Critical gap: the initial snapshot was taken before registration
+was proved. Even if Option B is deployed later, a controlled
+reconciliation or coordinated cursor is needed to prevent missing
+updates between initial snapshot and first source registration.
+
 ## S3 acceptance reconciliation after verified post-commit BACKREAD failure
 
 On physical SRV, independent read-only verification showed:
