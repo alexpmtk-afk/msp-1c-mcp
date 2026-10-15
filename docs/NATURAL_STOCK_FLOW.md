@@ -9,16 +9,16 @@ Status: **SCHEMA PREFLIGHT + OFFLINE REQUEST/RESOLUTION LOGIC; NOT YET DEPLOYED*
 - `Остаток артикула ТРН-123 на Основном складе?` → exact 1C article plus **real warehouse name**.
 - `Найди [название] на складе «Готовая продукция»` → exact 1C name plus real warehouse name.
 
-A user is **never asked for product/warehouse GUIDs**. For duplicate names with empty business article, ask for the visible 1C Code instead; never select based on which duplicate happens to have a Balance row. Model must not hallucinate a match, use a third-party stock database as 1C, or convert a missing balance row into numerical zero.
+A user is **never asked for product/warehouse GUIDs** and the 1C internal Code (`НФ-...`) is **not a search mode**. Users search ONLY by published article (`Артикул`) or product name (`Description`). An internal Code is displayed only to distinguish two cards, even if their article fields are blank. **Return all matching cards, each with its own warehouse balances; never choose one card or combine their totals.** Missing Balance row may be displayed as a qualified `0` per the reporting preference, but must be marked `NO_BALANCE_ROW` and never claimed as an observed zero record.
 
 ## Flow / trust boundaries
 
-1. Telegram / Hermes parses text into one of three explicit modes: `article`, `name`, or 1C catalog `code`, plus optional `warehouse_name`. Ambiguity is clarified, not silently guessed.
+1. Telegram / Hermes parses only `article` or `name`, plus optional `warehouse_name`. Duplicate matching cards are **all shown** (1, 2, 10, ...), not resolved by forcing a code-based re-query.
 2. One future read-only MCP tool passes only this typed request to the existing localhost VPS relay. An exact Unicode NFC wire contract is implemented in `natural_stock_contract.py`. No user-supplied OData URL, filter, SQL, arbitrary command, GUID, or credentials.
 3. The VPS relay creates a restricted new job type for the NewBase read-only system poller. **Current production relay does NOT yet support this type.** The existing GUID-based `STOCK|guid|guid` operation must remain unchanged.
-4. On SRV Windows Server 2008 R2, the existing LocalService identity reads *only* the fixed `NewBase` OData site, using the already enrolled `MCP_OData_ReadOnly` credential. First resolve the 1C item entity and exact article/name/code field into `Ref_Key`. Resolve real warehouse name to its authoritative 1C reference (the warehouse catalog name is **pending live metadata verification**).
-5. Execute the fixed Balance request for the resolved item and selected warehouse or all warehouses. Obtain complete, bounded results, map warehouse GUIDs to actual names on the trusted side, then return only the authorized display fields and quantities. The pure `natural_stock_resolution.py` implements exact matching, ambiguity/error handling, Decimal summation and refusal to return partial results.
-6. MCP returns product name, article, warehouse name(s), quantities and total, with provenance `1C NewBase Balance`. Telegram reports that naturally. GUIDs and secrets are not normally exposed to the user.
+4. On SRV Windows Server 2008 R2, the existing LocalService identity reads *only* the fixed `NewBase` OData site, using the already enrolled `MCP_OData_ReadOnly` credential. Resolve **all** item catalog entries matching the chosen article/name to their internal `Ref_Key` values. The human warehouse title resolves in `Catalog_СтруктурныеЕдиницы.Description` (confirmed by SRV live tests); it is a mixed structural-unit catalog and not all entries are physical warehouses.
+5. For **every** matched item, execute the fixed `AccumulationRegister_ЗапасыНаСкладах/Balance(Dimensions='Номенклатура,СтруктурнаяЕдиница')` query with its authoritative item reference, and the selected warehouse/all warehouses. Fully verify bounded results and pagination before reporting. The pure `natural_stock_resolution.py` returns all matching items separately with per-item Decimal quantities, never an aggregate across distinct item cards. No silent truncation.
+6. MCP should return for **each** catalog match: name, published article (or `не указан`), 1C Code for identification only, requested warehouse and stock, or per-warehouse quantities. It should mark missing Balance rows as `NO_BALANCE_ROW` and display `0` only with that qualifier. No GUIDs/secrets and no cross-card total.
 
 ## Mandatory gates before enabling in Hermes
 
@@ -34,10 +34,10 @@ A user is **never asked for product/warehouse GUIDs**. For duplicate names with 
 |---|---|
 | `PASS` with total quantity `0` | Real, independently verified OData zero balance row |
 | `ITEM_NOT_FOUND` | No matching 1C article / name |
-| `ITEM_AMBIGUOUS` | Multiple 1C products share the requested identifier |
+| `PASS` with `match_count` > 1 | Every matching 1C catalog card is listed separately, with its own stock; no artificial ambiguity blocker |
 | `WAREHOUSE_NOT_FOUND` | No exact warehouse name found |
 | `WAREHOUSE_AMBIGUOUS` | Multiple warehouse records share that name |
-| `NO_BALANCE_ROW` | No OData Balance row; **not equivalent to zero** |
+| `NO_BALANCE_ROW` per card | Missing Balance row; qualified display `0 (запись отсутствует)`, **not** an observed zero |
 | `*_RESULT_INCOMPLETE` | Capped/paged/unverified query; no partial quantity returned |
 | `UNAVAILABLE` / transport failure | Cannot determine quantity; never invent a value |
 
@@ -55,14 +55,13 @@ structural-unit card:
 | `НФ-00001359` | Blank | Verified quantity `6` |
 | `НФ-00000879` | Blank | `NO_BALANCE_ROW` — **not zero** |
 
-A separate successful reverse lookup from one existing Balance row established
-`Слэмбол 6 кг` / `Основной склад` / `6`; this is **not** sufficient
-to resolve a free-text name query because both catalog items share that name.
-For `name` the offline resolution must return `ITEM_AMBIGUOUS` with safe
-human-readable identifiers (`Code` and optional article), not a fabricated
-single-item balance. After the user chooses `НФ-00001359`, a separate exact
-`code` lookup may safely identify its stock. For `НФ-00000879`, missing
-Balance row remains `NO_BALANCE_ROW`.
+A successful read-only verification established both catalog entries.
+For `name` the updated offline resolution returns **both** cards in one result:
+`НФ-00001359` — **6** on `Основной склад`; `НФ-00000879` —
+**0 (no Balance row)**. Codes are display-only metadata; there is no
+`LOOKUP1|code` request mode, no need for a follow-up selection, and no
+GUIDs in user-facing results. Search by published article must follow the
+same all-matches rule when multiple catalog items share an article.
 
 Also confirmed `Catalog_СтруктурныеЕдиницы` has mixed structural units
 (warehouses, office, people, subdivisions). Do not infer a physical warehouse
@@ -73,5 +72,15 @@ The earlier schema probe was incorrect to search for a separate
 
 **Status boundary:** all of these item/warehouse/stock lookups were made
 manually from SRV with the restricted read-only 1C user. Updated
-`LOOKUP1|code|...` and result resolution code are still **offline**,
+`LOOKUP1|article|...` / `LOOKUP1|name|...` and multi-match resolution are **offline**,
 pending approved new queue mode, agent handler and Hermes end-to-end test.
+
+
+## Bounded enumeration and cardinality
+
+- 0 matching products: `ITEM_NOT_FOUND`.
+- 1 product: one card and that card's own stock.
+- 2 or 10 products: every card and its own stock/warehouse rows, even if article or name is duplicated.
+- Up to 50 products: independently return all verified matches. The 51st item is an explicit `ITEM_RESULT_INCOMPLETE`, **not** a 50-row partial answer.
+- Current offline parser can accept up to 2,500 item/warehouse balance records; excess or OData continuation that has not been followed triggers `BALANCE_RESULT_INCOMPLETE`.
+- Actual server-side GET, pagination and relay support for this larger result set are not yet deployed. Do not claim live Hermes support until end-to-end acceptance.
