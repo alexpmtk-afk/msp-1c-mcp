@@ -396,6 +396,21 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn(b"\r",raw)
         self.assertEqual(hashlib.sha256(raw).hexdigest(),
                          "50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3")
+    def test_schema_failure_diagnostic_is_readonly(self):
+        s=read("diagnose-customer-store-schema-failure.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("SCHEMA_IN_MEMORY", "DB_READONLY", "MspCustomerStoreSync",
+                      "TASK_LAST_RESULT=", "SQL_SCHEMA_PRESENT=YES",
+                      "SMOKE_STATE_GATE=", "SMOKE_STATE_PHASE=",
+                      "LOCAL_SERVICE_READ_ACE=", "LOCAL_SERVICE_WRITE_ACE=",
+                      "FILES_CREATED=NO", "ACL_CHANGES=NO",
+                      "TASK_CHANGES=NO", "ONEC_CALLS=NO", "BITRIX_CALLS=NO"):
+            self.assertIn(token,s)
+        self.assertIn("-batch -bail :memory:",s)
+        self.assertIn("-readonly",s)
+        for forbidden in ("CreateDirectory(", "WriteAllText(", "Copy-Item", "New-Item",
+                          "RegisterTaskDefinition(", "Invoke-WebRequest", "crm.company.add"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

@@ -52,6 +52,7 @@ jobs:
                    'bin/resume-machine-customer-store.ps1',
                    'bin/resume-machine-customer-store-from-zip.ps1',
                    'bin/resume-machine-customer-store-from-schema.ps1',
+                   'bin/diagnose-customer-store-schema-failure.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
