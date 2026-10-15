@@ -15,10 +15,10 @@ from urllib.parse import quote
 from .natural_stock_contract import validate_term
 from .natural_stock_resolution import UUID, _ref, _quantity
 
-MAX_PAGE_BYTES = 32768
-MAX_PRODUCT_ROWS = 2       # separate $top=2 to detect ambiguous article/name
+MAX_PAGE_BYTES = 262144
+MAX_PRODUCT_ROWS = 51      # $top=51 to detect overflow of 50 matched cards
 MAX_WAREHOUSE_ROWS = 51   # $top=51 => overflow; never return a partial total
-MAX_BALANCE_ROWS = 51
+MAX_BALANCE_ROWS = 2501  # $top=2501 detects overflow of 2500 pair rows
 
 
 def exact_filter_url_fragment(field: str, text: str, *, approved_field: str) -> str:
@@ -67,6 +67,8 @@ def parse_item_page(
     if article_field is not None and article_field not in ("Артикул", "Code"):
         raise ValueError("Business article field requires schema approval")
     records, complete = _decode_page(raw, row_limit=MAX_PRODUCT_ROWS)
+    if len(records) > 50:
+        return [], False
     result = []
     for row in records:
         guid = _ref(row.get("Ref_Key"))
@@ -103,7 +105,7 @@ def parse_warehouse_page(raw: bytes | str) -> tuple[list[dict], bool]:
 def parse_balance_page(raw: bytes | str) -> tuple[list[dict], bool]:
     """NewBase Balance with documented stock dimension properties."""
     records, complete = _decode_page(raw, row_limit=MAX_BALANCE_ROWS)
-    if len(records) > 50:
+    if len(records) > 2500:
         return [], False
     result = []
     for row in records:
