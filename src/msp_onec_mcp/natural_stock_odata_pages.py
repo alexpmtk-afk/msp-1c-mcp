@@ -63,7 +63,7 @@ def parse_item_page(
     raw: bytes | str, *,
     article_field: str | None,
 ) -> tuple[list[dict], bool]:
-    """Read Ref_Key, Description, published business article if explicitly proven."""
+    """Read Ref_Key, Description, 1C Code and business article where published."""
     if article_field is not None and article_field not in ("Артикул", "Code"):
         raise ValueError("Business article field requires schema approval")
     records, complete = _decode_page(raw, row_limit=MAX_PRODUCT_ROWS)
@@ -72,9 +72,19 @@ def parse_item_page(
         guid = _ref(row.get("Ref_Key"))
         name = validate_term(row.get("Description"), max_length=160, label="item name")
         article = row.get(article_field) if article_field is not None else None
-        if article is not None:
+        # An empty published article is a legitimate missing value in NewBase.
+        if article:
             article = validate_term(article, max_length=96, label="business article")
-        result.append({"guid": guid, "name": name, "article": article})
+        else:
+            article = None
+        code = row.get("Code")
+        if code:
+            code = validate_term(code, max_length=96, label="1C item code")
+        elif code == "" or code is None:
+            code = None
+        else:
+            raise ValueError("Invalid 1C Code")
+        result.append({"guid": guid, "name": name, "article": article, "code": code})
     return result, complete
 
 
