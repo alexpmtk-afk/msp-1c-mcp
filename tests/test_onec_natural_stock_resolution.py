@@ -115,3 +115,35 @@ def test_no_fuzzy_or_marketplace_fallback():
 def test_cap_never_reports_partial_total():
     records=[{"item_guid":ITEM,"warehouse_guid":W1,"quantity":"1"}]*51
     assert resolve(balances=records)["status"]=="BALANCE_RESULT_INCOMPLETE"
+
+
+def test_live_newbase_duplicate_slam_ball_names_need_1c_code_disambiguation():
+    first={"guid":ITEM,"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None}
+    second={"guid":OTHER,"name":"Слэмбол 6 кг","code":"НФ-00000879","article":None}
+    stock=[{"item_guid":ITEM,"warehouse_guid":W1,"quantity":"6"}]
+    result=resolve("name","Слэмбол 6 кг","Основной склад",
+                   items=[first,second],balances=stock)
+    assert result["status"]=="ITEM_AMBIGUOUS"
+    assert result["candidates"]==[
+        {"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None},
+        {"name":"Слэмбол 6 кг","code":"НФ-00000879","article":None},
+    ]
+    assert "total_quantity" not in result
+    assert "guid" not in repr(result)
+    assert ITEM not in repr(result)
+    assert OTHER not in repr(result)
+    chosen=resolve("code","НФ-00001359","Основной склад",
+                   items=[first,second],balances=stock)
+    assert chosen["status"]=="PASS"
+    assert chosen["code"]=="НФ-00001359"
+    assert chosen["article"] is None
+    assert chosen["total_quantity"]=="6"
+    missing=resolve("code","НФ-00000879","Основной склад",
+                    items=[first,second],balances=[])
+    assert missing["status"]=="NO_BALANCE_ROW"
+
+
+def test_missing_article_does_not_error_and_does_not_match():
+    item={"guid":ITEM,"name":"Слэмбол 6 кг","code":"НФ-00001359","article":None}
+    assert resolve("article","ТРН-99",items=[item])["status"]=="ITEM_NOT_FOUND"
+    assert resolve("code","НФ-00001359",items=[item])["status"]=="PASS"
