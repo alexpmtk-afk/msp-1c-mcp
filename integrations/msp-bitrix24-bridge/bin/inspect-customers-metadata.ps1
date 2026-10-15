@@ -11,7 +11,13 @@ try {
   if ($env:COMPUTERNAME -ne $ExpectedComputerName) { Fail 'WRONG_HOST' }
   # Prompt INSIDE the native PowerShell 2 process. PSCredential objects must not
   # be passed through a child powershell.exe -File argument boundary.
-  if ($null -eq $Credential) { $Credential=Get-Credential }
+  if($null -eq $Credential){
+    $secure=Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString
+    if($null -eq $secure -or $secure.Length -eq 0){throw 'PASSWORD_REQUIRED'}
+    $Credential=New-Object System.Management.Automation.PSCredential -ArgumentList @('MCP_OData_ReadOnly',$secure)
+    $secure=$null
+  }
+  if($Credential.UserName -ne 'MCP_OData_ReadOnly'){throw 'ODATA_USERNAME_MISMATCH'}
   if ($null -eq $Credential) { Fail 'CREDENTIAL_REQUIRED' }
   $url='http://127.0.0.1:8085/NewBase/odata/standard.odata/$metadata'
   $req=[Net.HttpWebRequest][Net.WebRequest]::Create($url)

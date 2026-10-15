@@ -34,7 +34,7 @@ class BootstrapSafety(unittest.TestCase):
     def test_odata_inventory_ps2_ascii_and_credentials(self):
         s=read("inspect-customers-metadata.ps1")
         self.assertTrue(s.isascii(), "PS2 BOM-less script must be ASCII-only")
-        self.assertIn("if ($null -eq $Credential) { $Credential=Get-Credential }",s)
+        self.assertIn("Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString",s)
         self.assertIn("if ($null -eq $Credential) { Fail 'CREDENTIAL_REQUIRED' }",s)
         self.assertIn("$customerRegex=",s)
         for escaped in (r"\u041A\u043E\u043D\u0442\u0440\u0430\u0433\u0435\u043D",
@@ -91,6 +91,19 @@ class BootstrapSafety(unittest.TestCase):
             self.assertIn(token,s)
         for token in (".Method='POST'", "crm.company.add", "Invoke-Expression", "Invoke-WebRequest"):
             self.assertNotIn(token,s)
+    def test_all_odata_probes_require_password_only_ps2(self):
+        for name in ("inspect-customers-metadata.ps1",
+                     "inspect-customers-schema.ps1", "inspect-customers-counts.ps1",
+                     "inspect-customers-required-counts.ps1",
+                     "diagnose-customer-string-filters.ps1"):
+            s=read(name)
+            self.assertTrue(s.isascii(), name)
+            self.assertIn("Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString", s)
+            self.assertIn("New-Object System.Management.Automation.PSCredential", s)
+            self.assertIn("@('MCP_OData_ReadOnly',$secure)", s)
+            self.assertIn("ODATA_USERNAME_MISMATCH", s)
+            self.assertNotIn("Get-Credential", s)
+            self.assertNotIn("-UserName", s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

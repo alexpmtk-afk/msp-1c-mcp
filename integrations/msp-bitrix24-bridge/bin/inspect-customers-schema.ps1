@@ -8,7 +8,13 @@ $phase='PRECHECK'
 function Fail([string]$Code) {throw ('ODATA_'+$Code)}
 try {
   if($env:COMPUTERNAME -ne $ExpectedComputerName){Fail 'WRONG_HOST'}
-  if($null -eq $Credential){$Credential=Get-Credential}
+  if($null -eq $Credential){
+    $secure=Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString
+    if($null -eq $secure -or $secure.Length -eq 0){throw 'PASSWORD_REQUIRED'}
+    $Credential=New-Object System.Management.Automation.PSCredential -ArgumentList @('MCP_OData_ReadOnly',$secure)
+    $secure=$null
+  }
+  if($Credential.UserName -ne 'MCP_OData_ReadOnly'){throw 'ODATA_USERNAME_MISMATCH'}
   if($null -eq $Credential){Fail 'CREDENTIAL_REQUIRED'}
   $phase='ODATA_METADATA_GET'
   $url='http://127.0.0.1:8085/NewBase/odata/standard.odata/$metadata'
