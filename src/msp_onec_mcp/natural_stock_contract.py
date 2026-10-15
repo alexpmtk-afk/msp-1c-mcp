@@ -12,7 +12,7 @@ import unicodedata
 
 PREFIX = "LOOKUP1"
 B64 = re.compile(r"[A-Za-z0-9_-]+\Z")
-KINDS = frozenset({"article", "name"})
+KINDS = frozenset({"article", "name", "code"})
 MAX_WIRE = 1024
 
 
@@ -45,7 +45,7 @@ def _decode(value: str) -> str:
 
 
 def encode_lookup(kind: str, item_text: str, warehouse_name: str | None = None) -> str:
-    """Article/name and optional *human* warehouse name; missing means all warehouses."""
+    """Article/name/1C code and optional *human* warehouse name; missing means all."""
     if kind not in KINDS:
         raise ValueError("Unsupported lookup kind")
     item = validate_term(item_text, max_length=160 if kind == "name" else 96, label="item")
