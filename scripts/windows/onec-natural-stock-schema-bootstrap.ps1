@@ -1,4 +1,4 @@
-#requires -version 2
+﻿#requires -version 2
 # Pinned staging for an administrator-authorized one-shot, NewBase GET only.
 # Does not add remote shell execution to the HTTPS LocalService poller.
 param([string]$ExpectedComputerName='SRV')
