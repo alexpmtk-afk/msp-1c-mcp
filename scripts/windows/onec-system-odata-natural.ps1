@@ -97,7 +97,7 @@ function Rows([string]$path,[int]$cap) {
   return ,$records
 }
 function ExactFilter([string]$field,[string]$text) {
-  if ($field -cnotin @('Description','Артикул','Ref_Key')) {
+  if (-not (@('Description','Артикул','Ref_Key') -ccontains $field)) {
     throw 'FIELD_NOT_ALLOWED'
   }
   $escaped=$text.Replace("'","''")
@@ -149,7 +149,7 @@ try {
     throw 'WRONG_IDENTITY'
   }
   if ($PSVersionTable.PSVersion.Major -ne 2) { throw 'WRONG_POWERSHELL' }
-  if ($Kind -cnotin @('name','article')) { throw 'INVALID_LOOKUP_MODE' }
+  if (-not (@('name','article') -ccontains $Kind)) { throw 'INVALID_LOOKUP_MODE' }
   $item=Decode $ItemB64 $(if($Kind -eq 'name'){160}else{96})
   $warehouse=$null
   if ($WarehouseB64 -ne '-') { $warehouse=Decode $WarehouseB64 100 }
