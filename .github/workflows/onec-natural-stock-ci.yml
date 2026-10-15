@@ -53,8 +53,8 @@ jobs:
             "Method='GET'",'AllowAutoRedirect=$false',
             'ProtectedData]::Unprotect','DtdProcessing','Prohibit',
             'MaxCharactersInDocument','EscapeDataString',
-            'Catalog_Номенклатура','Catalog_СтруктурныеЕдиницы',
-            'Catalog_Склады','Артикул','EXAMPLE_ARTICLE_MATCHES',
+            'PropertyNames','warehouseCandidates',
+            'articlePresent','EXAMPLE_ARTICLE_MATCHES',
             'RAW_NOMENCLATURE_AND_GUIDS_EXPORTED=NO','DATA_WRITES=NO')) {
             if(-not $script.Contains($required)) { throw ('MISSING_GUARD='+$required) }
           }
