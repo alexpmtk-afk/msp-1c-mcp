@@ -31,6 +31,20 @@ class BootstrapSafety(unittest.TestCase):
             self.assertIn(k,s)
         for k in ("crm.company.add","crm.contact.add",".Method='POST'","github.com"):
             self.assertNotIn(k,s)
+    def test_odata_inventory_ps2_ascii_and_credentials(self):
+        s=read("inspect-customers-metadata.ps1")
+        self.assertTrue(s.isascii(), "PS2 BOM-less script must be ASCII-only")
+        self.assertIn("if ($null -eq $Credential) { $Credential=Get-Credential }",s)
+        self.assertIn("if ($null -eq $Credential) { Fail 'CREDENTIAL_REQUIRED' }",s)
+        self.assertIn("$customerRegex=",s)
+        for escaped in (r"\u041A\u043E\u043D\u0442\u0440\u0430\u0433\u0435\u043D",
+                        r"\u041F\u0430\u0440\u0442\u043D\u0435\u0440",
+                        r"\u041F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B",
+                        r"\u041A\u043B\u0438\u0435\u043D\u0442"):
+            self.assertIn(escaped,s)
+        self.assertIn("$req.Method='GET'",s)
+        self.assertIn("$req.AllowAutoRedirect=$false",s)
+        self.assertIn("$req.Proxy=$null",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

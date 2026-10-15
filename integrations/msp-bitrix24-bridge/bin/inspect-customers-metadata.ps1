@@ -9,6 +9,9 @@ function Fail([string]$Reason) {
 $response=$null
 try {
   if ($env:COMPUTERNAME -ne $ExpectedComputerName) { Fail 'WRONG_HOST' }
+  # Prompt INSIDE the native PowerShell 2 process. PSCredential objects must not
+  # be passed through a child powershell.exe -File argument boundary.
+  if ($null -eq $Credential) { $Credential=Get-Credential }
   if ($null -eq $Credential) { Fail 'CREDENTIAL_REQUIRED' }
   $url='http://127.0.0.1:8085/NewBase/odata/standard.odata/$metadata'
   $req=[Net.HttpWebRequest][Net.WebRequest]::Create($url)
@@ -38,7 +41,10 @@ try {
   $xml.XmlResolver=$null
   $xml.LoadXml($text.ToString())
   $names=@($xml.SelectNodes("//*[local-name()='EntitySet']") | ForEach-Object { $_.GetAttribute('Name') })
-  $candidates=@($names | Where-Object { $_ -match '^Catalog_.*(Контраген|Партнер|Покупател|Клиент)' })
+  # All source bytes are ASCII, required for BOM-less source on Windows PowerShell 2.
+  # .NET regex Unicode escapes match the Russian names in metadata.
+  $customerRegex='^Catalog_.*(?:\u041A\u043E\u043D\u0442\u0440\u0430\u0433\u0435\u043D|\u041F\u0430\u0440\u0442\u043D\u0435\u0440|\u041F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B|\u041A\u043B\u0438\u0435\u043D\u0442)'
+  $candidates=@($names | Where-Object { $_ -match $customerRegex })
   'HTTP=200'
   'ENTITY_SETS='+$names.Count
   'CUSTOMER_CANDIDATES='+$candidates.Count
