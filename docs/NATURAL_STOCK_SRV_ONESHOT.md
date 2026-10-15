@@ -32,6 +32,38 @@ download the three files from this immutable base URL:
 
   https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/3909889c4aa177d834961d26d13af6541a20f3d4/scripts/windows/
 
+## Single-command authorized staging and invocation
+
+A reviewed convenience script, `scripts/windows/onec-natural-stock-schema-bootstrap.ps1`,
+was validated by Windows PS2 static CI and Linux tests. Pin its immutable
+GitHub revision to `dd3e6c64025be5c1d4a01c9a2b66ee34b5e7728d`.
+It downloads only the exact three historical reviewed files, checks all
+three Git blob SHA-1 hashes before any execution, then invokes the
+administrator-gated one-shot installer. It uses the pre-existing
+`C:\ProgramData\MspOnecAgent\bin\curl.exe` and its local CA bundle;
+it never changes the operational LocalService poller.
+
+Execute the following ONE LINE **only in a separately authorized elevated
+PowerShell session on SRV**. `SRV\parshin` is not and need not become admin:
+
+```powershell
+$p='C:\ProgramData\MspOnecAgent\bin';$b=Join-Path $env:TEMP 'onec-natural-stock-schema-bootstrap.ps1';& "$p\curl.exe" -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --proto '=https' --max-redirs 0 --cacert "$p\curl-ca-bundle.crt" --output $b 'https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/dd3e6c64025be5c1d4a01c9a2b66ee34b5e7728d/scripts/windows/onec-natural-stock-schema-bootstrap.ps1';if($LASTEXITCODE -ne 0){throw 'BOOTSTRAP_DOWNLOAD_FAILED'};& "$PSHOME\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $b -ExpectedComputerName 'SRV'
+```
+
+**Do not rerun blindly** after a partial failure: the bootstrap refuses
+an existing staging directory, and the installer refuses a previously
+installed helper or report. Have the administrator inspect the sanitized
+error stage before deciding on cleanup or retry. Do not change 1C or
+the existing scheduled task.
+
+### Accepted proof
+
+Report should contain `ONEC_NATURAL_STOCK_SCHEMA_ONE_SHOT`,
+`LOCAL_SERVICE=YES`, `ONE_SHOT_REPORT=PASS`, and a sanitized OData
+field/match count section. `RESULT=PASS` does **not** establish that
+the example article exists in the test base or that a live stock lookup
+is available through Hermes.
+
 Once the THREE scripts are staged, in an **already elevated and authorized**
 PowerShell 2 session on SRV, execute this fixed one-time procedure:
 
