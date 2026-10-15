@@ -1,3 +1,25 @@
+## S3: isolated 10-row customer ingestion acceptance
+
+After LOCAL SERVICE DPAPI and TEST 1C count gate PASS (6,433), run only
+the bounded 10-row pilot before mass ingestion.
+Machine-owned worker `bin/pilot-machine-customer-store-10.ps1`:
+- decrypts source read-only account under LOCAL SERVICE,
+- GETs first 10 active buyers by ascending Ref_Key (not random),
+- validates 10 distinct GUIDs, source fields and types,
+- stores all 10 in SQLite in one transaction using **ASCII SQL with hex
+  UTF-8 literals**, avoiding WinServer 2008R2 console mojibake,
+- backreads 10/10 with quick_check and emits **aggregate metrics only**.
+No source record export, 1C writes, Bitrix calls, or stored raw XML.
+All data stays in the NTFS-protected SRV database.
+
+`bin/run-customer-store-pilot10.ps1` checks safe-idle and zero existing
+customers, pins the worker SHA-256, registers and manually runs a temporary
+zero-trigger `MspCustomerStorePilot10` task under LOCAL SERVICE, checks the
+status and SQLite rows, and deletes just the temporary task on PASS.
+Existing `MspCustomerStoreSync` is unchanged, boot remains off.
+On FAIL do not repeat: files or partial data may exist.
+Full 6,433 initial load and native 1C delta registration are NOT enabled.
+
 ## S3 first gate: machine-owned OData credentials under LOCAL SERVICE
 
 After the successful S2 empty SQLite acceptance, S3 must read TEST 1C

@@ -483,6 +483,19 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("127.0.0.1:9786",s)
         self.assertNotIn("Method='POST'",s)
         self.assertNotIn("Invoke-WebRequest",s)
+    def test_customer_pilot10_runner_safe_one_shot_local_service(self):
+        s=read("run-customer-store-pilot10.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("MspCustomerStorePilot10", "MspCustomerStoreSync",
+                      "PILOT_WORKER_SHA256=PASS", "S-1-5-19",
+                      "CUSTOMERS_DB_NOT_EMPTY", "PILOT_DB_COUNT_MISMATCH",
+                      "PILOT_ONE_TIME_TASK_REMOVED=YES", "COLLECTOR_AUTOSTART=OFF",
+                      "EXISTING_TASKS_UNCHANGED=YES", "CUSTOMER_RECORDS_EXPORTED=NO",
+                      "ONEC_WRITES=NO", "BITRIX_CALLS=NO", "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(token,s)
+        self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
+        self.assertNotIn("Get-Credential",s)
+        self.assertNotIn("Method='POST'",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
