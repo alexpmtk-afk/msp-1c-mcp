@@ -159,6 +159,20 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Get-Credential", "Invoke-Expression", "Invoke-WebRequest",
                           "WriteAllText", "Export-Csv", ".Method='POST'", "crm.company.add"):
             self.assertNotIn(forbidden,s)
+    def test_legal_only_paged_counts_ps2(self):
+        s=read("scan-legal-required-fields.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("127.0.0.1:8085/NewBase", "$top=100", "&$skip=",
+                      "LEGAL_BASELINE_COUNT_CHANGED", "LEGAL_INN_BASELINE_CHANGED",
+                      "DUPLICATE_GUID_ACROSS_PAGES", "FINAL_COUNT_OR_UNIQUENESS_MISMATCH",
+                      "LEGAL_WITH_BOTH_REQUIRED=", "SCAN_ELAPSED_SECONDS=",
+                      "PAGE_REQUEST_MAX_MS=", "Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString",
+                      "ORGANIZATION_CLASSIFICATION=LEGAL_ONLY", "CUSTOMER_RECORDS_EXPORTED=NO",
+                      "BITRIX_CALLS=NO", "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(token,s)
+        for banned in ("Get-Credential", "Invoke-Expression", "Invoke-WebRequest",
+                       "Export-Csv", "WriteAllText", ".Method='POST'", "crm.company.add"):
+            self.assertNotIn(banned,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

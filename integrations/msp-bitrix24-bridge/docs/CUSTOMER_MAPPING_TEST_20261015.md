@@ -86,13 +86,20 @@ Official documentation:
 - Next evaluate OData `$count` filters for each exact class and for legal
   entities with nonempty INN; do not filter on long full name (HTTP 500).
 
+## Full category counts, verified SRV 15 Oct 2026
+- Baseline 6,433 eligible active buyers, 1,941 `ЮридическоеЛицо`, 4,486 `ФизическоеЛицо`, 6 other/unclassified.
+- 1,402 legal entities have `ИНН ne ''`; 539 legal entities do not.
+- Category counts from four GET-only OData `$count` calls; no row export and no writes.
+- Do not extrapolate full-name completeness (1,912 all-type both-field count) to legal-only subset.
+- The 6 other/unclassified require separate investigation; sole criterion `ЮридическоеЛицо` may also
+  omit businesses that are individual entrepreneurs, so finalize entity mapping later.
+
 ## Next gate
 Accepted: full 6,433-buyer local field-completeness scan and 6,433 unique GUIDs.
-The 100-buyer type sample completed successfully. Next run
-`bin/count-buyer-classes.ps1` manually on SRV, using password-only
-`MCP_OData_ReadOnly`. It makes up to four read-only OData
-`$count` calls (known eligible-buyer baseline, legal, natural-person,
-legal with nonempty INN). Only integer counts and status are returned.
-If the class string predicate is unsupported, stop with a diagnostic
-status and do NOT automatically repeat or scan all buyers.
+The full OData category counts completed successfully. Next execute
+`bin/scan-legal-required-fields.ps1` manually on SRV, using password-only
+`MCP_OData_ReadOnly`. It scans only 1,941 legal buyers with GUID pagination
+and determines full-name and INN overlap, shape and request duration.
+Requires pre/post count=1,941 and INN count=1,402 or fails closed.
+No records, GUIDs, names or tax numbers leave SRV, and no Bitrix calls.
 No changes to system bridge or existing MSP tasks.
