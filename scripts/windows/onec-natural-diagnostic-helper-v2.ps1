@@ -146,7 +146,7 @@ function PrintResult($output) {
       [Environment]::NewLine+'ERROR_TYPE=STATUS'+[Environment]::NewLine+'RESULT=FAIL')
     [IO.File]::WriteAllText($diagFile,$report,[Text.Encoding]::ASCII)
   }
-  $json=$serializer.Serialize($output)
+  $json=ConvertTo-NaturalStockJson $output
   [byte[]]$bytes=[Text.Encoding]::UTF8.GetBytes($json)
   if ($bytes.Length -gt $MAX_RESPONSE) { throw 'RESULT_TOO_LARGE' }
   $encoded=[Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
@@ -172,6 +172,10 @@ try {
   $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
   if (-not (Test-Path -LiteralPath $jsonLibrary -PathType Leaf)) { throw 'JSON_LIB_NOT_INSTALLED' }
   . $jsonLibrary
+  $diagStage='LOAD_FIXED_JSON_WRITER'
+  $writerLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-natural-stock-json-writer.ps1'
+  if (-not (Test-Path -LiteralPath $writerLibrary -PathType Leaf)) { throw 'JSON_WRITER_NOT_INSTALLED' }
+  . $writerLibrary
   $diagStage='CREATE_JSON_SERIALIZER'
   $serializer=New-Object MspLegacyJson
   $serializer.MaxJsonLength=262144
@@ -284,7 +288,8 @@ try {
     'INVALID_QUANTITY','DUPLICATE_ITEM','DUPLICATE_ITEM_WAREHOUSE',
     'WRONG_BALANCE_ITEM','WRONG_BALANCE_WAREHOUSE','UNIT_REF_NOT_UNIQUE',
     'UNIT_REF_MISMATCH','INVALID_1C_UNIT_NAME','ODATA_NON_200','ODATA_TOO_LARGE',
-    'INVALID_FIXED_QUERY','RESULT_TOO_LARGE','FIELD_NOT_ALLOWED')
+    'INVALID_FIXED_QUERY','RESULT_TOO_LARGE','FIELD_NOT_ALLOWED',
+    'JSON_WRITER_NOT_INSTALLED','JSON_TOTAL_MISMATCH','JSON_INVALID_CARD')
   if ($allow -contains $_.Exception.Message) { $reason=$_.Exception.Message }
   if ($_.Exception -is [Net.WebException]) {
     $reason='WEB_EXCEPTION'
@@ -310,6 +315,8 @@ try {
     if ($null -eq $serializer) {
       $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
       if (Test-Path -LiteralPath $jsonLibrary -PathType Leaf) { . $jsonLibrary }
+      $writerLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-natural-stock-json-writer.ps1'
+      if (Test-Path -LiteralPath $writerLibrary -PathType Leaf) { . $writerLibrary }
       $serializer=New-Object MspLegacyJson
     }
     PrintResult (StatusResult 'UNAVAILABLE')
