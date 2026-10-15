@@ -48,7 +48,7 @@ class BootstrapSafety(unittest.TestCase):
     def test_read_only_customer_schema_ps2_ascii(self):
         s=read("inspect-customers-schema.ps1")
         self.assertTrue(s.isascii())
-        for token in ("'GET'", "'$metadata'", "127.0.0.1:8085/NewBase", "$request.Proxy=$null",
+        for token in ("'GET'", "standard.odata/$metadata", "127.0.0.1:8085/NewBase", "$request.Proxy=$null",
                       "$request.AllowAutoRedirect=$false", "COUNTERPARTIES", "COUNTERPARTY_CONTACT_INFO",
                       "CUSTOMER_RECORDS_EXPORTED=NO", "DATA_WRITES=NO",
                       "FIELD=", "KEY=", "ENTITY_TYPE="):
