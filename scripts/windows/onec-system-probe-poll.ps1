@@ -15,7 +15,7 @@ $TokenFile=Join-Path (Join-Path $RootDir 'secrets') 'agent-token.machine.dpapi'
 function Health([string]$Mode) {
   try {
     if (Test-Path -LiteralPath $StateDir -PathType Container) {
-      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_PAIR_V1')
+      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_SELECTED_V1')
       [IO.File]::WriteAllText((Join-Path $StateDir 'last-status.txt'),$msg,[Text.Encoding]::ASCII)
     }
   } catch {}
@@ -95,7 +95,7 @@ try {
     $pending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'result-*.txt' -ErrorAction SilentlyContinue)
     foreach($file in $pending) {
       $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
-      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR|STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|ODATA_[A-Z_]+)$')) {
+      if (-not ($payload -match '^RESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|(PASS|FAIL)\|(SRV_ALIVE|CLIENT_ERROR|STOCK_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|PAIR_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?|ODATA_[A-Z_]+)$')) {
         throw 'INVALID_PENDING_RESULT'
       }
       $jid=$Matches[1]
@@ -106,10 +106,19 @@ try {
     }
     $task=AgentRequest 'GET' '/v1/agent/poll' $null
     if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
-    if ($task -notmatch '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
+    $itemGuid=$null;$warehouseGuid=$null
+    if ($task -match '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
+      $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
+    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_stock_selected\|([0-9a-f]{32})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
+      $jid=$Matches[1];$operation='odata_stock_selected';$lease=$Matches[2]
+      $itemGuid=$Matches[3];$warehouseGuid=$Matches[4]
+      if ($itemGuid -eq '00000000-0000-0000-0000-000000000000' -or
+          $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
+        throw 'INVALID_SELECTED_GUID'
+      }
+    } else {
       throw 'UNRECOGNIZED_TASK'
     }
-    $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
     $marker=Join-Path $StateDir ('task-'+$jid+'.txt')
     if (Test-Path -LiteralPath $marker) {
       $old=[IO.File]::ReadAllText($marker,[Text.Encoding]::ASCII).Trim()
@@ -154,6 +163,23 @@ try {
           $reason=$pairOutput
         } else {
           $status='FAIL';$reason='ODATA_PAIR_READ_FAILED'
+        }
+      }
+    }
+    if ($operation -eq 'odata_stock_selected') {
+      $selected=Join-Path $bin 'onec-system-odata-selected.ps1'
+      if (-not (Test-Path -LiteralPath $selected -PathType Leaf)) {
+        $status='FAIL';$reason='ODATA_SELECTED_HELPER_MISSING'
+      } else {
+        $selectedValue=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $selected -ItemGuid $itemGuid -WarehouseGuid $warehouseGuid
+        if ($LASTEXITCODE -eq 0 -and $selectedValue -is [string] -and
+            $selectedValue -match '^SELECTED_Q_-?[0-9]{1,9}(?:\.[0-9]{1,3})?$') {
+          $reason=$selectedValue
+        } else {
+          $status='FAIL';$reason='ODATA_SELECTED_READ_ERROR'
+          if ($selectedValue -is [string] -and $selectedValue -match '^ODATA_SELECTED_[A-Z_]+$') {
+            $reason=$selectedValue
+          }
         }
       }
     }
