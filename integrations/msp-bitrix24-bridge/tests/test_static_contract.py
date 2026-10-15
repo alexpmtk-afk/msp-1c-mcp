@@ -187,7 +187,7 @@ class BootstrapSafety(unittest.TestCase):
         for term in ("Option B", "6,433", "ФизическоеЛицо",
                      "INN", "SQLite", "customers.db", "change_inbox",
                      "bitrix_outbox", "bitrix_links", "SAFE_IDLE",
-                     "NOT been created"):
+                     "S3-accepted machine-owned path"):
             self.assertIn(term,spec)
         self.assertIn("NOT been proven",spec)
         self.assertIn("no 1C writes",spec)
