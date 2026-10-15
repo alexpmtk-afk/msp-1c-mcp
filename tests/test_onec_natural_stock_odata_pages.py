@@ -133,3 +133,21 @@ def test_decimal_quantity_rejects_string_injection_or_bool():
                 "Номенклатура_Key":ITEM,"СтруктурнаяЕдиница_Key":WH1,
                 "КоличествоBalance":value,
             }]))
+
+
+def test_blank_business_article_with_code_in_odata_page():
+    rows,complete=parse_item_page(fixture([
+        {"Ref_Key":ITEM,"Description":"Слэмбол 6 кг",
+         "Code":"НФ-00001359","Артикул":""},
+    ]),article_field="Артикул")
+    assert complete is True
+    assert rows==[{"guid":ITEM,"name":"Слэмбол 6 кг",
+                   "code":"НФ-00001359","article":None}]
+
+
+def test_invalid_code_rejected_in_odata_page():
+    with pytest.raises(ValueError):
+        parse_item_page(fixture([
+            {"Ref_Key":ITEM,"Description":"Слэмбол 6 кг",
+             "Code":"нф-1\\nDROP","Артикул":""},
+        ]),article_field="Артикул")
