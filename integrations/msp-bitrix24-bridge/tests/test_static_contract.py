@@ -67,6 +67,17 @@ class BootstrapSafety(unittest.TestCase):
             self.assertIn(token,s)
         for token in (".Method='POST'", "crm.company.add", "Invoke-Expression", "Invoke-WebRequest"):
             self.assertNotIn(token,s)
+    def test_readonly_required_fields_counts_ps2(self):
+        s=read("inspect-customers-required-counts.ps1")
+        self.assertTrue(s.isascii())
+        for k in ("127.0.0.1:8085/NewBase", "/$count", "$req.Method='GET'",
+                  "$req.Proxy=$null", "$req.AllowAutoRedirect=$false",
+                  "EscapeDataString", "BOTH_FIELDS_NONEMPTY=",
+                  "WHITESPACE_ONLY_NOT_VALIDATED=YES",
+                  "CUSTOMER_RECORDS_EXPORTED=NO", "BITRIX_CALLS=NO", "DATA_WRITES=NO"):
+            self.assertIn(k,s)
+        for k in ("Invoke-Expression", "Invoke-WebRequest", ".Method='POST'", "crm.company.add"):
+            self.assertNotIn(k,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
