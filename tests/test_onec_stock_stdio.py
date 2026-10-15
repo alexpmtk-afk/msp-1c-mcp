@@ -11,6 +11,13 @@ def test_initialize_and_discovery():
     assert len(tools)==1
     assert tools[0]["name"]=="onec_stock_by_guid"
     assert tools[0]["inputSchema"]["additionalProperties"] is False
+    annotations=tools[0]["annotations"]
+    assert annotations=={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
 
 
 def test_selected_stock_call_and_invalid_params():
