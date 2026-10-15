@@ -496,6 +496,28 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
         self.assertNotIn("Get-Credential",s)
         self.assertNotIn("Method='POST'",s)
+    def test_full_initial_load_6433_atomic_and_source_readonly(self):
+        s=read("initial-load-customers-6433.ps1")
+        self.assertTrue(s.isascii())
+        for item in ("MspCustomerStore", "DataProtectionScope]::LocalMachine",
+                     "S-1-5-19", "$r.Method='GET'", "PILOT_PROOF_NOT_PASS",
+                     "SOURCE_COUNT_CHANGED", "DUPLICATE_SOURCE_GUID",
+                     "PILOT_GUID_DISAPPEARED", "ON CONFLICT(onec_guid) DO UPDATE",
+                     "BEGIN IMMEDIATE;", "COMMIT;", "accept_count", "accept_active",
+                     "CHECK(n=6433)", "SOURCE_COUNT_CHANGED_DURING_SCAN",
+                     "TRANSACTION_TOO_LARGE", "scan_runs", "BACKREAD_COUNTS_FAILED",
+                     "DB_ROWS=6433", "DB_UNIQUE_GUIDS=6433",
+                     "PILOT_EXISTING_GUIDS_PRESERVED=10",
+                     "ONEC_WRITES=NO", "BITRIX_CALLS=NO",
+                     "RESULT=PASS;STAGE=SRV_CUSTOMER_STORE_INITIAL_6433"):
+            self.assertIn(item,s)
+        for forbidden in ("Get-Credential", "WriteAllBytes(", "RegisterTaskDefinition(",
+                          "DELETE FROM customers", "DROP TABLE customers",
+                          "Method='POST'", "C:\\Users\\parshin",
+                          "Invoke-WebRequest", "Raw customer"):
+            self.assertNotIn(forbidden,s)
+        self.assertIn("UTF8.GetBytes",s)
+        self.assertIn("$script:base='http://127.0.0.1:8085/NewBase",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

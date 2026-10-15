@@ -58,6 +58,7 @@ jobs:
                    'bin/provision-onec-service-credential.ps1',
                    'bin/pilot-machine-customer-store-10.ps1',
                    'bin/run-customer-store-pilot10.ps1',
+                   'bin/initial-load-customers-6433.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
