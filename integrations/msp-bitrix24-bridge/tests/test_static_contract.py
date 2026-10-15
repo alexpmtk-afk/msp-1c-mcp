@@ -411,6 +411,14 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("CreateDirectory(", "WriteAllText(", "Copy-Item", "New-Item",
                           "RegisterTaskDefinition(", "Invoke-WebRequest", "crm.company.add"):
             self.assertNotIn(forbidden,s)
+    def test_service_sqlite_dot_read_windows_forward_slashes(self):
+        s=read("smoke-customer-store-service.ps1")
+        self.assertIn("$schema.Replace('\\','/')",s)
+        self.assertIn("$command='.read '+",s)
+        self.assertNotIn("$command='.read \"'",s)
+        self.assertIn("$id.User.Value -ne 'S-1-5-19'",s)
+        self.assertIn("STATUS=EMPTY_DB_PASS",s)
+        self.assertIn("ROLLBACK;",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

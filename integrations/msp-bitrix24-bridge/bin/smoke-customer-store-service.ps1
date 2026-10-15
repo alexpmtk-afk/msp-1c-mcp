@@ -39,7 +39,9 @@ try{
   $v=@(& $exe -version 2>&1)
   if($LASTEXITCODE -ne 0 -or (($v -join ' ') -notmatch '^3\.43\.2(\s|$)')){Fail 'SQLITE_VERSION_UNEXPECTED'}
   $phase='SCHEMA'
-  $command='.read "'+$schema+'"'
+  # sqlite3 dot-command parser treats backslash as an escape even in quoted paths.
+  # This tree has a fixed, space-free path; Windows SQLite accepts forward slashes.
+  $command='.read '+$schema.Replace('\','/')
   $null=Sql $exe $db $command
   if(-not [IO.File]::Exists($db)){Fail 'DB_NOT_CREATED'}
   $quick=Sql $exe $db 'PRAGMA quick_check;'

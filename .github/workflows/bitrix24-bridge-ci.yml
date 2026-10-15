@@ -76,3 +76,23 @@ jobs:
           $hash=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
           if($hash -ne '50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3'){throw 'SQL_RAW_SCHEMA_HASH_MISMATCH'}
           Write-Output ('SQL_RAW_SCHEMA_HASH='+$hash)
+
+      - name: Actual Windows SQLite dot-read forward slash acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $url='https://www.sqlite.org/2023/sqlite-tools-win32-x86-3430200.zip'
+          $zip=Join-Path $env:RUNNER_TEMP 'sqlite-tools-win32-x86-3430200.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $hash=(Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          if($hash -ne 'fae9efccf4469ca69be5d418fc088593cdb86e07a1b211bdb85463591a923b02'){throw 'SQLITE_ZIP_HASH_MISMATCH'}
+          $out=Join-Path $env:RUNNER_TEMP 'msp-sqlite-acceptance'
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $out
+          $exe=Get-ChildItem $out -Recurse -Filter sqlite3.exe | Select-Object -First 1 -ExpandProperty FullName
+          if(-not $exe){throw 'SQLITE_CLI_MISSING'}
+          $schema=(Resolve-Path 'integrations/msp-bitrix24-bridge/schema/customer-store.sql').Path.Replace('\','/')
+          $readCommand='.read '+$schema
+          $result=@(& $exe -batch -bail ':memory:' $readCommand 2>&1)
+          if($LASTEXITCODE -ne 0){throw ('SQLITE_DOT_READ_FAILED: '+($result -join ' '))}
+          Write-Output 'SQLITE_WIN_DOT_READ_FORWARD_SLASH=PASS'
