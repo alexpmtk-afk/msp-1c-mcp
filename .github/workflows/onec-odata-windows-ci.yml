@@ -27,7 +27,8 @@ jobs:
                    'scripts/windows/onec-odata-filter-selfcheck.ps1',
                    'scripts/windows/onec-system-odata-pair-check.ps1',
                    'scripts/windows/onec-odata-pair-upgrade.ps1',
-                   'scripts/windows/onec-system-odata-selected.ps1')
+                   'scripts/windows/onec-system-odata-selected.ps1',
+                   'scripts/windows/onec-odata-selected-upgrade.ps1')
           foreach($p in $paths) {
             $source=[IO.File]::ReadAllText($p)
             $errors=$null
@@ -164,6 +165,19 @@ jobs:
             if(-not $poll.Contains($needle)) {
               throw ('SELECTED_AGENT_GUARD_MISSING='+$needle)
             }
+          }
+          $selectedUpgrade=[IO.File]::ReadAllText('scripts/windows/onec-odata-selected-upgrade.ps1')
+          foreach($needle in @('OLD_AGENT_RESTORED=PASS','PINNED_SOURCE_MISMATCH',
+            'LIVE_SOURCE_UNEXPECTED','VERSION=ODATA_SELECTED_V1',
+            'S-1-5-19','PERSONAL_AGENT_DISABLED=YES','SYSTEM_TASK_UNCHANGED=YES',
+            'ODATA_READ=NOT_YET_TESTED','File]::Replace')) {
+            if(-not $selectedUpgrade.Contains($needle)) {
+              throw ('SELECTED_INSTALLER_GUARD_MISSING='+$needle)
+            }
+          }
+          foreach($denied in @('RegisterTaskDefinition','Start-ScheduledTask',
+            'New-ScheduledTask','Invoke-Expression')) {
+            if($selectedUpgrade.Contains($denied)) { throw ('SELECTED_INSTALLER_UNSAFE='+$denied) }
           }
           'ODATA_WINDOWS_PS51_PARSE_AND_SOURCE_GUARDS=PASS'
           'NATIVE_WINDOWS_PS2_EXECUTION=NOT_TESTED'
