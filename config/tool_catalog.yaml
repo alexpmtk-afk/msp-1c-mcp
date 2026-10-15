@@ -11,6 +11,10 @@ tools:
   - id: onec_metadata_overview
     status: implemented-not-live-tested
     mode: read-only
+  - id: onec_stock_by_guid
+    status: implemented-offline-validated-not-deployed
+    mode: read-only
+    note: "Two canonical lowercase item and warehouse GUIDs. Explicitly opt-in; VPS loopback relay, test NewBase only. Not resolved from names yet."
   - id: onec_stocks
     status: planned
     mode: read-only
