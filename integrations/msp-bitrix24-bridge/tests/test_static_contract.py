@@ -541,6 +541,29 @@ class BootstrapSafety(unittest.TestCase):
         self.assertIn("('{0}:{1}:{2}' -f $legal,$person,$review)",runner)
         self.assertNotIn("($legalCount+':'+$personCount+':'+$reviewCount)",worker)
         self.assertNotIn("($legal+':'+$person+':'+$review)",runner)
+    def test_initial_load_committed_reconciliation_safe_cleanup(self):
+        s=read("accept-initial-load-6433-and-cleanup.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("6433:6433:6433", "1941:4486:6", "DB_QUICK_CHECK_FAILED",
+                      "MspCustomerStoreInitial6433", "TEMP_TASK_NOT_READY",
+                      "TEMP_TASK_RESULT_UNEXPECTED", "TEMP_TASK_HAS_TRIGGERS",
+                      "MspCustomerStoreSync", "S-1-5-19",
+                      "STATUS=FAIL;GATE=RUNTIME_ERROR;PHASE=BACKREAD",
+                      "COMPLETED_SCAN_RUN_MISSING",
+                      "customer-initial-load-accepted.txt",
+                      "TEMP_INITIAL_TASK_REMOVED=YES",
+                      "ORIGINAL_FAILURE_LOG_PRESERVED=YES", "AUTO_START=OFF",
+                      "ONEC_CALLS=NO", "BITRIX_CALLS=NO",
+                      "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(token,s)
+        self.assertIn("DeleteTask('MspCustomerStoreInitial6433'",s)
+        for forbidden in ("DeleteTask('MspCustomerStoreSync'",
+                          "RegisterTaskDefinition(", "Set-Acl", "Copy-Item",
+                          "Remove-Item", "Invoke-WebRequest", "Method='POST'",
+                          "Get-Credential", "C:\\Users\\parshin"):
+            self.assertNotIn(forbidden,s)
+        self.assertIn("-readonly -batch -bail",s)
+        self.assertNotIn("'DELETE FROM customers",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

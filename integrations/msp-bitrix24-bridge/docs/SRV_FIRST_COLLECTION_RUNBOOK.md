@@ -1,3 +1,26 @@
+## S3 acceptance reconciliation after verified post-commit BACKREAD failure
+
+On physical SRV, independent read-only verification showed:
+- Customers / unique GUIDs / active: 6433:6433:6433.
+- Legal / person / review: 1941:4486:6.
+- Completed single INITIAL scan_runs row: 1.
+- SQLite quick_check: ok.
+- Initial status still FAIL;GATE=RUNTIME_ERROR;PHASE=BACKREAD;
+  this is **after the successful SQLite COMMIT**, caused by a PS2
+  integer/string concatenation bug, fixed in source on branch.
+- Temporary MspCustomerStoreInitial6433 task: Ready state 3,
+  LastTaskResult=1, no triggers.
+- Main MspCustomerStoreSync boot trigger remains disabled.
+
+The **one-time** `bin/accept-initial-load-6433-and-cleanup.ps1`
+verifies all these facts and narrowly deletes only the temporary task,
+without rerunning the 1C fetch, modifying data or re-registering tasks.
+It preserves the original FAIL status as audit evidence and writes a
+separate machine-owned `state/customer-initial-load-accepted.txt`
+receipt only after checking task deletion and DB state again.
+DO NOT rerun if it fails: manual read-only diagnosis first.
+Native delta registration Option B and Bitrix24 remain OFF.
+
 ## S3 full initial load (only after pilot10 PASS)
 
 The existing 10 SQLite customer records have been independently verified
