@@ -320,7 +320,7 @@ class BootstrapSafety(unittest.TestCase):
         s=read("diagnose-machine-store-tls-block.ps1")
         self.assertTrue(s.isascii())
         for token in ("C:\\ProgramData\\MspCustomerStore",
-                      "TARGET_CA_PRESENT=", "TARGET_CURL_VERSION_STATUS=",
+                      "InspectFile 'TARGET_CA'", "ExecVersion 'TARGET_CURL'",
                       "TLS_DLL_MISSING_COUNT=", "SOURCE_DLL_COUNT=",
                       "CURL_COPY_HASH_MATCH=", "SQLITE_ZIP_PRESENT=",
                       "FILES_WRITTEN=NO", "ACL_CHANGES=NO",
