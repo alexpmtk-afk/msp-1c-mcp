@@ -303,6 +303,19 @@ class BootstrapSafety(unittest.TestCase):
                           "Enable-NetFirewallRule", "MspOnecHttpsAgentSystem",
                           "Set-Service", "Import-Module", "Get-Credential"):
             self.assertNotIn(forbidden,s)
+    def test_partial_machine_install_diagnostic_is_readonly(self):
+        s=read("diagnose-machine-store-install-failure.ps1")
+        self.assertTrue(s.isascii())
+        for marker in ("C:\\ProgramData\\MspCustomerStore", "CUSTOMER_ROOT",
+                       "ACL_PROTECTED=", "WRITE_ACE=", "ICACLS_EXISTS=",
+                       "COLLECTOR_TASK_EXISTS=", "SQLITE_EXE_PRESENT=",
+                       "ACL_CHANGES=NO", "FILE_WRITES=NO", "TASK_CHANGES=NO",
+                       "ONEC_CALLS=NO", "BITRIX_CALLS=NO", "NO_INSTALL_RETRY=YES"):
+            self.assertIn(marker,s)
+        for forbidden in ("CreateDirectory(", "New-Item", "Set-Acl", "Set-Content",
+                          "WriteAllText(", "Copy-Item", "RegisterTaskDefinition(",
+                          "icacls.exe' /", "Invoke-WebRequest", "Get-Credential"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
