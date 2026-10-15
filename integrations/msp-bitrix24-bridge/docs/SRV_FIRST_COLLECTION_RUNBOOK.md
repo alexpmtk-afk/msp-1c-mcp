@@ -11,7 +11,7 @@ full scans.
 | --- | --- | --- |
 | S0 | Test 1C read-only inventory, all 6,433 active buyers and category split | PASS |
 | S1 | Read-only SRV runtime/provider + 1C exchange plan metadata preflight | PASS; OData published one equipment exchange plan; no customer delta feed confirmed |
-| S2 | Create minimal protected transactional local storage on SRV, verify read/write/reopen under restricted service identity | NOT STARTED |
+| S2 | SQLite executable compatibility, empty DB, transactional write/read/rollback in user-isolated staging | SCRIPT READY; NOT RUN (system-owned protected DB pending) |
 | S3 | One-time initial load of ALL buyer types into local DB; 6,433 unique GUIDs; hash/count/back-read PASS | NOT STARTED |
 | S4 | Change source: isolated 1C TEST change registration + minimal durable extraction endpoint, with developer authorization | NOT STARTED |
 | S5 | Full automatic test: edit TEST buyer → registration → local refresh, reboot/resume, duplicate suppression | NOT STARTED |
@@ -28,10 +28,31 @@ metadata is not a complete configurator inventory.
 `PLAN_CHANGE_EVENTS_ACCESS=NOT_YET_VERIFIED`, `DATA_WRITES=NO`,
 `FILES_CREATED=NO`, `RESULT=PASS;STAGE=SRV_CUSTOMER_PIPELINE_PREFLIGHT`.
 
-**SQLite compatibility is NOT verified yet**: S1 output supplied did
-not include CLI/provider presence, architecture, or .NET runtime lines.
-Run the targeted, credentials-free read-only `bin/inventory-srv-sqlite-runtime.ps1`
-for the exact environment before attempting any install or writing files.
+**SQLite runtime inventory (SRV, PASS)**:
+Windows Server 2008 R2 SP1 version 6.1.7601, x64; native PowerShell 2.0,
+CLR 2.0.50727.5420; .NET 2.0 present; .NET 4 Full registry present;
+.NET 3.5 registry not found. C: free 60.37 GiB. No SQLite CLI/provider,
+no `customers.db`; `SAFE_IDLE=YES`.
+
+Next run `bin/pilot-create-sqlite-store.ps1`, a user-local **isolated
+compatibility pilot**, NOT the permanent SRV service database:
+`%LOCALAPPDATA%\MspCustomerStorePilot\customers.db`.
+It downloads the *official SQLite* x86 3.43.2 ZIP only from sqlite.org,
+checks independently published ZIP SHA-256, extracts sqlite3.exe, runs
+its version, then downloads the commit-pinned SQL schema and verifies
+its GitHub Actions SHA-256 supplied via `-ExpectedSchemaSha256`.
+The pilot creates an EMPTY customer DB with four tables, tests
+integrity, a synthetic transaction and rollback; it MUST remain empty.
+Do not retry blindly if the pilot directory already exists.
+No change to system task, live DB, 1C, Bitrix or protected ACLs.
+Source for known Win7/Server 2008 shell behavior:
+https://sqlite.org/forum/forumpost/1b2892bca0
+Checksum cross-check: https://community.chocolatey.org/packages/SQLite/3.43.2
+
+If that is PASS, next promote verified runtime to an ACL-protected
+machine-owned SRV path, with proper single-writer policy, encryption
+assessment and a separate explicit authorized system deployment.
+Then run initial full buyer ingestion.
 
 Official System.Data.SQLite has historic .NET Framework 2.0/3.5 builds,
 but several older package releases are deprecated/unsupported. Do not

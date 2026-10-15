@@ -237,6 +237,20 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Start-Process", "Invoke-Expression", "WriteAllBytes",
                           "CreateDirectory", "Set-Acl", "New-Item", ".Method='POST'"):
             self.assertNotIn(forbidden,s)
+    def test_official_pinned_sqlite_empty_pilot_ps2(self):
+        s=read("pilot-create-sqlite-store.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("www.sqlite.org/2023/sqlite-tools-win32-x86-3430200.zip",
+                      "fae9efccf4469ca69be5d418fc088593cdb86e07a1b211bdb85463591a923b02",
+                      "MspCustomerStorePilot", "PILOT_DIRECTORY_ALREADY_EXISTS",
+                      "ExpectedSchemaSha256", "SCHEMA_SHA256_MISMATCH",
+                      "PRAGMA quick_check", "ROLLBACK;", "CUSTOMERS_COUNT=0",
+                      "LIVE_BRIDGE_DATA_MODIFIED=NO", "ONEC_CALLS=NO",
+                      "SYSTEM_TASK_CHANGED=NO"):
+            self.assertIn(token,s)
+        for forbidden in ("Invoke-Expression", "Invoke-WebRequest", "Export-Csv",
+                          "crm.company.add", ".Method='POST'", "C:\\ProgramData\\MspBitrix24Bridge\\data\\customers.db"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
