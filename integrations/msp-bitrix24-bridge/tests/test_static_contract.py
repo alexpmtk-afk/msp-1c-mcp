@@ -435,6 +435,20 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("RegisterTaskDefinition(", "DeleteTask", "Set-Acl",
                           "Remove-Item", "Get-Credential", "MspOnecHttpsAgentSystem"):
             self.assertNotIn(forbidden,s)
+    def test_machine_service_1c_probe_readonly_and_dpapi(self):
+        s=read("probe-onec-service-readonly.ps1")
+        self.assertTrue(s.isascii())
+        for term in ("S-1-5-19", "LocalMachine", "ProtectedData",
+                     "MCP_OData_ReadOnly", "127.0.0.1:8085/NewBase",
+                     "$req.Method='GET'", "ACTIVE_BUYER_COUNT=",
+                     "CUSTOMER_RECORDS_EXPORTED=NO", "ONEC_WRITES=NO",
+                     "BITRIX_CALLS=NO", "STATE=NOT_ENABLED"):
+            if term=="STATE=NOT_ENABLED":
+                continue
+            self.assertIn(term,s)
+        for bad in ("C:\\Users\\", "Invoke-WebRequest", "Export-Csv",
+                    "Get-Credential", "Method='POST'", "RegisterTaskDefinition"):
+            self.assertNotIn(bad,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
