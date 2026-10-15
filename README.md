@@ -33,7 +33,7 @@ The only exposed tool is `onec_stock_by_guid`. Inputs are lowercase canonical, n
 
 The GUIDs above are synthetic format examples, not inventory references. A real selected-pair read returned quantity 6 through MCP and matched a previously confirmed local OData GET.
 
-Acceptance evidence: private `msp-server-bridge` issues #326 (GitHub→SRV positive read), #342 (both Codex configs, STDIO handshake), #345 (live MCP `tools/call` PASS). First MCP call in #343 failed without a classified root cause; the independent retry succeeded. New Codex sessions can load the new config; whether existing Hermes sessions hot-reload their tool catalog has not been established.
+Acceptance evidence: private `msp-server-bridge` issues #326 (GitHub→SRV positive read), #342 (both Codex configs, STDIO handshake), #345 (live MCP `tools/call` PASS). First MCP call in #343 failed without a classified root cause; the independent retry succeeded. **Agent discovery boundary:** independent read-only STDIO MCP tools/call is PASS (#345), but a fresh headless `codex exec` session did not expose/select the tool (#352 and #355, TOOL_UNAVAILABLE; no new stock job). The underlying CLI model-tool integration is NOT accepted. No Hermes Gateway session invocation or hot-reload acceptance has been completed.
 
 ## Local development
 
