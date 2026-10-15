@@ -137,7 +137,7 @@ function StatusResult([string]$status) {
   return @{status=$status}
 }
 function PrintResult($output) {
-  $json=$serializer.Serialize($output)
+  $json=ConvertTo-NaturalStockJson $output
   [byte[]]$bytes=[Text.Encoding]::UTF8.GetBytes($json)
   if ($bytes.Length -gt $MAX_RESPONSE) { throw 'RESULT_TOO_LARGE' }
   $encoded=[Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
@@ -158,6 +158,9 @@ try {
   $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
   if (-not (Test-Path -LiteralPath $jsonLibrary -PathType Leaf)) { throw 'JSON_LIB_NOT_INSTALLED' }
   . $jsonLibrary
+  $writerLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-natural-stock-json-writer.ps1'
+  if (-not (Test-Path -LiteralPath $writerLibrary -PathType Leaf)) { throw 'JSON_WRITER_NOT_INSTALLED' }
+  . $writerLibrary
   $serializer=New-Object MspLegacyJson
   $serializer.MaxJsonLength=262144
   $encrypted=[IO.File]::ReadAllBytes($secret)
@@ -249,6 +252,8 @@ try {
     if ($null -eq $serializer) {
       $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
       if (Test-Path -LiteralPath $jsonLibrary -PathType Leaf) { . $jsonLibrary }
+      $writerLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-natural-stock-json-writer.ps1'
+      if (Test-Path -LiteralPath $writerLibrary -PathType Leaf) { . $writerLibrary }
       $serializer=New-Object MspLegacyJson
     }
     PrintResult (StatusResult 'UNAVAILABLE')
