@@ -128,8 +128,8 @@ try {
       $check.Definition.Actions.Count -ne 1) {
     throw 'TASK_DEFINITION_INVALID'
   }
-  $taskPrincipal=(New-Object Security.Principal.NTAccount -ArgumentList
-    $check.Definition.Principal.UserId).Translate([Security.Principal.SecurityIdentifier]).Value
+  $account=New-Object Security.Principal.NTAccount -ArgumentList @($check.Definition.Principal.UserId)
+  $taskPrincipal=$account.Translate([Security.Principal.SecurityIdentifier]).Value
   if ($taskPrincipal -ne 'S-1-5-19') { throw 'TASK_NOT_LOCAL_SERVICE' }
 
   $phase='ONE_SHOT_METADATA_READ'
