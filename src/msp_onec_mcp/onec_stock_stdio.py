@@ -20,6 +20,12 @@ TOOL = {
         "Read-only test 1C NewBase Balance quantity for an exact item and "
         "warehouse GUID. Does not change inventory or production data."
     ),
+    "annotations": {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
     "inputSchema": {
         "type": "object",
         "properties": {
