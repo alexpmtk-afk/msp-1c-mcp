@@ -26,7 +26,7 @@ function ReadBounded([string]$relative,[int]$limit) {
     $request.PreAuthenticate=$true
     $request.Proxy=$null
     $request.AllowAutoRedirect=$false
-    $request.Timeout=25000
+    $request.Timeout=45000
     $request.ReadWriteTimeout=12000
     $response=$request.GetResponse()
     if ([int]$response.StatusCode -ne 200) { throw 'NON_200' }
@@ -74,11 +74,11 @@ try {
   $credentials=New-Object Net.NetworkCredential -ArgumentList @('MCP_OData_ReadOnly',$password)
   $password=$null
   $phase='SCHEMA_GET'
-  $xml=ReadBounded '$metadata' 524288
+  $xml=ReadBounded '$metadata' 16777216
   $settings=New-Object Xml.XmlReaderSettings
   $settings.DtdProcessing=[Xml.DtdProcessing]::Prohibit
   $settings.XmlResolver=$null
-  $settings.MaxCharactersInDocument=524288
+  $settings.MaxCharactersInDocument=16777216
   $reader=New-Object IO.StringReader -ArgumentList @($xml)
   $metadataReader=[Xml.XmlReader]::Create($reader,$settings)
   $doc=New-Object Xml.XmlDocument
@@ -87,43 +87,67 @@ try {
   $items=@(PropertyNames $doc 'Catalog_Номенклатура')
   $itemEntity=($null -ne $doc.SelectSingleNode("//*[local-name()='EntityType' and @Name='Catalog_Номенклатура']"))
   $articlePresent=($items -ccontains 'Артикул')
+  $articleFields=@($items | Where-Object { $_ -match 'Артикул' })
+  if ($articleFields.Count -gt 10) { throw 'TOO_MANY_ARTICLE_FIELDS' }
   $nameField=if($items -ccontains 'Description'){'Description'}elseif($items -ccontains 'Наименование'){'Наименование'}else{'NOT_VERIFIED'}
   $codePresent=($items -ccontains 'Code')
-  $warehouseCandidates=@('Catalog_СтруктурныеЕдиницы','Catalog_Склады','Catalog_СкладскиеПомещения')
+  $warehouseCandidates=@('Catalog_СтруктурныеЕдиницы','Catalog_Склады','Catalog_СкладскиеПомещения','Catalog_СкладыКомпании')
+  $warehouseFields=@{}
   $warehouseNames=@()
   foreach($candidate in $warehouseCandidates) {
     $node=$doc.SelectSingleNode("//*[local-name()='EntityType' and @Name='"+$candidate+"']")
-    if ($null -ne $node) { $warehouseNames+=@($candidate) }
+    if ($null -ne $node) {
+      $warehouseNames+=@($candidate)
+      $warehouseFields[$candidate]=@(PropertyNames $doc $candidate)
+    }
   }
   $balance=$doc.SelectSingleNode("//*[local-name()='EntityType' and @Name='AccumulationRegister_ЗапасыНаСкладахBalance']")
+  $balanceProperties=@(PropertyNames $doc 'AccumulationRegister_ЗапасыНаСкладахBalance')
   $phase='EXACT_ARTICLE_FILTER'
-  $matches='NOT_TESTED'
-  if ($itemEntity -and $articlePresent) {
-    # Only this specific user-supplied example is probed in phase 1.
-    # Query values cannot choose entity/property names or arbitrary URLs.
-    $article='трн.02.034.9005.02.30'
+  # Probe different fields separately. Code is the internal 1C catalog code;
+  # it is not presumed equal to a customer-facing article.
+  $article='трн.02.034.9005.02.30'
+  $codeMatches='NOT_TESTED'
+  $articleMatches='NOT_TESTED'
+  $lookupFields=@()
+  if ($codePresent) { $lookupFields+=@('Code') }
+  if ($articlePresent) { $lookupFields+=@('Артикул') }
+  foreach($field in $lookupFields) {
     $escaped=$article.Replace("'","''")
-    $filter=[Uri]::EscapeDataString(("Артикул eq '"+$escaped+"'"))
+    $filter=[Uri]::EscapeDataString(($field+" eq '"+$escaped+"'"))
     $path='Catalog_Номенклатура?$select=Ref_Key&$filter='+$filter+'&$top=2&$format=json'
     $json=ReadBounded $path 32768
-    if ($json -match '"value"\s*:\s*\[\s*\]') { $matches='ZERO' }
+    $found='INVALID'
+    if ($json -match '"value"\s*:\s*\[\s*\]') { $found='ZERO' }
     elseif ($json -match '"value"\s*:\s*\[\s*\{') {
       $keys=[regex]::Matches($json,'"Ref_Key"\s*:\s*"[0-9a-fA-F-]{36}"')
-      if ($keys.Count -eq 1) { $matches='ONE' }
-      elseif ($keys.Count -eq 2) { $matches='TWO_OR_MORE' }
-      else { throw 'INVALID_LOOKUP_RESPONSE' }
-    } else { throw 'INVALID_LOOKUP_RESPONSE' }
+      if ($keys.Count -eq 1) { $found='ONE' }
+      elseif ($keys.Count -eq 2) { $found='TWO_OR_MORE' }
+    }
+    if ($found -eq 'INVALID') { throw 'INVALID_LOOKUP_RESPONSE' }
+    if ($field -eq 'Code') { $codeMatches=$found }
+    if ($field -eq 'Артикул') { $articleMatches=$found }
   }
   Write-Output 'ONEC_NATURAL_STOCK_SCHEMA_PREFLIGHT'
   Write-Output 'ODATA_METADATA_GET=PASS'
   Write-Output ('ITEM_CATALOG_PRESENT='+(Flag $itemEntity))
   Write-Output ('ARTICLE_FIELD_PRESENT='+(Flag $articlePresent))
+  Write-Output ('ARTICLE_FIELD_CANDIDATE_COUNT='+$articleFields.Count)
+  foreach($field in $articleFields) { Write-Output ('ARTICLE_FIELD_CANDIDATE='+$field) }
   Write-Output ('NAME_FIELD='+$nameField)
   Write-Output ('CODE_FIELD_PRESENT='+(Flag $codePresent))
   Write-Output ('WAREHOUSE_ENTITY_CANDIDATE_COUNT='+$warehouseNames.Count)
-  foreach($name in $warehouseNames) { Write-Output ('WAREHOUSE_ENTITY='+$name) }
+  foreach($name in $warehouseNames) {
+    Write-Output ('WAREHOUSE_ENTITY='+$name)
+    Write-Output ('WAREHOUSE_HAS_REF_KEY='+(Flag ($warehouseFields[$name] -ccontains 'Ref_Key')))
+    Write-Output ('WAREHOUSE_HAS_DESCRIPTION='+(Flag ($warehouseFields[$name] -ccontains 'Description')))
+  }
   Write-Output ('BALANCE_ENTITY_PRESENT='+(Flag ($null -ne $balance)))
-  Write-Output ('EXAMPLE_ARTICLE_MATCHES='+$matches)
+  Write-Output ('BALANCE_ITEM_KEY_PRESENT='+(Flag ($balanceProperties -ccontains 'Номенклатура_Key')))
+  Write-Output ('BALANCE_WAREHOUSE_KEY_PRESENT='+(Flag ($balanceProperties -ccontains 'СтруктурнаяЕдиница_Key')))
+  Write-Output ('BALANCE_QUANTITY_PRESENT='+(Flag ($balanceProperties -ccontains 'КоличествоBalance')))
+  Write-Output ('EXAMPLE_ARTICLE_MATCHES='+$articleMatches)
+  Write-Output ('EXAMPLE_CODE_MATCHES='+$codeMatches)
   Write-Output 'RAW_NOMENCLATURE_AND_GUIDS_EXPORTED=NO'
   Write-Output 'RAW_CUSTOMERS_OR_CREDENTIALS_EXPORTED=NO'
   Write-Output 'ODATA_GET_ONLY=YES'
