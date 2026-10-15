@@ -74,7 +74,7 @@ try {
   $jsonInstalled=$true
   if ((GitBlob $lib) -ne $expectedJson) { throw 'STAGED_JSON_MISMATCH' }
   $stage='DOWNLOAD_PINNED_DIAGNOSTIC'
-  $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/'+$commit+'/scripts/windows/onec-natural-diagnostic-helper-v2.ps1'
+  $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/'+$commit+'/scripts/windows/onec-natural-diagnostic-helper-v3.ps1'
   $curlArgs=@('-q','--fail','--silent','--show-error','--noproxy','*',
     '--tlsv1.2','--tls-max','1.2','--proto','=https','--max-redirs','0',
     '--cacert',$ca,'--connect-timeout','15','--max-time','45','--output',$tempFile,$url)
