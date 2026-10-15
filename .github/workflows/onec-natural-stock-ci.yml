@@ -6,6 +6,8 @@ on:
       - 'scripts/windows/onec-natural-stock-schema-runner.ps1'
       - 'scripts/windows/onec-natural-stock-schema-once.ps1'
       - 'scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
+      - 'scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
+      - 'scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
       - 'src/msp_onec_mcp/natural_stock_contract.py'
       - 'src/msp_onec_mcp/natural_stock_resolution.py'
       - 'src/msp_onec_mcp/natural_stock_odata_pages.py'
@@ -75,7 +77,9 @@ jobs:
           $runnerPath='scripts/windows/onec-natural-stock-schema-runner.ps1'
           $oncePath='scripts/windows/onec-natural-stock-schema-once.ps1'
           $bootstrapPath='scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
-          foreach($file in @($runnerPath,$oncePath,$bootstrapPath)) {
+          $v2RunnerPath='scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
+          $v2OncePath='scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
+          foreach($file in @($runnerPath,$oncePath,$bootstrapPath,$v2RunnerPath,$v2OncePath)) {
             $raw=[IO.File]::ReadAllBytes($file)
             if($raw.Length -lt 4 -or $raw[0] -ne 239 -or $raw[1] -ne 187 -or $raw[2] -ne 191) {
               throw ('UTF8_BOM_MISSING='+$file)
@@ -117,6 +121,28 @@ jobs:
             }
           }
           if($bootstrap -match 'Invoke-Expression|RegisterTaskDefinition|Start-Service|New-ScheduledTask') { throw 'BOOTSTRAP_PRIVILEGE_BYPASS' }
+          $v2Runner=[IO.File]::ReadAllText($v2RunnerPath)
+          $v2Once=[IO.File]::ReadAllText($v2OncePath)
+          foreach($needle in @('natural-stock-schema-report-v2.txt',
+            'RESULT=FAIL;STAGE=(PRECHECK|SCHEMA_GET|EXACT_ARTICLE_FILTER)',
+            'PROBE_PHASE=','PROBE_RESULT=','S-1-5-19')) {
+            if(-not $v2Runner.Contains($needle)) {
+              throw ('FORENSIC_RUNNER_GUARD_MISSING='+$needle)
+            }
+          }
+          foreach($needle in @('MspOnecNaturalSchemaForensicV2',
+            'MspOnecHttpsAgentSystem','existingHelperBlob','RUN_READONLY_FORENSIC',
+            'Triggers.Count -ne 0','GitBlob $helper',
+            'V2_TASK_CLEANUP=PASS','FORENSIC_V2_ALREADY_STARTED')) {
+            if(-not $v2Once.Contains($needle)) {
+              throw ('FORENSIC_INSTALL_GUARD_MISSING='+$needle)
+            }
+          }
+          if($v2Runner -match 'RegisterTaskDefinition|New-ScheduledTask|Invoke-Expression' -or
+             $v2Once -match 'Invoke-Expression|Start-Service|Restart-Service|New-ScheduledTask') {
+            throw 'FORENSIC_UNSAFE_OPERATION'
+          }
+          'ONEC_FORENSIC_V2_STATIC=PASS'
           'ONEC_ONESHOT_PS2_STATIC=PASS'
           'ONEC_SCHEMA_PS2_STATIC=PASS'
           'NATIVE_SERVER_2008_R2_RUNTIME=NOT_TESTED'
