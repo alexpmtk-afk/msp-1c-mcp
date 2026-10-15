@@ -200,6 +200,31 @@ class BootstrapSafety(unittest.TestCase):
                       "NOT solved yet", "never scans all buyer rows"):
             self.assertIn(token,spec)
         self.assertIn("No sync activation",spec)
+    def test_srv_first_sqlite_schema_and_ps2_preflight(self):
+        import sqlite3
+        schema=(ROOT/"schema/customer-store.sql").read_text(encoding="utf-8")
+        con=sqlite3.connect(":memory:")
+        try:
+            con.executescript(schema)
+            tables={r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            for name in ("customers", "change_inbox", "ingestion_checkpoint", "scan_runs"):
+                self.assertIn(name,tables)
+            con.execute("INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES (?,?,?,?,?,?,?)",
+                        ("00000000-0000-0000-0000-000000000001","PERSON",1,0,0,"2026-10-15T00:00:00Z",0))
+            self.assertIsNone(con.execute("SELECT inn FROM customers").fetchone()[0])
+        finally:
+            con.close()
+        script=read("preflight-srv-customer-store.ps1")
+        self.assertTrue(script.isascii())
+        for token in ("127.0.0.1:8085/NewBase", "'GET'", "$metadata",
+                      "ExchangePlan_", "CUSTOMER_DB_EXISTS=", "SQLITE_PROVIDER_PRESENT=",
+                      "SQLITE_CLI_PRESENT=", "SAFE_IDLE_VERIFIED=YES",
+                      "Read-Host -Prompt 'Password for MCP_OData_ReadOnly' -AsSecureString",
+                      "CUSTOMER_RECORDS_EXPORTED=NO", "FILES_CREATED=NO", "DATA_WRITES=NO"):
+            self.assertIn(token,script)
+        for token in (".Method='POST'", "Invoke-Expression", "Export-Csv",
+                      "WriteAllBytes", "CreateDirectory", "crm.company.add"):
+            self.assertNotIn(token,script)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
