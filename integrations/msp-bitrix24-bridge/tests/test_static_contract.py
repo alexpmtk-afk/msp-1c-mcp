@@ -173,6 +173,15 @@ class BootstrapSafety(unittest.TestCase):
         for banned in ("Get-Credential", "Invoke-Expression", "Invoke-WebRequest",
                        "Export-Csv", "WriteAllText", ".Method='POST'", "crm.company.add"):
             self.assertNotIn(banned,s)
+    def test_customer_scope_includes_natural_persons_without_inn(self):
+        spec=(ROOT/"docs/CUSTOMER_SCOPE_POLICY.md").read_text(encoding="utf-8")
+        for must in ("CUSTOMER_SCOPE=ALL_ACTIVE_BUYERS",
+                     "ALL_ACTIVE_BUYERS_INCLUDED", "INN_REQUIRED=NO",
+                     "TYPE_REVIEW_REQUIRED", "1,941", "4,486", "6,433",
+                     "ФизическоеЛицо", "ЮридическоеЛицо",
+                     "MspBitrix24Bridge", "SAFE_IDLE"):
+            self.assertIn(must,spec)
+        self.assertNotIn("CUSTOMER_SCOPE=LEGAL_ONLY",spec)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

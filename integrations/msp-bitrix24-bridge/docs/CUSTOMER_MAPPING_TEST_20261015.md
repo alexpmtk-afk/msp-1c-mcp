@@ -38,7 +38,7 @@ No row content inspected, so email/phone/address subtype logic remains TBD.
 
 ### Required minimum, user-confirmed 15 Oct 2026
 
-**Organization synchronization MUST include BOTH**:
+**Organization-specific mapping MUST include BOTH where eligible for organization transfer**:
 1. `НаименованиеПолное` from 1C as Bitrix24 requisite `RQ_COMPANY_FULL_NAME` (and preferably visible company title `TITLE`).
 2. `ИНН` from 1C as Bitrix24 requisite `RQ_INN`.
 
@@ -52,10 +52,10 @@ a 65-page LOCAL-only scan is the accepted alternative for this test.
 No inference about organization readiness is permitted before classifying
 `ЮридическоеФизическоеЛицо`.
 
-Not all counterparties are organizations. `ЮридическоеФизическоеЛицо` has
-Edm.String type, but **actual values have not been checked**; natural persons
-must receive a separate eligibility and field policy, never silently excluded
-or converted to legal entities.
+Counterparty type has now been observed and counted exactly: `ЮридическоеЛицо`
+1,941, `ФизическоеЛицо` 4,486, and 6 other/unclassified out of 6,433 eligible.
+Natural persons remain in scope **with no mandatory INN**, even if they buy rarely.
+Keep the 6 unclassified records in a review queue, not silently discarded.
 
 Source: https://apidocs.bitrix24.com/api-reference/crm/requisites/universal/crm-requisite-fields.html
 
@@ -94,12 +94,24 @@ Official documentation:
 - The 6 other/unclassified require separate investigation; sole criterion `ЮридическоеЛицо` may also
   omit businesses that are individual entrepreneurs, so finalize entity mapping later.
 
+## User clarification: all active customers are needed (15 Oct 2026)
+
+This is a binding **scope requirement** for future integration, not a live-activation request.
+Customers include both `ЮридическоеЛицо` and `ФизическоеЛицо`, regardless of purchase frequency.
+Missing INN **must not** exclude a natural person; individuals can be occasional buyers.
+The earlier legal-only test was too narrowly positioned as the next milestone.
+It is at most an optional diagnostic of company-field completeness and cannot
+replace or block the full customer-universe integration.
+
+Reference policy: [CUSTOMER_SCOPE_POLICY.md](CUSTOMER_SCOPE_POLICY.md).
+
 ## Next gate
-Accepted: full 6,433-buyer local field-completeness scan and 6,433 unique GUIDs.
-The full OData category counts completed successfully. Next execute
-`bin/scan-legal-required-fields.ps1` manually on SRV, using password-only
-`MCP_OData_ReadOnly`. It scans only 1,941 legal buyers with GUID pagination
-and determines full-name and INN overlap, shape and request duration.
-Requires pre/post count=1,941 and INN count=1,402 or fails closed.
-No records, GUIDs, names or tax numbers leave SRV, and no Bitrix calls.
+Design and test a **unified** read-only customer index on physical SRV for all
+currently eligible 6,433 buyers (1,941 legal, 4,486 natural persons and 6
+pending classification), keeping a stable `Ref_Key` identity and type.
+Show aggregate-only completeness by category; do not require INN for natural persons.
+Inspect name sources (`Description`, `ФИО`, `НаименованиеПолное`) and category
+exceptions safely. Then define Bitrix24 company/contact mapping after checking
+portal presets and existing records. Do not turn on synchronization or alter
+the SAFE_IDLE system service until separately authorized.
 No changes to system bridge or existing MSP tasks.
