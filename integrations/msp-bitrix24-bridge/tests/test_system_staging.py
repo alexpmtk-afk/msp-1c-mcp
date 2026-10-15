@@ -38,6 +38,17 @@ class StagingTest(unittest.TestCase):
         for forbidden in ("RegisterTaskDefinition", "Invoke-WebRequest", "Run($null)",
                           "DeleteTask(", "Remove-Item", "Get-Content -Path", "MspOnecHttpsAgentSystem"):
             self.assertNotIn(forbidden, s)
+    def test_acl_recovery_is_two_files_only(self):
+        s=src("repair-file-acl.ps1")
+        for token in ("ConfirmRepair","S-1-5-19","S-1-5-18","S-1-5-32-544",
+                      "AUTOSTART_MUST_BE_OFF", "TASK_COMMAND_MISMATCH",
+                      "BRIDGE_HASH_MISMATCH", "POLICY_HASH_MISMATCH",
+                      "FILES_REPAIRED=2", "LOCAL_SERVICE_ACCESS=RESTORED"):
+            self.assertIn(token,s)
+        for forbidden in ("'/T'","/inheritance:r","DeleteTask(", "RegisterTaskDefinition",
+                          "Takeown", "Set-Acl", "Invoke-WebRequest", "MspOnecHttpsAgentSystem"):
+            self.assertNotIn(forbidden,s)
+        self.assertIn("foreach($f in @($bridge,$policy))",s)
     def test_native_system_smoke(self):
         s=src("smoke-system.ps1")
         for token in ("S-1-5-19","Run($null)","SAFE_IDLE","FRESH_SYSTEM_HEARTBEAT_MISSING"):
