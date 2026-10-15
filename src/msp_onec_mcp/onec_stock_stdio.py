@@ -9,7 +9,10 @@ from __future__ import annotations
 import json
 import sys
 
-from selected_stock import selected_stock
+try:
+    from .selected_stock import selected_stock
+except ImportError:  # installed as two pinned files without other dependencies
+    from selected_stock import selected_stock
 
 TOOL = {
     "name": "onec_stock_by_guid",
