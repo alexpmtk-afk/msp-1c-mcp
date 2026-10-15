@@ -151,3 +151,36 @@ def test_invalid_code_rejected_in_odata_page():
             {"Ref_Key":ITEM,"Description":"Слэмбол 6 кг",
              "Code":"нф-1\nDROP","Артикул":""},
         ]),article_field="Артикул")
+
+
+def test_ten_item_odata_page_is_not_truncated_to_two():
+    rows=[{"Ref_Key":f"{n:08x}-2222-3333-4444-555555555555",
+           "Description":"Слэмбол 6 кг","Code":f"НФ-{n:08d}","Артикул":""}
+          for n in range(1,11)]
+    found,complete=parse_item_page(fixture(rows),article_field="Артикул")
+    assert complete is True
+    assert len(found)==10
+    assert all(record["article"] is None for record in found)
+    assert all(record["code"].startswith("НФ-") for record in found)
+
+
+def test_fifty_one_item_rows_fail_closed_without_partial_answer():
+    rows=[{"Ref_Key":f"{n:08x}-2222-3333-4444-555555555555",
+           "Description":"Same","Артикул":"X"}
+          for n in range(1,52)]
+    parsed,complete=parse_item_page(fixture(rows),article_field="Артикул")
+    assert parsed==[]
+    assert complete is False
+
+
+def test_two_identical_article_value_different_product_cards_keep_both():
+    second="22222222-3333-4444-5555-666666666666"
+    rows=[
+        {"Ref_Key":ITEM,"Description":"Товар А","Code":"НФ-00001359","Артикул":"A-77"},
+        {"Ref_Key":second,"Description":"Товар Б","Code":"НФ-00000879","Артикул":"A-77"},
+    ]
+    found,complete=parse_item_page(fixture(rows),article_field="Артикул")
+    assert complete is True
+    assert len(found)==2
+    assert found[0]["article"]==found[1]["article"]=="A-77"
+    assert found[0]["code"]!=found[1]["code"]
