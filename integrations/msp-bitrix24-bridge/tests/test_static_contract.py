@@ -288,6 +288,21 @@ class BootstrapSafety(unittest.TestCase):
         cfg=(ROOT/"config/collector.ini").read_text(encoding="ascii")
         for key in ("ACTIVE=0", "ONEC_READ=0", "DELTA_READ=0", "BITRIX=0"):
             self.assertIn(key,cfg)
+    def test_machine_installer_acl_tls_service_smoke(self):
+        s=read("install-machine-customer-store.ps1")
+        self.assertTrue(s.isascii())
+        for required in ("MspCustomerStore", "MspCustomerStoreSync",
+                         "SQLITE_OFFICIAL_ZIP_HASH_MISMATCH", "fae9efccf4469ca69be5d418fc088593cdb86e07a1b211bdb85463591a923b02",
+                         "PINNED_SOURCE_HASH_MISMATCH", "S-1-5-19",
+                         "'*S-1-5-19:(OI)(CI)RX'", "'*S-1-5-19:(OI)(CI)M'",
+                         "$boot.Enabled=$false", "SERVICE_SMOKE_NOT_CONFIRMED",
+                         "TLS_RUNTIME_MACHINE_OWNED=YES", "ONEC_CALLS=NO",
+                         "BITRIX_CALLS=NO", "PREVIOUS_BRIDGE_UNCHANGED=YES"):
+            self.assertIn(required,s)
+        for forbidden in ("C:\\Users\\parshin", "Set-ExecutionPolicy", ".Method='POST'",
+                          "Enable-NetFirewallRule", "MspOnecHttpsAgentSystem",
+                          "Set-Service", "Import-Module", "Get-Credential"):
+            self.assertNotIn(forbidden,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
