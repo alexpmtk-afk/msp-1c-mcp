@@ -534,6 +534,13 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
         self.assertNotIn("Get-Credential",s)
         self.assertNotIn("Method='POST'",s)
+    def test_numeric_category_counts_format_before_comparison(self):
+        worker=read("initial-load-customers-6433.ps1")
+        runner=read("run-customer-store-initial-6433.ps1")
+        self.assertIn("('{0}:{1}:{2}' -f $legalCount,$personCount,$reviewCount)",worker)
+        self.assertIn("('{0}:{1}:{2}' -f $legal,$person,$review)",runner)
+        self.assertNotIn("($legalCount+':'+$personCount+':'+$reviewCount)",worker)
+        self.assertNotIn("($legal+':'+$person+':'+$review)",runner)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

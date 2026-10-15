@@ -119,7 +119,7 @@ try{
   $summary=@(& $sqlite -batch -bail $db "SELECT count(*) || ':' || count(DISTINCT onec_guid) FROM customers;" 2>&1)
   if($LASTEXITCODE -ne 0 -or ($summary -join '').Trim() -ne '6433:6433'){Fail 'DATABASE_ROWS_NOT_6433'}
   $kinds=@(& $sqlite -batch -bail $db "SELECT sum(onec_type='LEGAL') || ':' || sum(onec_type='PERSON') || ':' || sum(onec_type='REVIEW') FROM customers;" 2>&1)
-  if($LASTEXITCODE -ne 0 -or ($kinds -join '').Trim() -ne ($legal+':'+$person+':'+$review)){Fail 'DATABASE_TYPE_COUNTS_MISMATCH'}
+  if($LASTEXITCODE -ne 0 -or ($kinds -join '').Trim() -ne ('{0}:{1}:{2}' -f $legal,$person,$review)){Fail 'DATABASE_TYPE_COUNTS_MISMATCH'}
   $q=@(& $sqlite -batch -bail $db 'PRAGMA quick_check;' 2>&1)
   if($LASTEXITCODE -ne 0 -or ($q -join '').Trim() -ne 'ok'){Fail 'POST_IMPORT_DB_CORRUPT'}
   $phase='DELETE_TEMP_TASK'

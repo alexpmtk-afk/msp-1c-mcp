@@ -233,7 +233,7 @@ try{
   $aggregate=Sql $exe $db "SELECT count(*) || ':' || count(DISTINCT onec_guid) || ':' || sum(CASE WHEN buyer=1 AND deletion_mark=0 AND invalid=0 THEN 1 ELSE 0 END) FROM customers;"
   if($aggregate -ne '6433:6433:6433'){Fail 'BACKREAD_COUNTS_FAILED'}
   $categories=Sql $exe $db "SELECT sum(CASE WHEN onec_type='LEGAL' THEN 1 ELSE 0 END) || ':' || sum(CASE WHEN onec_type='PERSON' THEN 1 ELSE 0 END) || ':' || sum(CASE WHEN onec_type='REVIEW' THEN 1 ELSE 0 END) FROM customers;"
-  if($categories -ne ($legalCount+':'+$personCount+':'+$reviewCount)){Fail 'BACKREAD_CATEGORIES_FAILED'}
+  if($categories -ne ('{0}:{1}:{2}' -f $legalCount,$personCount,$reviewCount)){Fail 'BACKREAD_CATEGORIES_FAILED'}
   if((Sql $exe $db 'PRAGMA quick_check;') -ne 'ok'){Fail 'BACKREAD_INTEGRITY_FAILED'}
   if((Sql $exe $db "SELECT count(*) FROM scan_runs WHERE phase='INITIAL' AND status='COMPLETE' AND expected_count=6433 AND read_count=6433 AND unique_count=6433;") -ne '1'){Fail 'BACKREAD_RUN_NOT_COMMITTED'}
   $message='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+

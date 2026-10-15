@@ -167,3 +167,14 @@ jobs:
           if(($quick -join '').Trim() -ne 'ok'){throw 'SQLITE_AFTER_ROLLBACK_CORRUPT'}
           Write-Output 'SQLITE_REAL_WINDOWS_6433_UPSERT=PASS'
           Write-Output 'SQLITE_REAL_WINDOWS_FAILED_TRANSACTION_ROLLBACK=PASS'
+
+      - name: PowerShell numeric category tuple regression
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          [int]$legalCount=1941
+          [int]$personCount=4486
+          [int]$reviewCount=6
+          $formatted=('{0}:{1}:{2}' -f $legalCount,$personCount,$reviewCount)
+          if($formatted -ne '1941:4486:6'){throw 'CATEGORY_TUPLE_FORMAT_FAILED'}
+          Write-Output 'CATEGORY_TUPLE_FORMAT=PASS'
