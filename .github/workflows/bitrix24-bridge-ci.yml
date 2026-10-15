@@ -36,7 +36,7 @@ jobs:
                    'bin/smoke-system.ps1','bin/enable-system.ps1',
                    'bin/status.ps1','bin/resume-system.ps1','bin/diagnose-runtime.ps1',
                    'bin/repair-file-acl.ps1','bin/inspect-customers-metadata.ps1',
-                   'bin/inspect-customers-schema.ps1',
+                   'bin/inspect-customers-schema.ps1','bin/inspect-customers-counts.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f

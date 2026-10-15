@@ -56,6 +56,17 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("Invoke-Expression", ".Method='POST'", "crm.company.add",
                           "crm.contact.add","Get-Acl -LiteralPath"):
             self.assertNotIn(forbidden,s)
+    def test_readonly_customer_counts_ps2_ascii_only(self):
+        s=read("inspect-customers-counts.ps1")
+        self.assertTrue(s.isascii())
+        for token in ("127.0.0.1:8085/NewBase", "/$count", "$request.Method='GET'",
+                      "$request.Proxy=$null", "$request.AllowAutoRedirect=$false",
+                      "EscapeDataString", "CUSTOMER_RECORDS_EXPORTED=NO",
+                      "DATA_WRITES=NO", "BITRIX_CALLS=NO",
+                      "COUNTERPARTIES_TOTAL=", "BUYER_ACTIVE_NOT_DELETED="):
+            self.assertIn(token,s)
+        for token in (".Method='POST'", "crm.company.add", "Invoke-Expression", "Invoke-WebRequest"):
+            self.assertNotIn(token,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
