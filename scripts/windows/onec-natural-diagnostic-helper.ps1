@@ -139,6 +139,198 @@ function StatusResult([string]$status) {
   return @{status=$status}
 }
 function PrintResult($output) {
+  if ($output['status'] -ne 'PASS' -and -not (Test-Path -LiteralPath $diagFile)) {
+    $safeStatus=$output['status']
+    if ($safeStatus -notmatch '^[A-Z_]{1,50}
+  [byte[]]$bytes=[Text.Encoding]::UTF8.GetBytes($json)
+  if ($bytes.Length -gt $MAX_RESPONSE) { throw 'RESULT_TOO_LARGE' }
+  $encoded=[Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
+  Write-Output ('NAT_'+$encoded)
+}
+
+try {
+  $diagStage='IDENTITY'
+  if ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne 'S-1-5-19') {
+    throw 'WRONG_IDENTITY'
+  }
+  if ($PSVersionTable.PSVersion.Major -ne 2) { throw 'WRONG_POWERSHELL' }
+  if (-not (@('name','article') -ccontains $Kind)) { throw 'INVALID_LOOKUP_MODE' }
+  $diagStage='DECODE_INPUT'
+  $item=Decode $ItemB64 $(if($Kind -eq 'name'){160}else{96})
+  $warehouse=$null
+  if ($WarehouseB64 -ne '-') { $warehouse=Decode $WarehouseB64 100 }
+  $diagStage='LOAD_CREDENTIAL'
+  if (-not (Test-Path -LiteralPath $secret -PathType Leaf)) { throw 'ODATA_CREDENTIAL_NOT_ENROLLED' }
+  $diagStage='LOAD_DOTNET'
+  Add-Type -AssemblyName System.Security
+  Add-Type -AssemblyName System.Web.Extensions
+  $serializer=New-Object Web.Script.Serialization.JavaScriptSerializer
+  $serializer.MaxJsonLength=262144
+  $diagStage='DECRYPT_DPAPI'
+  $encrypted=[IO.File]::ReadAllBytes($secret)
+  $clear=[Security.Cryptography.ProtectedData]::Unprotect(
+      $encrypted,$null,[Security.Cryptography.DataProtectionScope]::LocalMachine)
+  $password=[Text.Encoding]::UTF8.GetString($clear)
+  if (-not $password -or $password.Length -gt 256) { throw 'INVALID_CREDENTIAL' }
+  $diagStage='MAKE_1C_CREDENTIAL'
+  $credential=New-Object Net.NetworkCredential -ArgumentList @('MCP_OData_ReadOnly',$password)
+  $password=$null
+
+  $field=$(if($Kind -eq 'name'){'Description'}else{'Артикул'})
+  $filter=ExactFilter $field $item
+  $itemPath='Catalog_Номенклатура?$select=Ref_Key,Description,Code,Артикул&$filter='+$filter+'&$top=51&$format=json'
+  $diagStage='FETCH_CATALOG_ITEMS'
+  $matched=Rows $itemPath 51
+  if ($matched.Count -gt $MAX_ITEMS) { PrintResult (StatusResult 'ITEM_RESULT_INCOMPLETE'); exit 0 }
+  if ($matched.Count -eq 0) { PrintResult (StatusResult 'ITEM_NOT_FOUND'); exit 0 }
+
+  $chosenWarehouse=$null
+  if ($null -ne $warehouse) {
+    $diagStage='FETCH_UNIT_BY_NAME'
+    $wf=ExactFilter 'Description' $warehouse
+    $units=Rows ('Catalog_СтруктурныеЕдиницы?$select=Ref_Key,Description&$filter='+$wf+'&$top=2&$format=json') 2
+    if ($units.Count -eq 0) { PrintResult (StatusResult 'WAREHOUSE_NOT_FOUND'); exit 0 }
+    if ($units.Count -gt 1) { PrintResult (StatusResult 'WAREHOUSE_AMBIGUOUS'); exit 0 }
+    $chosenWarehouse=GuidCheck $units[0]['Ref_Key']
+  }
+  $items=@()
+  $uniqueItems=@{}
+  foreach($record in $matched) {
+    $diagStage='PROCESS_MATCHED_ITEM'
+    $guid=GuidCheck $record['Ref_Key']
+    if ($uniqueItems.ContainsKey($guid)) { throw 'DUPLICATE_ITEM' }
+    $uniqueItems[$guid]=$true
+    $name=[string]$record['Description']
+    $art=$record['Артикул']
+    $code=$record['Code']
+    if (-not $name -or $name.Length -gt 160) { throw 'INVALID_ITEM_NAME' }
+    if ($art -eq '') { $art=$null }
+    if ($code -eq '') { $code=$null }
+    if ($art -ne $null -and ([string]$art).Length -gt 96) { throw 'INVALID_ARTICLE' }
+    if ($code -ne $null -and ([string]$code).Length -gt 96) { throw 'INVALID_CODE' }
+    if ($field -eq 'Description' -and $name -cne $item) { throw 'WRONG_ITEM_MATCH' }
+    if ($field -eq 'Артикул' -and $art -cne $item) { throw 'WRONG_ARTICLE_MATCH' }
+    $predicate=("Номенклатура_Key eq guid'"+$guid+"'")
+    if ($null -ne $chosenWarehouse) {
+      $predicate+=(" and СтруктурнаяЕдиница_Key eq guid'"+$chosenWarehouse+"'")
+    }
+    $query=[Uri]::EscapeDataString($predicate)
+    $balanceUrl="AccumulationRegister_ЗапасыНаСкладах/Balance(Dimensions='Номенклатура,СтруктурнаяЕдиница')?"+'$filter='+$query+'&$top=51&$format=json'
+    $diagStage='FETCH_BALANCE'
+    $balances=Rows $balanceUrl 51
+    if ($balances.Count -gt $MAX_WAREHOUSES) {
+      PrintResult (StatusResult 'BALANCE_RESULT_INCOMPLETE'); exit 0
+    }
+    $amount=[decimal]0
+    $found=@()
+    $seen=@{}
+    foreach($line in $balances) {
+      $diagStage='PARSE_BALANCE'
+      if ((GuidCheck $line['Номенклатура_Key']) -ne $guid) { throw 'WRONG_BALANCE_ITEM' }
+      $unit=GuidCheck $line['СтруктурнаяЕдиница_Key']
+      if ($null -ne $chosenWarehouse -and $unit -ne $chosenWarehouse) {
+        throw 'WRONG_BALANCE_WAREHOUSE'
+      }
+      if ($seen.ContainsKey($unit)) { throw 'DUPLICATE_ITEM_WAREHOUSE' }
+      $seen[$unit]=$true
+      $quantity=Quantity $line['КоличествоBalance']
+      $amount += [decimal]::Parse($quantity,[Globalization.CultureInfo]::InvariantCulture)
+      $diagStage='RESOLVE_UNIT'
+      $label=UnitName $unit
+      $found+=@(@{name=$label;quantity=$quantity;balance_state='ROW_PRESENT'})
+    }
+    $balanceState=$(if($found.Count -gt 0){'HAS_BALANCE_ROWS'}else{'NO_BALANCE_ROW'})
+    if ($null -ne $warehouse -and $found.Count -eq 0) {
+      $found+=@(@{name=$warehouse;quantity='0';balance_state='NO_BALANCE_ROW'})
+    }
+    $diagStage='BUILD_CARD'
+    $items+=@(@{
+      name=$name;article=$art;code=$code;
+      total_quantity=$amount.ToString([Globalization.CultureInfo]::InvariantCulture);
+      balance_state=$balanceState;
+      warehouses=@($found)
+    })
+  }
+  $output=@{
+    status='PASS';search_kind=$Kind;search_term=$item;
+    requested_warehouse=$warehouse;match_count=[int]$items.Count;items=@($items);
+    source='1C NewBase Balance';mode='read-only'
+  }
+  $diagStage='SERIALIZE_RESULT'
+  PrintResult $output
+  [IO.File]::WriteAllText($diagFile,('STAGE=COMPLETED'+[Environment]::NewLine+'RESULT=PASS'),[Text.Encoding]::ASCII)
+  exit 0
+} catch {
+  # Sanitized diagnostic only: no raw exception strings, 1C IDs, names,
+  # request URLs, passwords, OData rows or secrets may enter the receipt.
+  $reason='UNCLASSIFIED'
+  $allowed=@('WRONG_IDENTITY','WRONG_POWERSHELL','INVALID_LOOKUP_MODE',
+   'INVALID_BASE64URL','INVALID_TERM','NONCANONICAL_BASE64URL',
+   'ODATA_CREDENTIAL_NOT_ENROLLED','INVALID_CREDENTIAL',
+   'INVALID_ODATA_PAYLOAD','PAGED_ODATA_RESULT',
+   'ODATA_RESULT_TOO_LARGE','INVALID_ODATA_ROW',
+   'INVALID_1C_GUID','WRONG_ITEM_MATCH','WRONG_ARTICLE_MATCH',
+   'INVALID_ITEM_NAME','INVALID_ARTICLE','INVALID_CODE',
+   'INVALID_QUANTITY','DUPLICATE_ITEM','DUPLICATE_ITEM_WAREHOUSE',
+   'WRONG_BALANCE_ITEM','WRONG_BALANCE_WAREHOUSE','UNIT_REF_NOT_UNIQUE',
+   'UNIT_REF_MISMATCH','INVALID_1C_UNIT_NAME','ODATA_NON_200',
+   'ODATA_TOO_LARGE','INVALID_FIXED_QUERY','RESULT_TOO_LARGE',
+   'FIELD_NOT_ALLOWED')
+  if ($allowed -contains $_.Exception.Message) {$reason=$_.Exception.Message}
+  if ($_.Exception -is [Net.WebException]) {
+    $reason='WEB_EXCEPTION'
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $http=[int]$_.Exception.Response.StatusCode
+      if ($http -eq 400) {$reason='HTTP_400'}
+      if ($http -eq 401) {$reason='HTTP_401'}
+      if ($http -eq 403) {$reason='HTTP_403'}
+      if ($http -eq 404) {$reason='HTTP_404'}
+      if ($http -ge 500) {$reason='HTTP_5XX'}
+    }
+  }
+  $type=$_.Exception.GetType().Name
+  if ($type -notmatch '^[A-Za-z]{1,45}
+    if ($null -eq $serializer) {
+      Add-Type -AssemblyName System.Web.Extensions
+      $serializer=New-Object Web.Script.Serialization.JavaScriptSerializer
+    }
+    PrintResult (StatusResult 'UNAVAILABLE')
+  } catch {
+    Write-Output 'ODATA_NATURAL_UNAVAILABLE'
+  }
+  exit 1
+} finally {
+  $credential=$null
+  if ($null -ne $clear) { [Array]::Clear($clear,0,$clear.Length) }
+  if ($null -ne $encrypted) { [Array]::Clear($encrypted,0,$encrypted.Length) }
+}
+) {$type='OTHER'}
+  try {
+    $safe=('STAGE='+$diagStage+[Environment]::NewLine+'REASON='+$reason+
+      [Environment]::NewLine+'ERROR_TYPE='+$type+[Environment]::NewLine+'RESULT=FAIL')
+    [IO.File]::WriteAllText($diagFile,$safe,[Text.Encoding]::ASCII)
+  } catch {}
+  # Never expose an exception/URL/credential/raw item record.
+  try {
+    if ($null -eq $serializer) {
+      Add-Type -AssemblyName System.Web.Extensions
+      $serializer=New-Object Web.Script.Serialization.JavaScriptSerializer
+    }
+    PrintResult (StatusResult 'UNAVAILABLE')
+  } catch {
+    Write-Output 'ODATA_NATURAL_UNAVAILABLE'
+  }
+  exit 1
+} finally {
+  $credential=$null
+  if ($null -ne $clear) { [Array]::Clear($clear,0,$clear.Length) }
+  if ($null -ne $encrypted) { [Array]::Clear($encrypted,0,$encrypted.Length) }
+}
+) {$safeStatus='NON_PASS_STATUS'}
+    $report=('STAGE='+$diagStage+[Environment]::NewLine+'REASON='+$safeStatus+
+      [Environment]::NewLine+'ERROR_TYPE=STATUS'+[Environment]::NewLine+'RESULT=FAIL')
+    [IO.File]::WriteAllText($diagFile,$report,[Text.Encoding]::ASCII)
+  }
   $json=$serializer.Serialize($output)
   [byte[]]$bytes=[Text.Encoding]::UTF8.GetBytes($json)
   if ($bytes.Length -gt $MAX_RESPONSE) { throw 'RESULT_TOO_LARGE' }
