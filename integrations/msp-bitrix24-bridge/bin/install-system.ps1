@@ -20,6 +20,12 @@ try {
   foreach($key in @('ACTIVE','CUSTOMERS_READ','PRODUCTS_READ','INVOICES_WRITE')){
     if($policy -notmatch ('(?m)^'+$key+'=0$')){Fail 'UNSAFE_POLICY'}
   }
+  $phase='RESOLVE_ICACLS'
+  $icacls=Join-Path $env:WINDIR 'System32\icacls.exe'
+  if(-not (Test-Path -LiteralPath $icacls -PathType Leaf)){
+    $icacls=Join-Path $env:WINDIR 'Sysnative\icacls.exe'
+  }
+  if(-not (Test-Path -LiteralPath $icacls -PathType Leaf)){Fail 'ICACLS_MISSING'}
   $phase='TASK_SCHEDULER_CONNECT'
   $s=New-Object -ComObject Schedule.Service;$s.Connect();$folder=$s.GetFolder('\')
   try{$existing=$folder.GetTask('MspBitrix24Bridge')}catch{$existing=$null}
@@ -32,10 +38,10 @@ try {
   Copy-Item -LiteralPath $f -Destination (Join-Path $root 'bin\bridge.ps1') -ErrorAction Stop
   Copy-Item -LiteralPath $c -Destination (Join-Path $root 'config\bridge.ini') -ErrorAction Stop
   $phase='APPLY_ROOT_ACL'
-  & icacls.exe $root '/inheritance:r' '/grant:r' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' '/T' | Out-Null
+  & $icacls $root '/inheritance:r' '/grant:r' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' '/T' | Out-Null
   if($LASTEXITCODE -ne 0){Fail 'ACL_ROOT_FAILED'}
   $phase='APPLY_STATE_ACL'
-  & icacls.exe (Join-Path $root 'state') '/grant:r' '*S-1-5-19:(OI)(CI)M' '/T' | Out-Null
+  & $icacls (Join-Path $root 'state') '/grant:r' '*S-1-5-19:(OI)(CI)M' '/T' | Out-Null
   if($LASTEXITCODE -ne 0){Fail 'ACL_STATE_FAILED'}
   $phase='DEFINE_TASK'
   # NT AUTHORITY\LOCAL SERVICE is translated from its SID, independent of UI language.
