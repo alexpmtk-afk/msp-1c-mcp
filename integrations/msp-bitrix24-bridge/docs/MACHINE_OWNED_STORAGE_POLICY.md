@@ -6,7 +6,45 @@ not as installations belonging to a named interactive/RDP user.
 Logging off, switching users or rebooting MUST NOT interrupt the
 autonomous collection pipeline after boot.
 
-## Canonical locations
+## Updated architecture: independent SRV customer collector (2026-10-15)
+
+The user's first priority is an autonomous **1C -> SRV local database**
+pipeline; Bitrix is LAST. To keep collection independent of the
+existing Bitrix24 SAFE_IDLE bridge, the standalone collector gets its
+**own machine-owned root**:
+
+| Part | Canonical server-only path or identity |
+| --- | --- |
+| Collector root | `C:\ProgramData\MspCustomerStore\` |
+| 1C ingestion/refresh runner | `C:\ProgramData\MspCustomerStore\bin\collector.ps1` |
+| SQLite executable/provider | `C:\ProgramData\MspCustomerStore\bin\` |
+| HTTPS client | `C:\ProgramData\MspCustomerStore\bin\curl.exe` if used |
+| TLS CA bundle | `C:\ProgramData\MspCustomerStore\config\curl-ca-bundle.crt` |
+| SQLite main database and durable inbox/checkpoints | `C:\ProgramData\MspCustomerStore\data\customers.db` |
+| Configuration | `C:\ProgramData\MspCustomerStore\config\` |
+| Protected secrets | `C:\ProgramData\MspCustomerStore\secrets\` |
+| Logs | `C:\ProgramData\MspCustomerStore\logs\` |
+| Controlled temporary/staging files | `C:\ProgramData\MspCustomerStore\staging\` |
+| Machine-owned backups | `C:\ProgramData\MspCustomerStore\backups\` or a separately ACL-protected server backup target |
+| Service identity | `NT AUTHORITY\LOCAL SERVICE` (`S-1-5-19`) |
+| Independent startup task (planned) | `MspCustomerStoreSync`, Windows boot trigger |
+
+The **preexisting** `C:\ProgramData\MspBitrix24Bridge\`
+remains separate and unchanged. Its `MspBitrix24Bridge` scheduled
+task stays `SAFE_IDLE`. Older documents referring to
+`C:\ProgramData\MspBitrix24Bridge\data\customers.db`
+are superseded as collector-path proposals; NO existing files are moved.
+
+All persistent components, executables, providers, certificates,
+configuration, secrets, queues, database, logs, backups, and tasks
+are machine-owned. No runtime dependency on an interactive user's
+profile, login, desktop, credentials or RDP session.
+Manual bootstrap via a user's shell is allowed only for staging
+read-only diagnostics; nothing in the **running** chain may depend
+on that profile. Local Service permissions are verified with
+actual service-context tests before enabling any scheduled ingestion.
+
+## Original bridge locations (existing, unchanged)
 
 - Bridge root: `C:\ProgramData\MspBitrix24Bridge\`
 - SQLite runtime: `C:\ProgramData\MspBitrix24Bridge\bin\sqlite3.exe`

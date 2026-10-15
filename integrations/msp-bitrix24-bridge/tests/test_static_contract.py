@@ -253,6 +253,27 @@ class BootstrapSafety(unittest.TestCase):
                       "INVOICES_WRITE=0"):
             conf=(ROOT/"config/bridge.ini").read_text(encoding="ascii")
             self.assertIn(token,conf)
+    def test_standalone_machine_collector_audit_ps2_no_changes(self):
+        script=read("audit-machine-owned-customer-chain.ps1")
+        self.assertTrue(script.isascii())
+        for token in ("C:\\ProgramData\\MspCustomerStore", "MspCustomerStoreSync",
+                      "S-1-5-19", "MspBitrix24Bridge",
+                      "EXISTING_BRIDGE_POLICY=SAFE_IDLE",
+                      "COLLECTOR_DB_PRESENT=", "COLLECTOR_CURL_PRESENT=",
+                      "COLLECTOR_CA_PRESENT=", "COLLECTOR_BACKUP_MACHINE_OWNED_REQUIRED=YES",
+                      "FILES_CREATED=NO", "DATA_WRITES=NO", "TASK_CHANGES=NO",
+                      "ONEC_CALLS=NO", "BITRIX_CALLS=NO"):
+            self.assertIn(token,script)
+        for forbidden in ("CreateDirectory(", "Copy-Item", "New-Item",
+                          "Set-Acl", "Set-Content", "WriteAllText(", "RegisterTaskDefinition(",
+                          "Start-Process", "Invoke-Expression", ".Method='POST'", "Get-Credential"):
+            self.assertNotIn(forbidden,script)
+    def test_collector_machine_owned_separate_from_bitrix_idle(self):
+        pol=(ROOT/"docs/MACHINE_OWNED_STORAGE_POLICY.md").read_text(encoding="utf-8")
+        for marker in ("C:\\ProgramData\\MspCustomerStore", "MspCustomerStoreSync",
+                       "S-1-5-19", "SAFE_IDLE", "backups", "secrets",
+                       "C:\\ProgramData\\MspBitrix24Bridge"):
+            self.assertIn(marker,pol)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

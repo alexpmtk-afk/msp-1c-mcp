@@ -56,7 +56,7 @@ a natural person**. Sync runs centrally, not once for each person searching.
 - User explicitly chose **Option B**: source-side native 1C change
   registration (exchange-plan service), with a durable SRV inbox.
 - Preferred *local storage proposal* is SQLite at
-  `C:\ProgramData\MspBitrix24Bridge\data\customers.db`, subject
+  `C:\ProgramData\MspCustomerStore\data\customers.db`, subject
   to legacy OS/provider and encryption/ACL validation.
 - JSON is for event/API transport only, not the master directory.
 - Integration remains conceptual; see [SYNC_ARCHITECTURE_OPTION_B.md](SYNC_ARCHITECTURE_OPTION_B.md).

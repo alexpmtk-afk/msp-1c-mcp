@@ -74,10 +74,27 @@ local TEST port 8085; do not touch production or the other system agent.
 Source: https://its.1c.ru/db/content/metod8dev/src/developers/platform/metod/dataexchange/i8102276.htm
 Standard OData: https://github.com/hacker-cb/1c-odata/blob/master/docs/1c/markdown/17.4_-_C%D1%82%D0%B0%D0%BD%D0%B4%D0%B0%D1%80%D1%82%D0%BD%D1%8B%D0%B9_%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81_OData_8_3_27.md
 
+## Standalone, system-owned collector directory
+
+Collector is independent of the existing `MspBitrix24Bridge` SAFE_IDLE
+task. Target root `C:\ProgramData\MspCustomerStore\`, with separate
+boot-start `MspCustomerStoreSync` under `NT AUTHORITY\LOCAL SERVICE`,
+plus dedicated `bin`, `config`, `data`, `state`, `logs`,
+`staging`, `secrets` and `backups` directories.
+No user profile, RDP session, interactive startup or user-scoped curl/CA
+path in the working chain. Existing Bitrix and 1C tasks untouched.
+
+Next: execute read-only `bin/audit-machine-owned-customer-chain.ps1`
+on SRV to confirm task identity, boot trigger, root access and missing
+dependencies. Then develop a tightly scoped machine-owned installer
+and empty SQLite transaction verified **as LOCAL SERVICE**.
+Admin-level ACL/task provisioning must use an explicitly authorized
+installer; do not grant admin rights to `SRV\parshin`.
+
 ## Database
 
 Preferred on-SRV format: SQLite, subject to legacy server support.
-Proposed path `C:\ProgramData\MspBitrix24Bridge\data\customers.db`.
+Proposed path `C:\ProgramData\MspCustomerStore\data\customers.db`.
 An **empty schema** is defined in `schema/customer-store.sql`, but has
 NOT been installed. Needs physical SRV runtime/provided SQLite CLI or
 .NET provider compatibility verification and locked-down ACLs and at-rest

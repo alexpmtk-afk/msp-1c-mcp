@@ -41,8 +41,8 @@ Official mechanism:
 
 ## Installation / identity invariants
 
-All persistent binaries, databases, CA bundles, logs and queues must be
-machine-owned under `C:\ProgramData\MspBitrix24Bridge\`; run via
+All collector binaries, databases, CA bundles, logs and queues must be
+machine-owned under `C:\ProgramData\MspCustomerStore\`; run via
 `NT AUTHORITY\LOCAL SERVICE`, not a named user's RDP login/profile.
 The earlier `%LOCALAPPDATA%` SQLite pilot is retired and must not be used.
 See [MACHINE_OWNED_STORAGE_POLICY.md](MACHINE_OWNED_STORAGE_POLICY.md).
@@ -50,7 +50,7 @@ Authorization for machine ACL changes is separate from read-only diagnostics.
 
 ## Local store on physical SRV (proposed technology)
 
-Preferred format: **SQLite**, `C:\ProgramData\MspBitrix24Bridge\data\customers.db`.
+Preferred format: **SQLite**, `C:\ProgramData\MspCustomerStore\data\customers.db`.
 This path is a proposal only. It has NOT been created or deployed.
 It is a transactional indexed local database, **not** a huge JSON array/file,
 Excel sheet, or a file on a network share.

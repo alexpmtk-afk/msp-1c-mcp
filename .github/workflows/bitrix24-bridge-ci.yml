@@ -44,6 +44,7 @@ jobs:
                    'bin/preflight-srv-customer-store.ps1',
                    'bin/inventory-srv-sqlite-runtime.ps1',
                    'bin/pilot-create-sqlite-store.ps1',
+                   'bin/audit-machine-owned-customer-chain.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
