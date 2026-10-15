@@ -1,3 +1,34 @@
+## S3 first gate: machine-owned OData credentials under LOCAL SERVICE
+
+After the successful S2 empty SQLite acceptance, S3 must read TEST 1C
+through the independent machine-owned collector, not through a user
+logon session.
+
+Bootstrap requires one SRV-local password entry only for
+`MCP_OData_ReadOnly` using `Read-Host -AsSecureString`.
+The password is stored only as a Windows DPAPI `LocalMachine`
+ciphertext blob in
+`C:\ProgramData\MspCustomerStore\secrets\onec-test-odata.dpapi`.
+No plaintext/password on command line, in GitHub, logs or files.
+
+**Security warning:** machine-scope DPAPI is NOT bound only to LOCAL SERVICE:
+other processes on the same computer that can read the encrypted file can
+decrypt it. Restrictive NTFS ACLs (SYSTEM, Administrators, LOCAL SERVICE only)
+are mandatory. The service account needs read access; the file must not
+be made available through IIS, SMB or user profiles. For stronger per-identity
+protection, redesign around service-owned CurrentUser DPAPI later.
+
+`bin/provision-onec-service-credential.ps1` stages a checksum-pinned
+read-only proof script and provisions the encrypted blob with no replacement
+of an existing secret. A no-trigger, manually invoked
+`MspCustomerStoreCredentialProof` task executes under LOCAL SERVICE,
+decrypts DPAPI there, GETs only an aggregate buyer count from local
+TEST 1C OData and writes a count/status marker in machine-owned
+`state`. On PASS, the temporary proof task is deleted.
+Existing `MspCustomerStoreSync` remains boot-off / SAFE_IDLE.
+No customer cards yet imported, no 1C writes, no Bitrix calls.
+Stop on any FAIL; do not rerun blindly because the encrypted blob may remain.
+
 ## Verified LF/CRLF mismatch and offline schema-only resume
 
 Physical SRV failed with `SOURCE_SHA256_MISMATCH` after

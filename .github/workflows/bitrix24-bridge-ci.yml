@@ -55,6 +55,7 @@ jobs:
                    'bin/diagnose-customer-store-schema-failure.ps1',
                    'bin/repair-customer-store-schema-path.ps1',
                    'bin/probe-onec-service-readonly.ps1',
+                   'bin/provision-onec-service-credential.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f

@@ -449,6 +449,23 @@ class BootstrapSafety(unittest.TestCase):
         for bad in ("C:\\Users\\", "Invoke-WebRequest", "Export-Csv",
                     "Get-Credential", "Method='POST'", "RegisterTaskDefinition"):
             self.assertNotIn(bad,s)
+    def test_machine_dpapi_enrollment_is_service_only(self):
+        s=read("provision-onec-service-credential.ps1")
+        self.assertTrue(s.isascii())
+        for value in ("Read-Host -Prompt 'Password for MCP_OData_ReadOnly",
+                      "SecureStringToBSTR", "ZeroFreeBSTR",
+                      "DataProtectionScope]::LocalMachine",
+                      "MspCustomerStoreCredentialProof", "S-1-5-19",
+                      "ONEC_PROOF_FAILURE_GATE=", "DeleteTask('MspCustomerStoreCredentialProof'",
+                      "CUSTOMER_RECORDS_EXPORTED=NO", "COLLECTOR_AUTOSTART=OFF",
+                      "ONEC_WRITES=NO", "BITRIX_CALLS=NO",
+                      "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(value,s)
+        for value in ("C:\\Users\\parshin", "Get-Credential",
+                      "Method='POST'", "MspOnecHttpsAgentSystem",
+                      "RegisterTaskDefinition('MspCustomerStoreSync'",
+                      "Invoke-Expression"):
+            self.assertNotIn(value,s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
