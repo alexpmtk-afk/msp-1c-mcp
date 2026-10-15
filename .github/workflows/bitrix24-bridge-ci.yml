@@ -103,3 +103,67 @@ jobs:
           $result=@(& $exe -batch -bail ':memory:' $readCommand 2>&1)
           if($LASTEXITCODE -ne 0){throw ('SQLITE_DOT_READ_FAILED: '+($result -join ' '))}
           Write-Output 'SQLITE_WIN_DOT_READ_FORWARD_SLASH=PASS'
+
+      - name: Real Windows SQLite 6433 UPSERT plus rollback acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $binRoot=Join-Path $env:RUNNER_TEMP 'msp-sqlite-acceptance'
+          $exe=Get-ChildItem -LiteralPath $binRoot -Recurse -Filter sqlite3.exe | Select-Object -First 1 -ExpandProperty FullName
+          if(-not $exe){throw 'REAL_SQLITE_CLI_MISSING'}
+          $db=Join-Path $env:RUNNER_TEMP 'msp-sqlite-synthetic-6433.db'
+          if([IO.File]::Exists($db)){throw 'SYNTHETIC_DB_COLLISION'}
+          $schema=(Resolve-Path 'integrations/msp-bitrix24-bridge/schema/customer-store.sql').Path.Replace('\','/')
+          $null=& $exe -batch -bail $db ('.read '+$schema)
+          if($LASTEXITCODE -ne 0){throw 'SQLITE_SCHEMA_NOT_APPLIED'}
+          function Feed-SQL([string]$text){
+            $psi=New-Object Diagnostics.ProcessStartInfo
+            $psi.FileName=$exe
+            $psi.Arguments='-batch -bail "'+$db+'"'
+            $psi.UseShellExecute=$false
+            $psi.RedirectStandardInput=$true
+            $psi.RedirectStandardOutput=$true
+            $psi.RedirectStandardError=$true
+            $proc=New-Object Diagnostics.Process
+            $proc.StartInfo=$psi
+            try{
+              if(-not $proc.Start()){throw 'SQLITE_PROCESS_START_FAILED'}
+              $proc.StandardInput.Write($text)
+              $proc.StandardInput.Close()
+              $stdout=$proc.StandardOutput.ReadToEnd()
+              $stderr=$proc.StandardError.ReadToEnd()
+              if(-not $proc.WaitForExit(20000)){$proc.Kill();throw 'SQLITE_TIMEOUT'}
+              return @{Code=$proc.ExitCode;Out=$stdout;Err=$stderr}
+            }finally{$proc.Close()}
+          }
+          $ten=New-Object Text.StringBuilder
+          [void]$ten.AppendLine('BEGIN;')
+          for($i=1;$i -le 10;$i++){
+            $guid=('{0:x8}-0000-0000-0000-000000000000' -f $i)
+            [void]$ten.AppendLine("INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES ('$guid','PERSON',1,0,0,'2026-10-15T00:00:00Z',0);")
+          }
+          [void]$ten.AppendLine('COMMIT;')
+          $r=Feed-SQL $ten.ToString()
+          if($r.Code -ne 0){throw ('SQLITE_TEN_SETUP_FAIL: '+$r.Err)}
+          $builder=New-Object Text.StringBuilder
+          [void]$builder.AppendLine('BEGIN IMMEDIATE;')
+          for($i=1;$i -le 6433;$i++){
+            $guid=('{0:x8}-0000-0000-0000-000000000000' -f $i)
+            [void]$builder.AppendLine("INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES ('$guid','PERSON',1,0,0,'2026-10-15T00:00:00Z',0) ON CONFLICT(onec_guid) DO UPDATE SET onec_type=excluded.onec_type,updated_at_utc=excluded.updated_at_utc;")
+          }
+          [void]$builder.AppendLine('CREATE TEMP TABLE accept_count (n INTEGER NOT NULL CHECK(n=6433));')
+          [void]$builder.AppendLine('INSERT INTO accept_count SELECT count(*) FROM customers;')
+          [void]$builder.AppendLine('COMMIT;')
+          $r=Feed-SQL $builder.ToString()
+          if($r.Code -ne 0){throw ('SQLITE_6433_UPSERT_FAIL: '+$r.Err)}
+          $count=& $exe -batch -bail $db "SELECT count(*) || ':' || count(DISTINCT onec_guid) FROM customers;"
+          if($LASTEXITCODE -ne 0 -or ($count -join '').Trim() -ne '6433:6433'){throw 'SQLITE_6433_COUNTS_BAD'}
+          $bad="BEGIN IMMEDIATE;INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff','PERSON',1,0,0,'2026-10-15T00:00:00Z',0);CREATE TEMP TABLE reject_count (n INTEGER NOT NULL CHECK(n=6433));INSERT INTO reject_count SELECT count(*) FROM customers;COMMIT;"
+          $fail=Feed-SQL $bad
+          if($fail.Code -eq 0){throw 'NEGATIVE_COUNT_ACCEPTANCE_MUST_FAIL'}
+          $post=& $exe -batch -bail $db 'SELECT count(*) FROM customers;'
+          if($LASTEXITCODE -ne 0 -or ($post -join '').Trim() -ne '6433'){throw 'FAILED_TRANSACTION_NOT_ROLLED_BACK'}
+          $quick=& $exe -batch -bail $db 'PRAGMA quick_check;'
+          if(($quick -join '').Trim() -ne 'ok'){throw 'SQLITE_AFTER_ROLLBACK_CORRUPT'}
+          Write-Output 'SQLITE_REAL_WINDOWS_6433_UPSERT=PASS'
+          Write-Output 'SQLITE_REAL_WINDOWS_FAILED_TRANSACTION_ROLLBACK=PASS'
