@@ -75,6 +75,7 @@ jobs:
                    'bin/stage-bitrix-json1-worker-inactive.ps1',
                    'bin/probe-bitrix-json1-installed-service.ps1',
                    'bin/run-bitrix-json1-installed-service-audit.ps1',
+                   'bin/probe-bitrix-direct-https-service.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
