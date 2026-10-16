@@ -152,7 +152,7 @@ try {
   if (-not (@('name','article') -ccontains $Kind)) { throw 'INVALID_LOOKUP_MODE' }
   $item=Decode $ItemB64 $(if($Kind -eq 'name'){160}else{96})
   $warehouse=$null
-  if ($WarehouseB64 -ne '-') { $warehouse=Decode $WarehouseB64 100 }
+  if ($WarehouseB64 -ne '-' -and $WarehouseB64 -ne 'ALL') { $warehouse=Decode $WarehouseB64 100 }
   if (-not (Test-Path -LiteralPath $secret -PathType Leaf)) { throw 'ODATA_CREDENTIAL_NOT_ENROLLED' }
   Add-Type -AssemblyName System.Security
   $jsonLibrary=Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'onec-legacy-json.ps1'
