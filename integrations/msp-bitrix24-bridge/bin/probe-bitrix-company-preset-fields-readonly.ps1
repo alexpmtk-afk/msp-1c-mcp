@@ -87,7 +87,8 @@ try{
  $presetReceipt=Join-Path $root 'state\bitrix-direct-requisite-preset-details-status.txt'
  if(-not [IO.File]::Exists($presetReceipt)){Fail 'PRESET_DETAILS_NOT_VERIFIED'}
  $verified=[IO.File]::ReadAllText($presetReceipt,[Text.Encoding]::ASCII).Trim()
- if($verified -notmatch ';STATUS=PASS;TARGET=b24-uwmjda.bitrix24.ru;METHOD=crm.requisite.preset.list;DETAILS_COUNT=3;CRM_WRITES=0;ONEC_CALLS=0;CUSTOMER_EXPORT=0;WEBHOOK_SAVED=NO
+ if($verified -notmatch ';STATUS=PASS;TARGET=b24-uwmjda.bitrix24.ru;METHOD=crm.requisite.preset.list;DETAILS_COUNT=3;CRM_WRITES=0;ONEC_CALLS=0;CUSTOMER_EXPORT=0;WEBHOOK_SAVED=NO$'){Fail 'PRESET_DETAILS_NOT_VERIFIED'}
+ foreach($f in @('config\bitrix-search-worker.ini','secrets\bitrix-search-worker.dpapi')){
   if([IO.File]::Exists((Join-Path $root $f))){Fail 'LEGACY_RELAY_WORKER_CONFIGURED'}
  }
  $secure=Read-Host -Prompt 'Enter Bitrix incoming webhook BASE URL (hidden; never share)' -AsSecureString
@@ -107,7 +108,6 @@ try{
   "WHEN coalesce(json_type(doc,'$.error'),'')='text' THEN 'API_ERROR' "+
   "WHEN coalesce(json_type(doc,'$.result'),'')<>'array' THEN 'BAD_RESULT' "+
   "WHEN json_array_length(doc,'$.result')>50 THEN 'PAGE_TOO_LARGE' "+
-  "WHEN coalesce(json_type(doc,'$.next'),'null')<>'null' THEN 'PAGING_PRESENT' "+
   "ELSE 'OK|'||json_array_length(doc,'$.result')||'|'||"+
   "coalesce(CAST(json_extract(doc,'$.total') AS TEXT),'UNKNOWN') END FROM j;"
  $parsed=JsonSql $script:bodyReply $sql
@@ -148,60 +148,6 @@ try{
  $gate='RUNTIME_ERROR'
  if($_.Exception.Message -match '^DIRECT_CRM_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  'RESULT=FAIL;STAGE=SRV_BITRIX_COMPANY_PRESET_FIELDS_READONLY;GATE='+$gate
- 'NO_AUTOMATIC_RETRY=YES'
- exit 1
-}finally{
- if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
- $plain=$null
- $secure=$null
- $script:cfg=$null
- $script:bodyReply=$null
-}){Fail 'PRESET_DETAILS_NOT_VERIFIED'}
- foreach($f in @('config\bitrix-search-worker.ini','secrets\bitrix-search-worker.dpapi')){
-  if([IO.File]::Exists((Join-Path $root $f))){Fail 'LEGACY_RELAY_WORKER_CONFIGURED'}
- }
- $secure=Read-Host -Prompt 'Enter Bitrix incoming webhook BASE URL (hidden; never share)' -AsSecureString
- if($null -eq $secure -or $secure.Length -lt 45 -or $secure.Length -gt 220){Fail 'WEBHOOK_FORMAT_INVALID'}
- $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
- $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
- [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
- $ptr=[IntPtr]::Zero
- if($plain -notmatch '^https://b24-uwmjda\.bitrix24\.ru/rest/[1-9][0-9]{0,9}/[A-Za-z0-9_-]{8,128}/?$'){Fail 'WEBHOOK_HOST_OR_FORMAT_INVALID'}
- $url=$plain.TrimEnd('/')+'/crm.requisite.preset.field.list.json'
- $payload='{"preset":{"ID":1},"start":0}'
- $script:bodyReply=HttpOnce $url $payload
- $url=$null
- $plain=$null
- $sql="SELECT CASE WHEN json_valid(doc)=0 THEN 'INVALID' "+
-  "WHEN json_type(doc)<>'object' THEN 'INVALID' "+
-  "WHEN coalesce(json_type(doc,'$.error'),'')='text' THEN 'API_ERROR' "+
-  "WHEN coalesce(json_type(doc,'$.result'),'')<>'array' THEN 'BAD_RESULT' "+
-  "WHEN json_array_length(doc,'$.result')>50 THEN 'PAGE_TOO_LARGE' "+
-  "ELSE 'OK|'||json_array_length(doc,'$.result')||'|'||"+
-  "coalesce(CAST(json_extract(doc,'$.total') AS TEXT),'UNKNOWN') END FROM j;"
- $parsed=JsonSql $script:bodyReply $sql
- $script:bodyReply=$null
- if($parsed -notmatch '^OK\|([0-9]{1,2})\|(UNKNOWN|[0-9]{1,10})$'){Fail 'CRM_RESPONSE_NOT_ACCEPTED'}
- $count=[int]$Matches[1]
- $total=$Matches[2]
- if($count -gt 50){Fail 'PAGE_TOO_LARGE'}
- $line='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=PASS;TARGET=b24-uwmjda.bitrix24.ru;METHOD=crm.requisite.preset.list;ENTITY=REQUISITE_PRESET;FIELDS=ID_NAME_ACTIVE_COUNTRY;FIRST_PAGE_COUNT='+$count+';TOTAL='+$total+';CRM_WRITES=0;ONEC_CALLS=0;CUSTOMER_EXPORT=0;WEBHOOK_SAVED=NO'
- $file=New-Object IO.FileStream -ArgumentList @($receipt,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
- try{$bytes=[Text.Encoding]::ASCII.GetBytes($line);$file.Write($bytes,0,$bytes.Length);$file.Flush()}finally{$file.Close()}
- 'DIRECT_BITRIX_REQUISITE_PRESETS_READ=PASS'
- 'ENTITY_TYPE=REQUISITE_PRESET'
- 'RETURNED_FIELDS=ID_NAME_ACTIVE_COUNTRY'
- 'FIRST_PAGE_COUNT='+$count
- 'TOTAL='+$total
- 'WEBHOOK_SAVED=NO'
- 'CRM_WRITES=NO'
- 'ONEC_CALLS=NO'
- 'CUSTOMER_DATA_EXPORTED=NO'
- 'RESULT=PASS;STAGE=SRV_BITRIX_DIRECT_REQUISITE_PRESETS_READONLY_FIRST_PAGE'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^DIRECT_CRM_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- 'RESULT=FAIL;STAGE=SRV_BITRIX_DIRECT_REQUISITE_PRESETS_READONLY_FIRST_PAGE;GATE='+$gate
  'NO_AUTOMATIC_RETRY=YES'
  exit 1
 }finally{
