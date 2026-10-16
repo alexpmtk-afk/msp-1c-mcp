@@ -91,12 +91,38 @@ try{
  foreach($f in @('config\bitrix-search-worker.ini','secrets\bitrix-search-worker.dpapi')){
   if([IO.File]::Exists((Join-Path $root $f))){Fail 'LEGACY_RELAY_WORKER_CONFIGURED'}
  }
- $secure=Read-Host -Prompt 'Enter Bitrix incoming webhook BASE URL (hidden; never share)' -AsSecureString
- if($null -eq $secure -or $secure.Length -lt 45 -or $secure.Length -gt 220){Fail 'WEBHOOK_FORMAT_INVALID'}
- $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
- $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
- [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
- $ptr=[IntPtr]::Zero
+ # Use the enrolled encrypted webhook. Never prompt again and never log the URL.
+ $enrollment=Join-Path $root 'state\bitrix-direct-webhook-enrolled.txt'
+ $secret=Join-Path $root 'staging\bitrix-direct-private\bitrix-direct-webhook.dpapi'
+ $privateDir=Join-Path $root 'staging\bitrix-direct-private'
+ if(-not [IO.File]::Exists($enrollment) -or -not [IO.File]::Exists($secret)){Fail 'WEBHOOK_NOT_ENROLLED'}
+ foreach($item in @($privateDir,$secret)){
+  if(([IO.File]::GetAttributes($item) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Fail 'SECRET_REPARSE'}
+ }
+ $proof=[IO.File]::ReadAllText($enrollment,[Text.Encoding]::ASCII).Trim()
+ if($proof -notmatch '^UTC=[^;]+;STATUS=PASS;SECRET=bitrix-direct-private/bitrix-direct-webhook.dpapi;STORAGE=MACHINE_DPAPI;READERS=SYSTEM_ADMINS_LOCAL_SERVICE_ENROLLER;WEBHOOK_PRINTED=NO;COLLECTOR_ENABLED=NO;BITRIX_CALLS=0;ONEC_CALLS=0$'){Fail 'ENROLLMENT_PROOF_MISMATCH'}
+ $acl=[IO.File]::GetAccessControl($secret)
+ $readers=$acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])
+ $serviceReader=$false
+ $currentSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+ foreach($rule in $readers){
+  if($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow){continue}
+  if(@('S-1-5-18','S-1-5-19','S-1-5-32-544',$currentSid) -notcontains $rule.IdentityReference.Value){Fail 'SECRET_PERMISSIONS_INVALID'}
+  if($rule.IdentityReference.Value -eq 'S-1-5-19'){$serviceReader=$true}
+ }
+ if(-not $serviceReader){Fail 'SERVICE_READER_MISSING'}
+ Add-Type -AssemblyName System.Security
+ $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-Bitrix24-Direct-Webhook-v1')
+ $sealed=[IO.File]::ReadAllBytes($secret)
+ if($sealed.Length -lt 64 -or $sealed.Length -gt 4096){Fail 'SECRET_LENGTH_INVALID'}
+ $decoded=$null
+ try{
+  $decoded=[Security.Cryptography.ProtectedData]::Unprotect($sealed,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
+  $plain=[Text.Encoding]::UTF8.GetString($decoded)
+ }finally{
+  if($null -ne $decoded){[Array]::Clear($decoded,0,$decoded.Length)}
+  [Array]::Clear($sealed,0,$sealed.Length)
+ }
  if($plain -notmatch '^https://b24-uwmjda\.bitrix24\.ru/rest/[1-9][0-9]{0,9}/[A-Za-z0-9_-]{8,128}/?$'){Fail 'WEBHOOK_HOST_OR_FORMAT_INVALID'}
  $url=$plain.TrimEnd('/')+'/crm.requisite.preset.field.list.json'
  $payload='{"preset":{"ID":1},"start":0}'
@@ -129,7 +155,7 @@ try{
  if($fields -notmatch '^OK\|([01])\|([01])\|([01])\|([01])\|([01])$'){Fail 'FIELD_COUNTS_INVALID'}
  $inn=$Matches[1];$kpp=$Matches[2];$ogrn=$Matches[3];$name=$Matches[4];$fullname=$Matches[5]
  if($inn -ne '1' -or $name -ne '1'){Fail 'REQUIRED_FIELDS_MISSING'}
- $line='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=PASS;TARGET=b24-uwmjda.bitrix24.ru;METHOD=crm.requisite.preset.field.list;PRESET_ID=1;FIELD_COUNT='+$count+';RQ_INN='+$inn+';RQ_KPP='+$kpp+';RQ_OGRN='+$ogrn+';RQ_COMPANY_NAME='+$name+';RQ_COMPANY_FULL_NAME='+$fullname+';CRM_WRITES=0;ONEC_CALLS=0;CUSTOMER_EXPORT=0;WEBHOOK_SAVED=NO'
+ $line='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=PASS;TARGET=b24-uwmjda.bitrix24.ru;METHOD=crm.requisite.preset.field.list;PRESET_ID=1;FIELD_COUNT='+$count+';RQ_INN='+$inn+';RQ_KPP='+$kpp+';RQ_OGRN='+$ogrn+';RQ_COMPANY_NAME='+$name+';RQ_COMPANY_FULL_NAME='+$fullname+';CRM_WRITES=0;ONEC_CALLS=0;CUSTOMER_EXPORT=0;WEBHOOK_SAVED=YES_ENCRYPTED'
  $file=New-Object IO.FileStream -ArgumentList @($receipt,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
  try{$bytes=[Text.Encoding]::ASCII.GetBytes($line);$file.Write($bytes,0,$bytes.Length);$file.Flush()}finally{$file.Close()}
  'DIRECT_BITRIX_COMPANY_PRESET_FIELDS=PASS'
@@ -140,7 +166,8 @@ try{
  'RQ_OGRN='+$ogrn
  'RQ_COMPANY_NAME='+$name
  'RQ_COMPANY_FULL_NAME='+$fullname
- 'WEBHOOK_SAVED=NO'
+ 'WEBHOOK_SOURCE=MACHINE_DPAPI'
+ 'WEBHOOK_SAVED=YES_ENCRYPTED'
  'CRM_WRITES=NO'
  'ONEC_CALLS=NO'
  'CUSTOMER_DATA_EXPORTED=NO'
