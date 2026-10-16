@@ -85,6 +85,7 @@ jobs:
                    'bin/probe-bitrix-company-preset-fields-readonly.ps1',
                    'bin/enroll-bitrix-direct-webhook.ps1',
                    'bin/diagnose-bitrix-webhook-enrollment-acl.ps1',
+                   'bin/enroll-bitrix-direct-webhook-v2.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
