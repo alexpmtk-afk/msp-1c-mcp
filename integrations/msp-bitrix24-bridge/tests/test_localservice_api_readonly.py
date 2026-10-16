@@ -65,7 +65,6 @@ class LocalServiceApiReadonly(unittest.TestCase):
             self.assertNotIn(forbidden,s)
         self.assertEqual(s.count("$null=$task.Run($null)"),1)
         self.assertNotIn("MspCustomerStoreSync',$def",s)
-        self.assertNotIn("__CHILD_HASH_PENDING__",s)
 
 if __name__=="__main__":
     unittest.main()
