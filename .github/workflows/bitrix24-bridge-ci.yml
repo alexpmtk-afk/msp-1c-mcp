@@ -28,6 +28,16 @@ jobs:
             if(-not $source.StartsWith('#requires -version 2')){throw ('PS2_DECLARATION_MISSING: '+$_.Name)}
             Write-Output ('PARSE_PASS='+$_.Name)
           }
+      - name: Windows PowerShell ACL flags constructor regression
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $sid=New-Object Security.Principal.SecurityIdentifier -ArgumentList 'S-1-5-19'
+          $rights=[Security.AccessControl.FileSystemRights]::ReadAndExecute
+          $inherit=[Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+          $rule=New-Object Security.AccessControl.FileSystemAccessRule -ArgumentList @($sid,$rights,$inherit,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
+          if($rule.IdentityReference.Value -ne 'S-1-5-19'){throw 'ACL_FLAG_CONSTRUCTOR_MISMATCH'}
+          Write-Output 'ACL_SEPARATE_INHERITANCE_FLAGS=PASS'
       - name: Pinned SHA256 portable source bytes, force LF
         shell: pwsh
         run: |
@@ -86,6 +96,7 @@ jobs:
                    'bin/enroll-bitrix-direct-webhook.ps1',
                    'bin/diagnose-bitrix-webhook-enrollment-acl.ps1',
                    'bin/enroll-bitrix-direct-webhook-v2.ps1',
+                   'bin/enroll-bitrix-direct-webhook-v3.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
