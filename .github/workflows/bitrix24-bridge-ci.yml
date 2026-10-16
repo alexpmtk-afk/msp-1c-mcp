@@ -68,6 +68,7 @@ jobs:
                    'bin/run-bitrix-search-index-setup.ps1',
                    'bin/bitrix-search-outbound-once.ps1',
                    'bin/stage-bitrix-outbound-code.ps1',
+                   'bin/probe-bitrix-worker-runtime-service.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f

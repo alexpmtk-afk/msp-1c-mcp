@@ -685,6 +685,22 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("DeleteTask(",s)
         self.assertNotIn("Method='POST'",s)
 
+    def test_bitrix_ps2_local_service_runtime_probe_is_read_only(self):
+        s=read("probe-bitrix-worker-runtime-service.ps1")
+        self.assertTrue(s.isascii())
+        for item in ("S-1-5-19", "System.Web.Extensions",
+                     "JavaScriptSerializer", "JSON_UNICODE_ROUNDTRIP",
+                     "D0A2D0B5D181D182", "PS2_X64_REQUIRED",
+                     "WORKER_ALREADY_CONFIGURED", "WORKER_HASH_MISMATCH",
+                     "ADAPTER_HASH_MISMATCH", "customers", "customer_search_v1",
+                     "6433:6433", "PRAGMA quick_check", "NETWORK_CALLS=NO",
+                     "ONEC_CALLS=NO", "BITRIX_CALLS=NO",
+                     "RESULT=PASS;STAGE=SRV_BITRIX_WORKER_RUNTIME_SMOKE"):
+            self.assertIn(item,s)
+        for item in ("Invoke-WebRequest", "HttpWebRequest", "RegisterTaskDefinition",
+                     "DeleteTask(", "WriteAllText($db", "MspOnecHttpsAgentSystem"):
+            self.assertNotIn(item,s)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
