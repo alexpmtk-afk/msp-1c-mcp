@@ -62,10 +62,10 @@ try{
  try{$existing=$folder.GetTask($taskName)}catch{}
  if($null -ne $existing){Fail 'TEMP_TASK_ALREADY_EXISTS'}
  $phase='FETCH_PINNED_API_PROBE'
- $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/3af7882469d668d9b14e6cb1f51c27ae22582cfd/integrations/msp-bitrix24-bridge/bin/probe-bitrix-localservice-api-readonly-v2.ps1'
+ $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/3c841d61f3f7c944113d05b96528a15abd561be5/integrations/msp-bitrix24-bridge/bin/probe-bitrix-localservice-api-readonly-v2.ps1'
  & $curl -q --fail --silent --show-error --noproxy '*' --proto '=https' --tlsv1.2 --tls-max 1.2 --cacert $ca --max-redirs 0 --output $probe $url
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($probe)){Fail 'PROBE_DOWNLOAD_FAILED'}
- if((Hash $probe) -ne '__V2_CHILD_SHA256__'){Fail 'PROBE_HASH_MISMATCH'}
+ if((Hash $probe) -ne 'a712edfc770dc04e8ebbb59dd7215a2b1ac0264d94b463daf302b38dfb358e72'){Fail 'PROBE_HASH_MISMATCH'}
  $parse=$null
  $null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($probe,[Text.Encoding]::ASCII),[ref]$parse)
  if($parse -and $parse.Count -gt 0){Fail 'PS2_PARSE_FAILED'}
