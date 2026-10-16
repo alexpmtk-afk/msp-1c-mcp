@@ -116,9 +116,8 @@ try{
  }
  $proof=[IO.File]::ReadAllText($enrollment,[Text.Encoding]::ASCII).Trim()
  if($proof -notmatch '^UTC=[^;]+;STATUS=PASS;SECRET=bitrix-direct-private/bitrix-direct-webhook.dpapi;STORAGE=MACHINE_DPAPI;READERS=SYSTEM_ADMINS_LOCAL_SERVICE_ENROLLER;WEBHOOK_PRINTED=NO;COLLECTOR_ENABLED=NO;BITRIX_CALLS=0;ONEC_CALLS=0$'){Fail 'ENROLLMENT_PROOF_MISMATCH'}
- # V2: verify BOTH protected DACLs against the four original enrollment rules.
- # The enrollment user's SID is derived from the directory rule and must match the file rule.
- # Do not mistake the current LocalService SID for the enrollment user.
+ # V2: both protected DACLs must match the four original enrollment rules.
+ # Original enroller SID is read from the directory ACL, NOT the current LocalService SID.
  $dirAcl=[IO.Directory]::GetAccessControl($privateDir)
  $fileAcl=[IO.File]::GetAccessControl($secret)
  if(-not $dirAcl.AreAccessRulesProtected -or -not $fileAcl.AreAccessRulesProtected){Fail 'SECRET_ACL_INHERITANCE_INVALID'}
@@ -140,91 +139,7 @@ try{
     if($kind -eq 'DIRECTORY'){$right=[Security.AccessControl.FileSystemRights]::ReadAndExecute}
     else{$right=[Security.AccessControl.FileSystemRights]::Read}
    }else{
-    if($sid -notmatch '^S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+
- Add-Type -AssemblyName System.Security
- $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-Bitrix24-Direct-Webhook-v1')
- $sealed=[IO.File]::ReadAllBytes($secret)
- if($sealed.Length -lt 64 -or $sealed.Length -gt 4096){Fail 'SECRET_LENGTH_INVALID'}
- $decoded=$null
- try{
-  $decoded=[Security.Cryptography.ProtectedData]::Unprotect($sealed,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
-  $plain=[Text.Encoding]::UTF8.GetString($decoded)
- }finally{
-  if($null -ne $decoded){[Array]::Clear($decoded,0,$decoded.Length)}
-  [Array]::Clear($sealed,0,$sealed.Length)
- }
- if($plain -notmatch '^https://b24-uwmjda\.bitrix24\.ru/rest/[1-9][0-9]{0,9}/[A-Za-z0-9_-]{8,128}/?$'){Fail 'WEBHOOK_HOST_OR_FORMAT_INVALID'}
- $url=$plain.TrimEnd('/')+'/crm.requisite.preset.field.list.json'
- $payload='{"preset":{"ID":1},"start":0}'
- $phase='READONLY_BITRIX_REST'
- $script:bodyReply=HttpOnce $url $payload
- $url=$null
- $plain=$null
- $sql="SELECT CASE WHEN json_valid(doc)=0 THEN 'INVALID' "+
-  "WHEN json_type(doc)<>'object' THEN 'INVALID' "+
-  "WHEN coalesce(json_type(doc,'$.error'),'')='text' THEN 'API_ERROR' "+
-  "WHEN coalesce(json_type(doc,'$.result'),'')<>'array' THEN 'BAD_RESULT' "+
-  "WHEN json_array_length(doc,'$.result')>50 THEN 'PAGE_TOO_LARGE' "+
-  "WHEN coalesce(json_type(doc,'$.next'),'null')<>'null' THEN 'PAGING_PRESENT' "+
-  "ELSE 'OK|'||json_array_length(doc,'$.result')||'|'||"+
-  "coalesce(CAST(json_extract(doc,'$.total') AS TEXT),'UNKNOWN') END FROM j;"
- $parsed=JsonSql $script:bodyReply $sql
- if($parsed -notmatch '^OK\|([0-9]{1,2})\|(UNKNOWN|[0-9]{1,10})$'){Fail 'CRM_RESPONSE_NOT_ACCEPTED'}
- $count=[int]$Matches[1]
- $total=$Matches[2]
- if($count -gt 50 -or $count -lt 1){Fail 'FIELDS_PAGE_INVALID'}
- if($total -ne 'UNKNOWN' -and [int]$total -ne $count){Fail 'FIELDS_PARTIAL_PAGE'}
- $fieldsSql="SELECT 'OK|'||"+
-  "sum(CASE WHEN json_extract(e.value,'$.FIELD_NAME')='RQ_INN' THEN 1 ELSE 0 END)||'|'||"+
-  "sum(CASE WHEN json_extract(e.value,'$.FIELD_NAME')='RQ_KPP' THEN 1 ELSE 0 END)||'|'||"+
-  "sum(CASE WHEN json_extract(e.value,'$.FIELD_NAME')='RQ_OGRN' THEN 1 ELSE 0 END)||'|'||"+
-  "sum(CASE WHEN json_extract(e.value,'$.FIELD_NAME')='RQ_COMPANY_NAME' THEN 1 ELSE 0 END)||'|'||"+
-  "sum(CASE WHEN json_extract(e.value,'$.FIELD_NAME')='RQ_COMPANY_FULL_NAME' THEN 1 ELSE 0 END) "+
-  "FROM j,json_each(j.doc,'$.result') AS e;"
- $fields=JsonSql $script:bodyReply $fieldsSql
- $script:bodyReply=$null
- if($fields -notmatch '^OK\|([01])\|([01])\|([01])\|([01])\|([01])$'){Fail 'FIELD_COUNTS_INVALID'}
- $inn=$Matches[1];$kpp=$Matches[2];$ogrn=$Matches[3];$name=$Matches[4];$fullname=$Matches[5]
- if($inn -ne '1' -or $name -ne '1'){Fail 'REQUIRED_FIELDS_MISSING'}
- $phase='WRITE_RECEIPT'
- $line='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=PASS;IDENTITY=LOCAL_SERVICE;TARGET=b24-uwmjda.bitrix24.ru;METHOD=crm.requisite.preset.field.list;PRESET_ID=1;FIELD_COUNT='+$count+';RQ_INN='+$inn+';RQ_KPP='+$kpp+';RQ_OGRN='+$ogrn+';RQ_COMPANY_NAME='+$name+';RQ_COMPANY_FULL_NAME='+$fullname+';CRM_WRITES=0;ONEC_CALLS=0;CUSTOMER_EXPORT=0;WEBHOOK_SAVED=YES_ENCRYPTED'
- $file=New-Object IO.FileStream -ArgumentList @($receipt,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
- try{$bytes=[Text.Encoding]::ASCII.GetBytes($line);$file.Write($bytes,0,$bytes.Length);$file.Flush()}finally{$file.Close()}
- 'LOCAL_SERVICE_API_READ=PASS'
- 'IDENTITY=LOCAL_SERVICE'
- 'PRESET_ID=1'
- 'FIELD_COUNT='+$count
- 'RQ_INN='+$inn
- 'RQ_KPP='+$kpp
- 'RQ_OGRN='+$ogrn
- 'RQ_COMPANY_NAME='+$name
- 'RQ_COMPANY_FULL_NAME='+$fullname
- 'WEBHOOK_SOURCE=MACHINE_DPAPI'
- 'WEBHOOK_SAVED=YES_ENCRYPTED'
- 'CRM_WRITES=NO'
- 'ONEC_CALLS=NO'
- 'CUSTOMER_DATA_EXPORTED=NO'
- 'RESULT=PASS;STAGE=SRV_BITRIX_LOCAL_SERVICE_API_READONLY_V2'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^DIRECT_CRM_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- try{
-  if(-not [IO.File]::Exists($receipt)){
-   $failure='STATUS=FAIL;IDENTITY=LOCAL_SERVICE;GATE='+$gate+';PHASE='+$phase
-   $stream=New-Object IO.FileStream -ArgumentList @($receipt,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-   try{$bytes=[Text.Encoding]::ASCII.GetBytes($failure);$stream.Write($bytes,0,$bytes.Length);$stream.Flush()}finally{$stream.Close()}
-  }
- }catch{}
- 'RESULT=FAIL;STAGE=SRV_BITRIX_LOCAL_SERVICE_API_READONLY_V2;GATE='+$gate
- 'NO_AUTOMATIC_RETRY=YES'
- exit 1
-}finally{
- if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
- $plain=$null
- $secure=$null
- $script:cfg=$null
- $script:bodyReply=$null
-} -or $null -ne $extra){Fail 'SECRET_ACL_ENROLLER_ID_INVALID'}
+    if($sid -notmatch '^S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' -or $null -ne $extra){Fail 'SECRET_ACL_ENROLLER_ID_INVALID'}
     $extra=$sid
     $right=[Security.AccessControl.FileSystemRights]::Modify
    }
