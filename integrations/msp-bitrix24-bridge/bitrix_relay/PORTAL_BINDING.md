@@ -9,7 +9,7 @@
   `user.current`. `crm` is required by the search widget's placement.
 - Status: *source prepared; not deployed, app not installed*.
 - `member_id`: **UNKNOWN** until a genuine installed-app OAuth callback.
-- `client_id`, `client_secret`, access/refresh tokens, worker token:
+- `client_id`, `client_secret`, access/refresh tokens, `APPLICATION_TOKEN`, worker token:
   **not present in repository** and must remain in protected runtime secrets.
 - HTTPS origin/handler URL: **UNKNOWN**, cannot safely invent or reuse
   existing 1C agent Funnel. Choose a dedicated approved HTTPS reverse proxy
@@ -36,3 +36,5 @@ Official docs:
 https://apidocs.bitrix24.ru/api-reference/widgets/crm/detail-search.html
 https://apidocs.bitrix24.ru/api-reference/user/user-current.html
 https://apidocs.bitrix24.ru/local-integrations/local-apps.html
+
+Security gate: both bearer OAuth (checked with user.current) and the real app installation APPLICATION_TOKEN must match separately provisioned server configuration. MSP_B24_APPLICATION_TOKEN is mandatory; never commit it. Tests reject missing/mismatched tokens before any lookup.

@@ -63,22 +63,22 @@ class TestRelay(unittest.TestCase):
     def test_config_needs_pinned_portal_and_loopback(self):
         with self.assertRaises(ValueError):
             relay.RelayServer("0.0.0.0",0,relay.APPROVED_PORTAL,"a"*32,
-                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js")
+                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js",application_token="b"*40)
         with self.assertRaises(ValueError):
             relay.RelayServer("127.0.0.1",0,relay.APPROVED_PORTAL,"a"*32,
-                              "short","https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js")
+                              "short","https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js",application_token="b"*40)
         with self.assertRaises(ValueError):
             relay.RelayServer("127.0.0.1",0,relay.APPROVED_PORTAL,"a"*32,
-                              "x"*40,"https://evil.example/sdk.js")
+                              "x"*40,"https://evil.example/sdk.js",application_token="b"*40)
 
 
     def test_portal_pinning_and_no_guessed_member(self):
         with self.assertRaises(ValueError):
             relay.RelayServer("127.0.0.1",0,"another.bitrix24.ru","a"*32,
-                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js")
+                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js",application_token="b"*40)
         with self.assertRaises(ValueError):
             relay.RelayServer("127.0.0.1",0,relay.APPROVED_PORTAL,"unknown",
-                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js")
+                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js",application_token="b"*40)
         self.assertEqual(relay.APPROVED_PORTAL,"b24-uwmjda.bitrix24.ru")
         self.assertFalse(relay.is_authenticated_user("another.bitrix24.ru","fake"))
 
@@ -86,6 +86,15 @@ class TestRelay(unittest.TestCase):
         self.assertEqual(relay.REQUIRED_SCOPES,{"crm","placement"})
         self.assertIn("user_basic",relay.USER_LOOKUP_SCOPES)
         self.assertNotIn("crm",relay.USER_LOOKUP_SCOPES)
+
+    def test_application_token_is_mandatory(self):
+        with self.assertRaises(ValueError):
+            relay.RelayServer("127.0.0.1",0,relay.APPROVED_PORTAL,"a"*32,
+                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js")
+        with self.assertRaises(ValueError):
+            relay.RelayServer("127.0.0.1",0,relay.APPROVED_PORTAL,"a"*32,
+                              "x"*40,"https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js",
+                              application_token="too-short")
 
     def test_placement_query_form_contract(self):
         import urllib.request
@@ -97,14 +106,15 @@ class TestRelay(unittest.TestCase):
         s=relay.RelayServer(
             "127.0.0.1",0,relay.APPROVED_PORTAL,"a"*32,"w"*40,
             "https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js",
-            validator=lambda domain,token: domain == relay.APPROVED_PORTAL and token=="synthetic-ok")
+            validator=lambda domain,token: domain == relay.APPROVED_PORTAL and token=="synthetic-ok",
+            application_token="b"*40)
         thread=threading.Thread(target=s.serve_forever,daemon=True)
         thread.start()
         try:
-            def call(domain,placement,token="synthetic-ok"):
+            def call(domain,placement,token="synthetic-ok",app_token="b"*40):
                 url=("http://127.0.0.1:%d/bitrix/search?"%s.server_address[1]+
                      urllib.parse.urlencode({"DOMAIN":domain,"PLACEMENT":placement}))
-                form={"member_id":"a"*32,"AUTH_ID":token,"APPLICATION_SCOPE":"crm,placement,user_basic",
+                form={"member_id":"a"*32,"AUTH_ID":token,"APPLICATION_TOKEN":app_token,"APPLICATION_SCOPE":"crm,placement,user_basic",
                       "PLACEMENT_OPTIONS":json.dumps({"entityTypeName":"COMPANY","searchQuery":"Рома"})}
                 return urllib.request.urlopen(urllib.request.Request(
                     url,data=urllib.parse.urlencode(form).encode(),method="POST"),timeout=3)
@@ -113,6 +123,11 @@ class TestRelay(unittest.TestCase):
                 with self.assertRaises(urllib.error.HTTPError) as error:
                     call(domain,placement)
                 self.assertEqual(error.exception.code,403)
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                call(relay.APPROVED_PORTAL,relay.REQUIRED_PLACEMENT,
+                     app_token="c"*40)
+            self.assertEqual(error.exception.code,403)
+            self.assertFalse(s.queue.pending)
             def worker():
                 for _ in range(80):
                     job=s.queue.next()

@@ -243,6 +243,11 @@ class Handler(BaseHTTPRequestHandler):
             scopes = {part.strip().lower() for part in scope_values[0].split(",")}
             if not REQUIRED_SCOPES.issubset(scopes) or not scopes.intersection(USER_LOOKUP_SCOPES):
                 raise ValueError()
+            application_tokens = args.get("APPLICATION_TOKEN", [])
+            if (len(application_tokens) != 1 or
+                    not hmac.compare_digest(application_tokens[0],
+                                            self.server.application_token)):
+                raise ValueError()
             auth = args.get("AUTH_ID", [""])[0]
             if not self.server.validator(domain, auth):
                 raise ValueError()
@@ -257,18 +262,22 @@ class Handler(BaseHTTPRequestHandler):
 
 class RelayServer(ThreadingHTTPServer):
     def __init__(self, host, port, portal, member_id, worker_token, sdk,
-                 validator=is_authenticated_user):
+                 validator=is_authenticated_user, application_token=None):
         if portal != APPROVED_PORTAL or not re.fullmatch(r"[a-f0-9]{32}", member_id):
             raise ValueError("portal/member config invalid")
         if len(worker_token) < 32 or len(worker_token) > 256:
             raise ValueError("worker secret too short")
         if not sdk.startswith("https://unpkg.com/@bitrix24/b24jssdk@1/"):
             raise ValueError("SDK URL outside allowlist")
+        if (not isinstance(application_token, str) or
+                not 32 <= len(application_token) <= 256):
+            raise ValueError("application token must be provisioned locally")
         if host != "127.0.0.1":
             raise ValueError("relay may only bind loopback")
         self.portal = portal
         self.member_id = member_id
         self.worker_token = worker_token
+        self.application_token = application_token
         self.sdk = sdk
         self.validator = validator
         self.queue = Queue()
@@ -279,7 +288,8 @@ if __name__ == "__main__":
     portal = APPROVED_PORTAL
     member_id = os.environ["MSP_B24_MEMBER_ID"]
     token = os.environ["MSP_B24_WORKER_TOKEN"]
+    application_token = os.environ["MSP_B24_APPLICATION_TOKEN"]
     sdk = "https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js"
     srv = RelayServer("127.0.0.1", int(os.environ.get("MSP_B24_RELAY_PORT", "9814")),
-                      portal, member_id, token, sdk)
+                      portal, member_id, token, sdk, application_token=application_token)
     srv.serve_forever()
