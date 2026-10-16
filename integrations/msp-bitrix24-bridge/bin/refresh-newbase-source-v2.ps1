@@ -196,25 +196,7 @@ try{
  $null=Sql $exe $db $sql.ToString()
  if((Sql $exe $db 'PRAGMA quick_check;') -ne 'ok'){Fail 'BACKREAD_INTEGRITY'}
  $aggregate=Sql $exe $db "SELECT source_rows||':'||new_or_changed||':'||missing_buyer FROM msp_auto_scan_runs ORDER BY id DESC LIMIT 1;"
- if($aggregate -match '^([0-9]+):([0-9]+):([0-9]+)
- 'BITRIX_OUTBOX_PERSISTENT=YES'
- 'SQLITE_ATOMIC_COMMIT=PASS'
- 'NEWBASE_WRITES=NO'
- 'RESULT=PASS;STAGE=MSP_NEWBASE_SOURCE_REFRESH'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^AUTO_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- 'RESULT=FAIL;STAGE=MSP_NEWBASE_SOURCE_REFRESH;GATE='+$gate+';PHASE='+$phase
- 'NO_SILENT_PARTIAL_COMMIT=YES'
- exit 1
-}finally{
- if($hasLock){$mutex.ReleaseMutex()}
- if($null -ne $mutex){$mutex.Dispose()}
- if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
- if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
- if($null -ne $secure){$secure.Dispose()}
-}
-){$changed=$Matches[2];$removed=$Matches[3]}else{Fail 'BACKREAD_RUN_INVALID'}
+ if($aggregate -match '^([0-9]+):([0-9]+):([0-9]+)$'){$changed=$Matches[2];$removed=$Matches[3]}else{Fail 'BACKREAD_RUN_INVALID'}
  [IO.File]::WriteAllText($status,('UTC='+$stamp+';STATUS=PASS;SOURCE=TEST_NEWBASE;ROWS='+$expected+';CHANGED='+$changed+';REMOVED='+$removed),[Text.Encoding]::ASCII)
  'TEST_NEWBASE_ROWS='+$expected
  'SOURCE_CHANGED_OR_NEW='+$changed
