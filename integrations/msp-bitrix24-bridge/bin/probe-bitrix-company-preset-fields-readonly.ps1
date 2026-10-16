@@ -107,6 +107,7 @@ try{
   "WHEN coalesce(json_type(doc,'$.error'),'')='text' THEN 'API_ERROR' "+
   "WHEN coalesce(json_type(doc,'$.result'),'')<>'array' THEN 'BAD_RESULT' "+
   "WHEN json_array_length(doc,'$.result')>50 THEN 'PAGE_TOO_LARGE' "+
+  "WHEN coalesce(json_type(doc,'$.next'),'null')<>'null' THEN 'PAGING_PRESENT' "+
   "ELSE 'OK|'||json_array_length(doc,'$.result')||'|'||"+
   "coalesce(CAST(json_extract(doc,'$.total') AS TEXT),'UNKNOWN') END FROM j;"
  $parsed=JsonSql $script:bodyReply $sql
