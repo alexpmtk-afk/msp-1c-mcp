@@ -64,6 +64,19 @@ try{
  $prior=$null
  try{$prior=$folder.GetTask('MspCustomerStoreBitrixIndex')}catch{}
  if($null -ne $prior){Fail 'INDEX_TASK_ALREADY_EXISTS'}
+ $phase='VERIFIED_MACHINE_OWNED_DB_BACKUP'
+ $backupDir=Join-Path $root 'backups'
+ if(-not [IO.Directory]::Exists($backupDir)){Fail 'BACKUP_DIRECTORY_MISSING'}
+ if(([IO.File]::GetAttributes($backupDir) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Fail 'BACKUP_DIRECTORY_REPARSE'}
+ $backup=Join-Path $backupDir 'customers-pre-bitrix-search-v1.db'
+ if([IO.File]::Exists($backup)){Fail 'PREVIOUS_BACKUP_REQUIRES_DIAGNOSIS'}
+ $command='.backup "'+$backup.Replace('\\','/')+'"'
+ $backupResult=@(& $exe -readonly -batch -bail $db $command 2>&1)
+ if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($backup)){Fail 'SQLITE_BACKUP_FAILED'}
+ if(([IO.FileInfo]$backup).Length -lt 8192){Fail 'BACKUP_TOO_SMALL'}
+ if((ReadSql $exe $backup 'PRAGMA quick_check;') -ne 'ok'){Fail 'BACKUP_INTEGRITY_FAILED'}
+ if((ReadSql $exe $backup "SELECT count(*) || ':' || count(DISTINCT onec_guid) FROM customers;") -ne '6433:6433'){Fail 'BACKUP_ROWS_MISMATCH'}
+ 'PRE_INDEX_BACKUP=PASS'
  $phase='STAGE_VERIFIED_BINARIES'
  $prefix='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/2da018a166db0805cffc99be608a76cab7587560/integrations/msp-bitrix24-bridge/bin/'
  foreach($spec in @(
@@ -117,6 +130,7 @@ try{
  $again=$folder.GetTask('MspCustomerStoreSync')
  foreach($trigger in $again.Definition.Triggers){if($trigger.Enabled){Fail 'MAIN_AUTOSTART_CHANGED'}}
  'SEARCH_INDEX_CREATED=YES'
+ 'PRE_INDEX_BACKUP_VERIFIED=YES'
  'SEARCH_INDEX_ROWS=6433'
  'CUSTOMERS_REMAIN=6433'
  'SEARCH_INDEX_QUICK_CHECK=ok'

@@ -633,6 +633,7 @@ class BootstrapSafety(unittest.TestCase):
                      "TEMPORARY_INDEX_TASK_REMOVED=YES",
                      "NO_BITRIX_PORTAL_CONNECTION=YES", "CUSTOMER_DATA_EXPORTED=NO",
                      "MAIN_COLLECTOR_AUTOSTART=OFF",
+                     "PRE_INDEX_BACKUP_VERIFIED=YES", "BACKUP_INTEGRITY_FAILED",
                      "NO_AUTOMATIC_RETRY=YES"):
             self.assertIn(item,s)
         self.assertIn("DeleteTask('MspCustomerStoreBitrixIndex'",s)

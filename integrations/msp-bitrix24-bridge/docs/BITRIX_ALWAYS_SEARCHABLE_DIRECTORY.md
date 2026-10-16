@@ -1,3 +1,13 @@
+### Before creating the local FTS5 index
+
+The one-shot installer first creates a **machine-owned SQLite consistent
+backup** in `C:\ProgramData\MspCustomerStore\backups\customers-pre-bitrix-search-v1.db`,
+using SQLite `.backup`, and verifies its `quick_check` and 6,433 unique
+GUIDs. Only after backup verification does it stage scripts and launch
+the FTS5 build. This backup contains personal data and MUST stay within
+the existing protected SRV folder; never attach or upload it to GitHub,
+VPS or chat. Existing main collector autostart remains disabled.
+
 ## Implemented local read-only Bitrix lookup preparation, 16 Oct 2026
 
 S4 (native registration) is PAUSED at user direction after
