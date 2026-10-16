@@ -200,7 +200,8 @@ jobs:
           INSERT INTO customers VALUES('00000003-0000-0000-0000-000000000000','REVIEW','Елена Сидорова','','','',1,0,0,1);
           CREATE VIRTUAL TABLE customer_search_v1 USING fts5(onec_guid UNINDEXED,name_short,name_full,person_name,inn,tokenize='trigram');
           INSERT INTO customer_search_v1 SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers;
-          '@          $psi=New-Object Diagnostics.ProcessStartInfo
+          '@
+          $psi=New-Object Diagnostics.ProcessStartInfo
           $psi.FileName=$exe
           $psi.Arguments='-batch -bail "'+$db+'"'
           $psi.UseShellExecute=$false
