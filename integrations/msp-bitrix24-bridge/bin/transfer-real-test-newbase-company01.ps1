@@ -11,7 +11,7 @@ $ptr=[IntPtr]::Zero
 $base=$null
 $tokenText=$null
 $createdId=$null
-$marker=''
+$script:sourceGuid=''
 function Fail([string]$Code){throw ('NEWBASE_'+$Code)}
 function Quote([string]$Value){
  if($Value -match '[\x00-\x1f\x7f]'){Fail 'CONFIG_CONTROLS'}
@@ -117,78 +117,7 @@ try{
  $script:sourceGuid=$parts[0].ToLowerInvariant()
  if($script:sourceGuid -notmatch '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){Fail 'GUID_INVALID'}
  $name=Unhex $parts[1];$full=Unhex $parts[2];$tax=Unhex $parts[3]
- if($name.Length -lt 3 -or $name.Length -gt 140 -or $tax -notmatch '^([0-9]{10}|[0-9]{12})
- $phase='DECRYPT_WEBHOOK'
- Add-Type -AssemblyName System.Security
- $bytes=[IO.File]::ReadAllBytes((Join-Path $root 'staging\bitrix-direct-private\bitrix-direct-webhook.dpapi'))
- $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-Bitrix24-Direct-Webhook-v1')
- $decoded=$null
- try{
-  $decoded=[Security.Cryptography.ProtectedData]::Unprotect($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
-  $tokenText=[Text.Encoding]::UTF8.GetString($decoded)
- }finally{if($null -ne $decoded){[Array]::Clear($decoded,0,$decoded.Length)};[Array]::Clear($bytes,0,$bytes.Length)}
- if($tokenText -notmatch '^https://b24-uwmjda\.bitrix24\.ru/rest/[1-9][0-9]{0,9}/[A-Za-z0-9_-]{8,128}/?$'){Fail 'WEBHOOK_FORMAT'}
- $script:base=$tokenText.TrimEnd('/')+'/'
- $tokenText=$null
- $phase='DEDUPE_BY_ORIGIN'
- $found=Http 'crm.item.list' ('{"entityTypeId":4,"filter":{"originatorId":"MSP_ONEC_NEWBASE","originId":"'+$script:sourceGuid+'"},"select":["id"],"start":0}')
- $count=SqlJson $found "SELECT CASE WHEN json_valid(doc)=1 AND json_type(doc,'$.result.items')='array' THEN CAST(json_array_length(doc,'$.result.items') AS TEXT) ELSE 'INVALID' END FROM j;"
- if($count -ne '0'){Fail 'ORIGIN_EXISTS_OR_API_UNEXPECTED'}
- $phase='DEDUPE_BY_NAME'
- $found=Http 'crm.item.list' ('{"entityTypeId":4,"filter":{"title":'+(JsonQuote $name)+'},"select":["id"],"start":0}')
- $count=SqlJson $found "SELECT CASE WHEN json_valid(doc)=1 AND json_type(doc,'$.result.items')='array' THEN CAST(json_array_length(doc,'$.result.items') AS TEXT) ELSE 'INVALID' END FROM j;"
- if($count -ne '0'){Fail 'COMPANY_TITLE_EXISTS_OR_API_UNEXPECTED'}
- $phase='DEDUPE_BY_INN'
- $found=Http 'crm.requisite.list' ('{"filter":{"RQ_INN":'+(JsonQuote $tax)+'},"select":["ID"],"start":0}')
- $count=SqlJson $found "SELECT CASE WHEN json_valid(doc)=1 AND json_type(doc,'$.result')='array' THEN CAST(json_array_length(doc,'$.result') AS TEXT) ELSE 'INVALID' END FROM j;"
- if($count -ne '0'){Fail 'INN_EXISTS_OR_API_UNEXPECTED'}
- $phase='ADD_REAL_COMPANY'
- WriteState 'BEFORE_ADD'
- $add='{"entityTypeId":4,"fields":{"title":'+(JsonQuote $name)+',"originatorId":"MSP_ONEC_NEWBASE","originId":"'+$script:sourceGuid+'","opened":"N"}}'
- $reply=Http 'crm.item.add' $add
- $id=SqlJson $reply "SELECT CASE WHEN json_valid(doc)=1 AND json_type(doc,'$.result.item.id')='integer' THEN CAST(json_extract(doc,'$.result.item.id') AS TEXT) ELSE 'INVALID' END FROM j;"
- if($id -notmatch '^[1-9][0-9]{0,9}$'){Fail 'ADD_UNCONFIRMED'}
- $script:createdId=[int]$id
- WriteState 'COMPANY_CREATED'
- $phase='BACKREAD_COMPANY'
- $got=Http 'crm.item.get' ('{"entityTypeId":4,"id":'+$script:createdId+'}')
- $id2=SqlJson $got "SELECT CAST(json_extract(doc,'$.result.item.id') AS TEXT) FROM j;"
- if($id2 -ne $id){Fail 'COMPANY_BACKREAD_FAILED'}
- $phase='ADD_COMPANY_REQUISITE'
- WriteState 'BEFORE_REQUISITE'
- $body='{"fields":{"ENTITY_TYPE_ID":4,"ENTITY_ID":'+$script:createdId+',"PRESET_ID":1,"NAME":'+(JsonQuote $name)+',"RQ_COMPANY_NAME":'+(JsonQuote $name)+',"RQ_COMPANY_FULL_NAME":'+(JsonQuote $full)+',"RQ_INN":'+(JsonQuote $tax)+'}}'
- $got=Http 'crm.requisite.add' $body
- $reqid=SqlJson $got "SELECT CASE WHEN json_valid(doc)=1 AND json_type(doc,'$.result')='integer' THEN CAST(json_extract(doc,'$.result') AS TEXT) ELSE 'INVALID' END FROM j;"
- if($reqid -notmatch '^[1-9][0-9]{0,9}$'){Fail 'REQUISITE_ADD_UNCONFIRMED'}
- WriteState 'REQUISITE_CREATED'
- $phase='BACKREAD_REQUISITE'
- $got=Http 'crm.requisite.get' ('{"id":'+$reqid+'}')
- $expected=SqlJson $got "SELECT CASE WHEN json_valid(doc)=1 AND CAST(json_extract(doc,'$.result.ENTITY_ID') AS TEXT)='"+$id+"' AND json_extract(doc,'$.result.RQ_INN')='"+$tax+"' THEN 'PASS' ELSE 'FAIL' END FROM j;"
- if($expected -ne 'PASS'){Fail 'REQUISITE_BACKREAD_FAILED'}
- WriteState 'PASS'
- 'REAL_TEST_NEWBASE_COMPANY=PASS'
- 'BITRIX_COMPANY_ID='+$id
- 'BITRIX_REQUISITE_ID='+$reqid
- 'COMPANY_SOURCE_GUID_REGISTERED=YES'
- 'SOURCE_1C_WRITES=NO'
- 'SOURCE_SQLITE_WRITES=NO'
- 'RESULT=PASS;STAGE=BITRIX_NEWBASE_REAL_COMPANY_01'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^NEWBASE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- if($script:sourceGuid.Length -gt 0){
-  try{WriteState ('FAIL_'+$gate)}catch{}
- }
- 'RESULT=FAIL;STAGE=BITRIX_NEWBASE_REAL_COMPANY_01;GATE='+$gate+';PHASE='+$phase
- if($null -ne $script:createdId){'NEWBASE_COMPANY_ID='+$script:createdId}
- 'NO_AUTOMATIC_RETRY=YES'
- exit 1
-}finally{
- if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
- $secure=$null
- $tokenText=$null
- $script:base=$null
-}){Fail 'SOURCE_FIELDS_INVALID'}
+ if($name.Length -lt 3 -or $name.Length -gt 140 -or $tax -notmatch '^([0-9]{10}|[0-9]{12})$'){Fail 'SOURCE_FIELDS_INVALID'}
  if($full.Trim().Length -eq 0){$full=$name}
  $phase='DECRYPT_WEBHOOK'
  Add-Type -AssemblyName System.Security
@@ -224,8 +153,8 @@ try{
  WriteState 'COMPANY_CREATED'
  $phase='BACKREAD_COMPANY'
  $got=Http 'crm.item.get' ('{"entityTypeId":4,"id":'+$script:createdId+'}')
- $id2=SqlJson $got "SELECT CAST(json_extract(doc,'$.result.item.id') AS TEXT) FROM j;"
- if($id2 -ne $id){Fail 'COMPANY_BACKREAD_FAILED'}
+ $verified=SqlJson $got "SELECT CASE WHEN CAST(json_extract(doc,'$.result.item.id') AS TEXT)='"+$id+"' AND json_extract(doc,'$.result.item.originId')='"+$script:sourceGuid+"' AND json_extract(doc,'$.result.item.originatorId')='MSP_ONEC_NEWBASE' THEN 'PASS' ELSE 'FAIL' END FROM j;"
+ if($verified -ne 'PASS'){Fail 'COMPANY_BACKREAD_FAILED'}
  $phase='ADD_COMPANY_REQUISITE'
  WriteState 'BEFORE_REQUISITE'
  $body='{"fields":{"ENTITY_TYPE_ID":4,"ENTITY_ID":'+$script:createdId+',"PRESET_ID":1,"NAME":'+(JsonQuote $name)+',"RQ_COMPANY_NAME":'+(JsonQuote $name)+',"RQ_COMPANY_FULL_NAME":'+(JsonQuote $full)+',"RQ_INN":'+(JsonQuote $tax)+'}}'
@@ -251,7 +180,7 @@ try{
  if($script:sourceGuid.Length -gt 0){
   try{WriteState ('FAIL_'+$gate)}catch{}
  }
- 'RESULT=FAIL;STAGE=SRV_BITRIX_NEWBASE_COMPANY_CREATE_READ_DELETE;GATE='+$gate+';PHASE='+$phase
+ 'RESULT=FAIL;STAGE=BITRIX_NEWBASE_REAL_COMPANY_01;GATE='+$gate+';PHASE='+$phase
  if($null -ne $script:createdId){'NEWBASE_COMPANY_ID='+$script:createdId}
  'NO_AUTOMATIC_RETRY=YES'
  exit 1
