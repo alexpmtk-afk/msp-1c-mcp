@@ -114,6 +114,7 @@ jobs:
                    'bin/count-newbase-active-v2.ps1',
                    'bin/pump-newbase-bitrix-batch-v2.ps1',
                    'bin/msp-newbase-auto-tick-v2.ps1',
+                   'bin/install-newbase-auto-v2.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
