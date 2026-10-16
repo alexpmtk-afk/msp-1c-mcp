@@ -818,6 +818,36 @@ class BootstrapSafety(unittest.TestCase):
         self.assertIn("cfcdb5a92bac85853d3617663f64928906286e57",runner)
         self.assertIn("a17ee3e71fc7f95cc957fbdd0835c2d4489335baf5b9928bddd6a5c330ada2fc",runner)
 
+    def test_json1_worker_inactive_upgrade_guardrails(self):
+        s=read("stage-bitrix-json1-worker-inactive.ps1")
+        self.assertTrue(s.isascii())
+        for expected in ("MspCustomerStoreSync", "GetTasks(1)",
+                         "MspCustomerStoreBitrixRuntimeSmoke",
+                         "MspCustomerStoreBitrixJson1V2",
+                         "state\\bitrix-json1-v2-smoke-status.txt",
+                         "state\\bitrix-worker-runtime-smoke-status.txt",
+                         "WORKER_SCHEDULED_ALREADY", "COLLECTOR_AUTOSTART_ENABLED",
+                         "PRIOR_UPGRADE_OR_WORKER_CONFIGURATION",
+                         "System.Management.Automation.PSParser",
+                         "File]::Replace(", "ROLLBACK_COPY_HASH_MISMATCH",
+                         "bitrix-search-outbound-before-json1.ps1",
+                         "bitrix-worker-json1-stage-accepted.txt",
+                         "8820c88eecfc1ffd85d4c6d8cc329f5dc6eca868fe56d45ecc5f49211d2366ff",
+                         "53007f8a1e3a6a193826876a965ec321f52183d266bf0a8d9842057f30d603d4",
+                         "b896b148078a6c4aa7d5dc002ead6aa037d74670",
+                         "6433:6433", "customer_search_v1", "PRAGMA quick_check",
+                         "WORKER_TOKEN_CREATED=NO",
+                         "WORKER_CONFIGURATION_CREATED=NO",
+                         "WORKER_TASK_CREATED=NO",
+                         "MAIN_COLLECTOR_AUTOSTART=OFF",
+                         "CUSTOMER_DATA_EXPORTED=NO",
+                         "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(expected,s)
+        for forbidden in ("RegisterTaskDefinition(", "Triggers.Create(", "DeleteTask(",
+                          "Invoke-WebRequest", "WriteAllText($db", "OnecRead",
+                          "MspOnecHttpsAgentSystem"):
+            self.assertNotIn(forbidden,s)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
