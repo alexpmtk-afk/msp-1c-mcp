@@ -88,19 +88,21 @@ try{
  if($new.Count -gt 0){
   $checks=New-Object Collections.ArrayList
   foreach($item in $new){
-   $key=$item.name;if($item.kind -eq 'PERSON'){$key=$item.person}
-   $field='title';if($item.kind -eq 'PERSON'){$field='name'}
-   [void]$checks.Add(('crm.item.list?entityTypeId='+$item.entity+'&filter['+$field+']='+(Url $key)+'&select[0]=id&start=0'))
-   if($item.kind -eq 'LEGAL' -and $item.inn.Length -gt 0){[void]$checks.Add(('crm.requisite.list?filter[RQ_INN]='+(Url $item.inn)+'&select[0]=ID&start=0'))}
+   # A repeated full name is NOT evidence of duplicate physical buyers.
+   if($item.kind -eq 'PERSON'){continue}
+   [void]$checks.Add(('crm.item.list?entityTypeId=4&filter[title]='+(Url $item.name)+'&select[0]=id&start=0'))
+   if($item.inn.Length -gt 0){[void]$checks.Add(('crm.requisite.list?filter[RQ_INN]='+(Url $item.inn)+'&select[0]=ID&start=0'))}
   }
   if($checks.Count -gt 50){Fail 'SCREEN_BATCH_OVERFLOW'}
-  $screen=Batch @($checks.ToArray())
+  $screen=$null
+  if($checks.Count -gt 0){$screen=Batch @($checks.ToArray())}
   $checkIndex=0
   foreach($item in $new){
+   if($item.kind -eq 'PERSON'){[void]$safe.Add($item);continue}
    $nameExisting=ListId $screen $checkIndex $false;$checkIndex++
    if(@('INVALID','MULTIPLE','PAGING','MISSING','ERROR') -contains $nameExisting){Fail 'NAME_SCREEN_UNCERTAIN'}
    $innExisting='NONE'
-   if($item.kind -eq 'LEGAL' -and $item.inn.Length -gt 0){
+   if($item.inn.Length -gt 0){
     $innExisting=ListId $screen $checkIndex $true;$checkIndex++
     if(@('INVALID','MULTIPLE','PAGING','MISSING','ERROR') -contains $innExisting){Fail 'INN_SCREEN_UNCERTAIN'}
    }
