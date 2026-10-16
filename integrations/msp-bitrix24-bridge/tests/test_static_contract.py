@@ -882,6 +882,42 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("DeleteTask(",probe)
         self.assertNotIn("& $worker",probe)
 
+    def test_direct_srv_bitrix_https_tls_probe_is_credential_free(self):
+        probe=read("probe-bitrix-direct-https-service.ps1")
+        runner=read("run-bitrix-direct-https-service.ps1")
+        self.assertTrue(probe.isascii())
+        self.assertTrue(runner.isascii())
+        for v in ("S-1-5-19", "https://b24-uwmjda.bitrix24.ru/",
+                  "curl.exe", "--proto '=https'", "--tlsv1.2",
+                  "--tls-max 1.2", "--cacert", "--max-redirs 0",
+                  "bitrix-direct-https-smoke-status.txt",
+                  "TLS_CERTIFICATE_INVALID", "HTTP_STATUS=",
+                  "LOCAL_SERVICE_REQUIRED", "WORKER_ENABLED=NO",
+                  "REST_CALLS=0", "CUSTOMER_EXPORT=0",
+                  "CUSTOMER_DATA_EXPORTED=NO", "ONEC_CALLS=NO"):
+            self.assertIn(v,probe)
+        for v in ("MspBitrixDirectHttpsProbe", "S-1-5-19",
+                  "RegisterTaskDefinition(", "Triggers.Count -ne 0",
+                  "DeleteTask($taskName,0)", "MspCustomerStoreSync",
+                  "GetTasks(1)", "NO_AUTOMATIC_RETRY=YES",
+                  "OLD_WORKER_CONFIG_PRESENT", "OLD_WORKER_SCHEDULED",
+                  "DIRECT_HTTPS_PROBE_SHA256=PASS",
+                  "CUSTOMER_DATA_EXPORTED=NO",
+                  "BITRIX_REST_CALLS=NO"):
+            self.assertIn(v,runner)
+        for forbidden in ("crm.item.add", "crm.company.add",
+                          "crm.item.update", "crm.contact.add",
+                          "bitrix-search-worker.dpapi' ACTIVE",
+                          "Invoke-WebRequest", "http://", "MspOnecHttpsAgentSystem",
+                          "WriteAllText($db", "DeleteTask('MspCustomerStoreSync'"):
+            self.assertNotIn(forbidden,probe)
+            self.assertNotIn(forbidden,runner)
+        self.assertNotIn("RegisterTaskDefinition(",probe)
+        self.assertNotIn("DeleteTask(",probe)
+        self.assertNotIn("Triggers.Create(",runner)
+        self.assertIn("8801e4537e039b30e62fee945774afa53e3327f5",runner)
+        self.assertIn("cb738351c2ea6066e59a8e567264d38d297283dfbe734e93bf70affd9ccc5533",runner)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
