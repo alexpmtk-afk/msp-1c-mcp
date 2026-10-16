@@ -18,14 +18,15 @@ try{
  if($env:COMPUTERNAME -ne $ExpectedComputerName){Fail 'WRONG_HOST'}
  if($PSVersionTable.PSVersion.Major -ne 2 -or [IntPtr]::Size -ne 8){Fail 'PS2_X64_REQUIRED'}
  $root='C:\ProgramData\MspCustomerStore'
- $dir=Join-Path $root 'secrets'
+ $staging=Join-Path $root 'staging'
+ $dir=Join-Path $staging 'bitrix-direct-private'
  $secret=Join-Path $dir 'bitrix-direct-webhook.dpapi'
  $receipt=Join-Path $root 'state\bitrix-direct-webhook-enrolled.txt'
- foreach($d in @($root,$dir)){
+ foreach($d in @($root,$staging)){
   if(-not [IO.Directory]::Exists($d)){Fail 'DIRECTORY_MISSING'}
   if(([IO.File]::GetAttributes($d) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Fail 'DIRECTORY_REPARSE'}
  }
- if([IO.File]::Exists($secret) -or [IO.File]::Exists($receipt)){Fail 'ALREADY_ENROLLED_STOP'}
+ if([IO.Directory]::Exists($dir) -or [IO.File]::Exists($receipt)){Fail 'ALREADY_ENROLLED_STOP'}
  if(-not [IO.File]::Exists((Join-Path $root 'state\bitrix-direct-crm-readonly-status.txt'))){Fail 'DIRECT_CRM_NOT_YET_PROVEN'}
  $collector=Join-Path $root 'config\collector.ini'
  if(-not [IO.File]::Exists($collector)){Fail 'COLLECTOR_CONFIG_MISSING'}
@@ -36,28 +37,41 @@ try{
  foreach($f in @('config\bitrix-search-worker.ini','secrets\bitrix-search-worker.dpapi')){
   if([IO.File]::Exists((Join-Path $root $f))){Fail 'OLD_RELAY_CONFIG_PRESENT'}
  }
- # Validate directory DACL is not publicly writable or readable before accepting any secret.
- $dirAcl=[IO.Directory]::GetAccessControl($dir)
- $rules=$dirAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])
- foreach($rule in $rules){
-  if($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow){continue}
-  if(@('S-1-5-18','S-1-5-19','S-1-5-32-544') -notcontains $rule.IdentityReference.Value){Fail 'SECRET_DIRECTORY_PERMISSIONS_UNEXPECTED'}
- }
+ # Create a private child directory; no broader staging ACL survives inheritance cut.
  $who=[Security.Principal.WindowsIdentity]::GetCurrent().User
  $whoSid=$who.Value
+ try{[void][IO.Directory]::CreateDirectory($dir)}catch{Fail 'PRIVATE_DIRECTORY_CREATION_DENIED'}
+ $dirAcl=[IO.Directory]::GetAccessControl($dir)
+ $dirAcl.SetAccessRuleProtection($true,$false)
+ foreach($entry in @(
+    @('S-1-5-18','FullControl'),
+    @('S-1-5-32-544','FullControl'),
+    @('S-1-5-19','ReadAndExecute'),
+    @($whoSid,'Modify')
+  )){
+  $sid=New-Object Security.Principal.SecurityIdentifier -ArgumentList ([string]$entry[0])
+  $right=[Security.AccessControl.FileSystemRights]([Enum]::Parse([Security.AccessControl.FileSystemRights],[string]$entry[1]))
+  $rule=New-Object Security.AccessControl.FileSystemAccessRule -ArgumentList @($sid,$right,[Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
+  $dirAcl.AddAccessRule($rule)
+ }
+ [IO.Directory]::SetAccessControl($dir,$dirAcl)
+ $check=[IO.Directory]::GetAccessControl($dir)
+ foreach($rule in $check.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){
+  if($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and @('S-1-5-18','S-1-5-19','S-1-5-32-544',$whoSid) -notcontains $rule.IdentityReference.Value){Fail 'PRIVATE_DIRECTORY_PERMISSIONS_UNEXPECTED'}
+ }
  Add-Type -AssemblyName System.Security
  # Create an empty placeholder first, then restrict its ACL, before asking for the webhook.
  try{
   $fs=New-Object IO.FileStream -ArgumentList @($secret,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
   $created=$true
- }catch [UnauthorizedAccessException]{Fail 'SECRET_DIRECTORY_WRITE_DENIED'}
+ }catch [UnauthorizedAccessException]{Fail 'PRIVATE_DIRECTORY_WRITE_DENIED'}
  $fileAcl=New-Object Security.AccessControl.FileSecurity
  $fileAcl.SetAccessRuleProtection($true,$false)
  foreach($entry in @(
    @('S-1-5-18','FullControl'),
    @('S-1-5-32-544','FullControl'),
    @('S-1-5-19','Read'),
-   @($whoSid,'Read')
+   @($whoSid,'Modify')
   )){
   $sid=New-Object Security.Principal.SecurityIdentifier -ArgumentList ([string]$entry[0])
   $right=[Security.AccessControl.FileSystemRights]([Enum]::Parse([Security.AccessControl.FileSystemRights],[string]$entry[1]))
@@ -82,7 +96,7 @@ try{
  $fs.Close();$fs=$null
  $verify=[Security.Cryptography.ProtectedData]::Unprotect([IO.File]::ReadAllBytes($secret),$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
  if([Text.Encoding]::UTF8.GetString($verify) -cne $plain){Fail 'DPAPI_VERIFY_FAILED'}
- $line='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=PASS;SECRET=bitrix-direct-webhook.dpapi;STORAGE=MACHINE_DPAPI;READERS=SYSTEM_ADMINS_LOCAL_SERVICE_ENROLLER;WEBHOOK_PRINTED=NO;COLLECTOR_ENABLED=NO;BITRIX_CALLS=0;ONEC_CALLS=0'
+ $line='UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=PASS;SECRET=bitrix-direct-private/bitrix-direct-webhook.dpapi;STORAGE=MACHINE_DPAPI;READERS=SYSTEM_ADMINS_LOCAL_SERVICE_ENROLLER;WEBHOOK_PRINTED=NO;COLLECTOR_ENABLED=NO;BITRIX_CALLS=0;ONEC_CALLS=0'
  $status=New-Object IO.FileStream -ArgumentList @($receipt,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
  try{$raw=[Text.Encoding]::ASCII.GetBytes($line);$status.Write($raw,0,$raw.Length);$status.Flush()}finally{$status.Close()}
  'BITRIX_DIRECT_WEBHOOK_ENROLLED=PASS'
@@ -97,8 +111,8 @@ try{
 }catch{
  $gate='RUNTIME_ERROR'
  if($_.Exception.Message -match '^ENROLL_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- if($created -and $null -ne $secret -and [IO.File]::Exists($secret) -and -not [IO.File]::Exists((Join-Path 'C:\ProgramData\MspCustomerStore' 'state\bitrix-direct-webhook-enrolled.txt'))){
-  try{if($null -ne $fs){$fs.Close();$fs=$null};[IO.File]::Delete($secret)}catch{}
+ if($null -ne $dir -and [IO.Directory]::Exists($dir) -and -not [IO.File]::Exists((Join-Path 'C:\ProgramData\MspCustomerStore' 'state\bitrix-direct-webhook-enrolled.txt'))){
+  try{if($null -ne $fs){$fs.Close();$fs=$null};[IO.Directory]::Delete($dir,$true)}catch{}
  }
  'RESULT=FAIL;STAGE=SRV_BITRIX_DIRECT_WEBHOOK_ENROLLMENT;GATE='+$gate+';PHASE='+$phase
  'NO_AUTOMATIC_RETRY=YES'
