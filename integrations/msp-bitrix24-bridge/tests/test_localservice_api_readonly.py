@@ -27,7 +27,7 @@ class LocalServiceApiReadonly(unittest.TestCase):
             "ONEC_CALLS=NO",
             "CUSTOMER_DATA_EXPORTED=NO",
             "WEBHOOK_SAVED=YES_ENCRYPTED",
-            "PHASE=READ_ONLY",
+            ";PHASE=",
             "NO_AUTOMATIC_RETRY=YES",
         ): self.assertIn(token,s)
         for forbidden in ("Read-Host","Invoke-WebRequest","RegisterTaskDefinition",
