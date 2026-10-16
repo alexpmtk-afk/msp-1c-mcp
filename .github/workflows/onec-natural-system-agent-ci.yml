@@ -268,7 +268,7 @@ jobs:
             'PREVIOUS_PROBE_NOT_CONFIRMED','NAT_STATUS=PASS',
             'TEMPORARY_TASK_CLEANUP=PASS','INVALID_REPORT_LINE_COUNT',
             '0585ad99e882eadb1e4e5766c27b99de35a0c709',
-            'OPERATING_AGENT_CHANGED=NO','string[] 27')) {
+            'OPERATING_AGENT_CHANGED=NO','if ($lines.Count -ne 27)')) {
             if(-not $controller.Contains($needle)) {throw ('PATTERN_V4_RUNNER_REQUIRED='+$needle)}
           }
           if($pattern.Contains('RegisterTaskDefinition') -or
