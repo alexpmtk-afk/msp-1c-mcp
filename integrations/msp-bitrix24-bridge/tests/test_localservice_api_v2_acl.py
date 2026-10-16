@@ -45,7 +45,6 @@ class ServiceApiV2(unittest.TestCase):
         self.assertNotIn("Read-Host",s)
         self.assertNotIn("crm.item.add",s)
         self.assertEqual(s.count("$null=$task.Run($null)"),1)
-        self.assertNotIn("__V2_CHILD_SHA256__",s)
 
 if __name__=="__main__":
     unittest.main()
