@@ -46,7 +46,7 @@ class TestRelay(unittest.TestCase):
         with self.assertRaises(ValueError):
             relay.safe_items([{"id":"bad","name":"Петров"}])
         with self.assertRaises(ValueError):
-            relay.safe_items([{"id":guid,"name":"<script>\\n"}])
+            relay.safe_items([{"id":guid,"name":"<script>\n"}])
         with self.assertRaises(ValueError):
             relay.safe_items([{"id":guid,"name":"X"}]*21)
 

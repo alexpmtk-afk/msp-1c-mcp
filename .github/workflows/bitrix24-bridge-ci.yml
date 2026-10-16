@@ -250,3 +250,8 @@ jobs:
           if($cnt.Trim() -ne '3' -or $chk.Trim() -ne 'ok'){throw 'BACKUP_VERIFY_FAILED'}
           Write-Output 'SQLITE_WINDOWS_BACKUP_VERIFY=PASS'
           Write-Output 'SQLITE_REAL_WINDOWS_FTS5_CYRILLIC_TRIGRAM=PASS'
+
+      - name: Bitrix24 secure relay Python contract tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s integrations/msp-bitrix24-bridge/bitrix_relay/bitrix_relay_tests -v
