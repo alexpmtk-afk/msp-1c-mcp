@@ -162,12 +162,23 @@ try{
   exit 0
  }
  if($jobReply.Code -ne 200 -or $jobReply.Body.Length -gt 8192){Fail 'JOB_REPLY_INVALID'}
- $job=$ser.DeserializeObject($jobReply.Body)
- if(-not ($job -is [System.Collections.IDictionary])){Fail 'JOB_NOT_OBJECT'}
- $id=[string]$job['id']
- $term=[string]$job['query']
- $kind=[string]$job['entityType']
- $limit=[int]$job['limit']
+ $jobSql="SELECT CASE WHEN json_valid(doc)=0 THEN 'INVALID' "+
+  "WHEN json_type(doc)<>'object' THEN 'INVALID' "+
+  "WHEN coalesce(json_type(doc,'$.id'),'')<>'text' "+
+  "OR coalesce(json_type(doc,'$.query'),'')<>'text' "+
+  "OR coalesce(json_type(doc,'$.entityType'),'')<>'text' "+
+  "OR coalesce(json_type(doc,'$.limit'),'')<>'integer' THEN 'INVALID' "+
+  "ELSE hex(CAST(json_extract(doc,'$.id') AS BLOB))||'|'||"+
+  "hex(CAST(json_extract(doc,'$.query') AS BLOB))||'|'||"+
+  "hex(CAST(json_extract(doc,'$.entityType') AS BLOB))||'|'||"+
+  "json_extract(doc,'$.limit') END FROM j;"
+ $parts=(JsonSql $jobReply.Body $jobSql).Split('|')
+ if($parts.Length -ne 4){Fail 'JOB_NOT_OBJECT'}
+ $id=DecodeHex $parts[0]
+ $term=DecodeHex $parts[1]
+ $kind=DecodeHex $parts[2]
+ if($parts[3] -notmatch '^[0-9]{1,4}$'){Fail 'JOB_LIMIT_INVALID'}
+ $limit=[int]$parts[3]
  if($id -notmatch '^[a-f0-9]{32}$'){Fail 'JOB_ID_INVALID'}
  if($term.Length -lt 3 -or $term.Length -gt 80 -or $term -match '[\x00-\x1f\x7f]'){Fail 'JOB_TERM_INVALID'}
  if($kind -ne 'COMPANY' -and $kind -ne 'CONTACT'){Fail 'JOB_TYPE_INVALID'}
