@@ -58,7 +58,7 @@ try{
  $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/3e6758d59188029a701150e499817426a83e1329/integrations/msp-bitrix24-bridge/bin/probe-bitrix-localservice-api-readonly.ps1'
  & $curl -q --fail --silent --show-error --noproxy '*' --proto '=https' --tlsv1.2 --tls-max 1.2 --cacert $ca --max-redirs 0 --output $probe $url
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($probe)){Fail 'PROBE_DOWNLOAD_FAILED'}
- if((Hash $probe) -ne '__CHILD_HASH_PENDING__'){Fail 'PROBE_HASH_MISMATCH'}
+ if((Hash $probe) -ne 'da0614cda171b639218cb5ecbcb605efecbd21fd3961b1a0f4f217f277ce2ac1'){Fail 'PROBE_HASH_MISMATCH'}
  $parse=$null
  $null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($probe,[Text.Encoding]::ASCII),[ref]$parse)
  if($parse -and $parse.Count -gt 0){Fail 'PS2_PARSE_FAILED'}
