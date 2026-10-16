@@ -228,4 +228,17 @@ jobs:
           if((SearchTest 'пет' "c.onec_type IN ('PERSON','REVIEW')") -ne '1'){throw 'CYRILLIC_CASEFOLD_CONTACT_FAILED'}
           if((SearchTest 'сид' "c.onec_type IN ('PERSON','REVIEW')") -ne '1'){throw 'UNKNOWN_CONTACT_SHOULD_BE_SEARCHABLE'}
           if((SearchTest 'сид' "c.onec_type IN ('LEGAL','REVIEW')") -ne '1'){throw 'UNKNOWN_COMPANY_SHOULD_BE_SEARCHABLE'}
+          # Exact backend JSON payload contract: ordered and bounded before aggregation.
+          $match='"ром"'
+          $hex=[BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($match)).Replace('-','')
+          $stmt="SELECT hex(CAST(json_group_array(json_object('id',x.onec_guid,'name',x.name,'sourceType',x.onec_type,'needsReview',x.needs_review)) AS BLOB)) FROM (SELECT c.onec_guid,c.onec_type,c.needs_review,coalesce(nullif(c.name_short,''),nullif(c.name_full,''),nullif(c.person_name,''),'') AS name FROM customer_search_v1 JOIN customers c ON c.onec_guid=customer_search_v1.onec_guid WHERE customer_search_v1 MATCH CAST(X'"+$hex+"' AS TEXT) AND c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND c.onec_type IN ('LEGAL','REVIEW') ORDER BY c.onec_guid LIMIT 20) AS x;"
+          $raw=(& $exe -readonly -batch -bail $db $stmt) -join ''
+          if($LASTEXITCODE -ne 0 -or $raw -notmatch '^[0-9A-F]+
+){throw 'JSON_HEX_QUERY_FAILED'}
+          $bytes=New-Object byte[] ($raw.Length/2)
+          for($i=0;$i -lt $bytes.Length;$i++){$bytes[$i]=[Convert]::ToByte($raw.Substring($i*2,2),16)}
+          $json=[Text.Encoding]::UTF8.GetString($bytes)
+          $items=$json | ConvertFrom-Json
+          if($items.Count -ne 1 -or $items[0].name -ne 'ООО Ромашка' -or $items[0].sourceType -ne 'LEGAL'){throw 'UTF8_JSON_LOOKUP_FAILED'}
+          Write-Output 'BITRIX_LOCAL_SEARCH_UTF8_JSON=PASS'
           Write-Output 'SQLITE_REAL_WINDOWS_FTS5_CYRILLIC_TRIGRAM=PASS'
