@@ -61,7 +61,7 @@ try{
  $main=$folder.GetTask('MspCustomerStoreSync')
  if($null -eq $main){Fail 'COLLECTOR_TASK_MISSING'}
  foreach($trigger in $main.Definition.Triggers){if($trigger.Enabled){Fail 'COLLECTOR_AUTOSTART_ENABLED'}}
- foreach($task in $folder.GetTasks(0)){
+ foreach($task in $folder.GetTasks(1)){
   foreach($action in $task.Definition.Actions){
    if($action.Type -eq 0 -and $action.Arguments -match 'bitrix-search-outbound-once\.ps1'){Fail 'WORKER_SCHEDULED_ALREADY'}
   }
