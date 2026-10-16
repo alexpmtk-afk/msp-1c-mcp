@@ -63,6 +63,8 @@ jobs:
                    'bin/accept-initial-load-6433-and-cleanup.ps1',
                    'bin/survey-exchange-plan-metadata-service.ps1',
                    'bin/run-exchange-plan-survey.ps1',
+                   'bin/build-bitrix-search-index.ps1',
+                   'bin/query-bitrix-search-index.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
@@ -181,3 +183,48 @@ jobs:
           $formatted=('{0}:{1}:{2}' -f $legalCount,$personCount,$reviewCount)
           if($formatted -ne '1941:4486:6'){throw 'CATEGORY_TUPLE_FORMAT_FAILED'}
           Write-Output 'CATEGORY_TUPLE_FORMAT=PASS'
+
+      - name: Windows SQLite search FTS5 trigram and Russian mixed-case test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $binRoot=Join-Path $env:RUNNER_TEMP 'msp-sqlite-acceptance'
+          $exe=Get-ChildItem -LiteralPath $binRoot -Recurse -Filter sqlite3.exe | Select-Object -First 1 -ExpandProperty FullName
+          if(-not $exe){throw 'MISSING_REAL_WINDOWS_SQLITE'}
+          $db=Join-Path $env:RUNNER_TEMP 'msp-search-fts5-test.db'
+          if([IO.File]::Exists($db)){throw 'FTS_TEST_DB_COLLISION'}
+          $q=@'
+CREATE TABLE customers(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);
+INSERT INTO customers VALUES('00000001-0000-0000-0000-000000000000','LEGAL','ООО Ромашка','Общество Ромашка','', '7701001112',1,0,0,0);
+INSERT INTO customers VALUES('00000002-0000-0000-0000-000000000000','PERSON','Петров Иван','','Петров Иван','',1,0,0,0);
+INSERT INTO customers VALUES('00000003-0000-0000-0000-000000000000','REVIEW','Елена Сидорова','','','',1,0,0,1);
+CREATE VIRTUAL TABLE customer_search_v1 USING fts5(onec_guid UNINDEXED,name_short,name_full,person_name,inn,tokenize='trigram');
+INSERT INTO customer_search_v1 SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers;
+'@
+          $psi=New-Object Diagnostics.ProcessStartInfo
+          $psi.FileName=$exe
+          $psi.Arguments='-batch -bail "'+$db+'"'
+          $psi.UseShellExecute=$false
+          $psi.RedirectStandardInput=$true
+          $psi.RedirectStandardOutput=$true
+          $psi.RedirectStandardError=$true
+          $p=[Diagnostics.Process]::Start($psi)
+          $p.StandardInput.Write($q)
+          $p.StandardInput.Close()
+          $o=$p.StandardOutput.ReadToEnd()
+          $e=$p.StandardError.ReadToEnd()
+          $p.WaitForExit()
+          if($p.ExitCode -ne 0){throw ('FTS5_TRIGRAM_SETUP_FAIL '+$e)}
+          function SearchTest([string]$term,[string]$kind){
+            $match='"'+$term.Replace('"','""')+'"'
+            $hex=[BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($match)).Replace('-','')
+            $sql="SELECT count(*) FROM customer_search_v1 JOIN customers c ON c.onec_guid=customer_search_v1.onec_guid WHERE customer_search_v1 MATCH CAST(X'"+$hex+"' AS TEXT) AND "+$kind+";"
+            $result=& $exe -readonly -batch -bail $db $sql
+            if($LASTEXITCODE -ne 0){throw 'FTS_QUERY_FAILED'}
+            return ($result -join '').Trim()
+          }
+          if((SearchTest 'РОМ' "c.onec_type IN ('LEGAL','REVIEW')") -ne '1'){throw 'CYRILLIC_CASEFOLD_COMPANY_FAILED'}
+          if((SearchTest 'пет' "c.onec_type IN ('PERSON','REVIEW')") -ne '1'){throw 'CYRILLIC_CASEFOLD_CONTACT_FAILED'}
+          if((SearchTest 'сид' "c.onec_type IN ('PERSON','REVIEW')") -ne '1'){throw 'UNKNOWN_CONTACT_SHOULD_BE_SEARCHABLE'}
+          if((SearchTest 'сид' "c.onec_type IN ('LEGAL','REVIEW')") -ne '1'){throw 'UNKNOWN_COMPANY_SHOULD_BE_SEARCHABLE'}
+          Write-Output 'SQLITE_REAL_WINDOWS_FTS5_CYRILLIC_TRIGRAM=PASS'

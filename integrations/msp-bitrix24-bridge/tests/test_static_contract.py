@@ -595,6 +595,34 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
         self.assertNotIn("Get-Credential",s)
         self.assertNotIn("Method='POST'",s)
+    def test_bitrix_search_fts5_schema_build_safe(self):
+        s=read("build-bitrix-search-index.ps1")
+        self.assertTrue(s.isascii())
+        for val in ("S-1-5-19", "CREATE VIRTUAL TABLE customer_search_v1",
+                    "tokenize='trigram'", "6433:6433",
+                    "BEGIN IMMEDIATE;", "CHECK(n=6433)",
+                    "CUSTOMERS_UNCHANGED=6433", "BITRIX_CALLS=NO"):
+            self.assertIn(val,s)
+        self.assertNotIn("C:\\Users\\parshin",s)
+        self.assertNotIn("DeleteTask(",s)
+        self.assertNotIn("Method='POST'",s)
+
+    def test_bitrix_search_adapter_bounded_hex_injection_safe(self):
+        s=read("query-bitrix-search-index.ps1")
+        self.assertTrue(s.isascii())
+        for val in ("S-1-5-19", "SearchQuery",
+                    "VALIDATESET", "UTF8.GetBytes", "CAST(X'",
+                    "customer_search_v1 MATCH", "json_group_array",
+                    "ORDER BY c.onec_guid LIMIT ", "EntityType",
+                    "-readonly", "GetString($bytes)",
+                    "BITRIX_SEARCH_NOT_AVAILABLE"):
+            if val=="VALIDATESET":
+                val="ValidateSet"
+            self.assertIn(val,s)
+        self.assertNotIn("RegisterTaskDefinition(",s)
+        self.assertNotIn("Method='POST'",s)
+        self.assertNotIn("Invoke-WebRequest",s)
+        self.assertNotIn("WriteAllText(",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

@@ -1,3 +1,42 @@
+## Implemented local read-only Bitrix lookup preparation, 16 Oct 2026
+
+S4 (native registration) is PAUSED at user direction after
+`PARSE_EXCHANGE_PLANS/RUNTIME_ERROR`. Do not rerun the survey.
+The prior one-time `MspCustomerStoreExchangeSurvey` task may remain
+in Task Scheduler; it was created without triggers. Its cleanup must
+be independently verified, not silently deleted during Bitrix work.
+
+Priority switched to exposing the already S3-accepted local customer
+list for **Bitrix24 CRM_DETAIL_SEARCH** (no bulk CRM creation).
+Official API: https://apidocs.bitrix24.ru/api-reference/widgets/crm/detail-search.html
+An authenticated Bitrix app with `placement,crm` rights needs a public
+HTTPS iframe handler and a safe search-data route. Neither handler nor
+Bitrix portal/app credentials are configured. The existing GitHub/
+Tailscale remote transport and SRV loopback OData are NOT a live widget
+handler and must not be presented as such.
+
+The new `bin/build-bitrix-search-index.ps1` creates FTS5/trigram
+`customer_search_v1` inside the **existing machine-owned SQLite DB**
+without altering `customers`. It requires LOCAL SERVICE and accepted
+6,433-row S3 receipt; one-shot and fail-closed. Names, person names,
+and nullable INN are indexed in the protected DB.
+
+`bin/query-bitrix-search-index.ps1` uses the machine-only
+LOCAL SERVICE context to return **at most 20 matches as UTF-8 JSON**,
+search text >=3 characters, and COMPANY or CONTACT intent.
+FTS5 handles Cyrillic case insensitive substrings. REVIEW entries remain
+queryable in both categories, with `needsReview` set. SQL query
+injection is prevented by encoding the exact query as hex inside
+an FTS5 quoted phrase. The adapter is a local CLI, not a network API.
+Only the future authenticated HTTPS widget handler may call it.
+Do not publish SRV 2008R2, SQLite or IIS OData to the Internet.
+No PII leaves SRV at this stage.
+
+Bitrix24 placement can only be genuinely connected after an approved
+HTTPS transport, installed OAuth/local app, and Bitrix portal identity.
+Sending all 6,433 records to a VPS, Bitrix Disk or CRM is NOT part of
+this read-only search preparation.
+
 # MSP Bitrix24: Always-searchable 1C buyer directory (15 Oct 2026)
 
 **Status:** User-confirmed PRODUCT GOAL; target architecture/proposed technical
