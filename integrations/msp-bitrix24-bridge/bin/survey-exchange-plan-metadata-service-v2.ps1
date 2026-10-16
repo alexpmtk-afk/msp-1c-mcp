@@ -191,12 +191,18 @@ try{
   $gate='RUNTIME_ERROR'
   if($_.Exception.Message -match '^S4_([A-Z0-9_]+)$'){$gate=$Matches[1]}
   # Only safe exception type and XML position; never log exception messages or source records.
-  $exceptionType=$_.Exception.GetType().Name
+  $inner=$_.Exception
+  # Windows PowerShell wraps XmlException in MethodInvocationException.
+  for($i=0;$i -lt 6;$i++){
+    if($null -eq $inner.InnerException){break}
+    $inner=$inner.InnerException
+  }
+  $exceptionType=$inner.GetType().Name
   if($exceptionType -notmatch '^[A-Za-z0-9_]{1,80}$'){$exceptionType='UNKNOWN'}
   'S4_EXCEPTION_TYPE='+$exceptionType
-  if($_.Exception -is [System.Xml.XmlException]){
-    'S4_XML_LINE='+[int]$_.Exception.LineNumber
-    'S4_XML_POSITION='+[int]$_.Exception.LinePosition
+  if($inner -is [System.Xml.XmlException]){
+    'S4_XML_LINE='+[int]$inner.LineNumber
+    'S4_XML_POSITION='+[int]$inner.LinePosition
   }
   try{
     if($OfflineFixturePath -eq ''){
