@@ -207,7 +207,7 @@ try {
       $naturalHelper=Join-Path $bin 'onec-system-odata-natural.ps1'
       $encoded=$null
       if (Test-Path -LiteralPath $naturalHelper -PathType Leaf) {
-        $native=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $naturalHelper -Kind $naturalKind -ItemB64 $naturalItem -WarehouseB64 $naturalWarehouse
+        $native=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $naturalHelper -Kind $naturalKind -ItemB64 $naturalItem -WarehouseB64 $(if($naturalWarehouse -eq '-'){'ALL'}else{$naturalWarehouse})
         if ($LASTEXITCODE -eq 0 -and $native -is [string] -and
             $native -match '^NAT_([A-Za-z0-9_-]{3,360000})$') {
           $encoded=$Matches[1]
