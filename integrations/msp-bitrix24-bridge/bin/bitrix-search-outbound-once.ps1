@@ -184,19 +184,39 @@ try{
  if($kind -ne 'COMPANY' -and $kind -ne 'CONTACT'){Fail 'JOB_TYPE_INVALID'}
  if($limit -ne 20){Fail 'JOB_LIMIT_INVALID'}
  $phase='LOCAL_SEARCH'
- $items=$ser.DeserializeObject((Search $term $kind $limit))
- if(-not ($items -is [System.Array]) -or $items.Length -gt 20){Fail 'RESULT_ARRAY_INVALID'}
+ $results=Search $term $kind $limit
+ $validSql="SELECT CASE WHEN json_valid(doc)=0 THEN 'INVALID' "+
+  "WHEN json_type(doc)<>'array' THEN 'INVALID' "+
+  "WHEN json_array_length(doc)>20 THEN 'INVALID' "+
+  "WHEN EXISTS(SELECT 1 FROM json_each(doc) AS e WHERE "+
+  "CASE WHEN e.type<>'object' THEN 1 "+
+  "WHEN coalesce(json_type(e.value,'$.id'),'')<>'text' "+
+  "OR coalesce(json_type(e.value,'$.name'),'')<>'text' THEN 1 ELSE 0 END=1) "+
+  "THEN 'INVALID' ELSE 'VALID' END FROM j;"
+ if((JsonSql $results $validSql) -ne 'VALID'){Fail 'RESULT_ARRAY_INVALID'}
+ $rowsSql="SELECT hex(CAST(json_extract(value,'$.id') AS BLOB))||'|'||"+
+  "hex(CAST(json_extract(value,'$.name') AS BLOB)) "+
+  "FROM json_each((SELECT doc FROM j));"
  $outItems=@()
- foreach($v in $items){
-  if(-not ($v -is [System.Collections.IDictionary])){Fail 'RESULT_ROW_INVALID'}
-  $gid=[string]$v['id']
-  $name=[string]$v['name']
-  if($gid -notmatch '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){Fail 'RESULT_GUID_INVALID'}
-  if($name.Length -lt 1 -or $name.Length -gt 256 -or $name -match '[\x00-\x1f\x7f]'){Fail 'RESULT_NAME_INVALID'}
-  $outItems+=@{id=$gid;name=$name}
+ $rows=JsonSql $results $rowsSql
+ if($rows.Length -gt 0){
+  foreach($line in ($rows -split '\r?\n')){
+   $pair=$line.Split('|')
+   if($pair.Length -ne 2){Fail 'RESULT_ROW_INVALID'}
+   $gid=DecodeHex $pair[0]
+   $name=DecodeHex $pair[1]
+   if($gid -notmatch '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){Fail 'RESULT_GUID_INVALID'}
+   if($name.Length -lt 1 -or $name.Length -gt 256 -or $name -match '[\x00-\x1f\x7f]'){Fail 'RESULT_NAME_INVALID'}
+   $outItems+=1
+  }
  }
+ if($outItems.Count -gt 20){Fail 'RESULT_COUNT_INVALID'}
  $phase='RETURN_BOUNDED_RESULTS'
- $payload=ToAsciiJson ($ser.Serialize(@{id=$id;items=@($outItems)}))
+ $payloadSql="SELECT hex(CAST(json_object('id','"+$id+
+  "','items',json((SELECT json_group_array(json_object("+
+  "'id',json_extract(value,'$.id'),'name',json_extract(value,'$.name'))) "+
+  "FROM json_each(doc)))) AS BLOB)) FROM j;"
+ $payload=ToAsciiJson (DecodeHex (JsonSql $results $payloadSql))
  $ack=Http 'POST' '/worker/result' $payload
  if($ack.Code -ne 204){Fail 'POST_NOT_ACKED'}
  'SEARCH_JOB_COMPLETED=YES'
