@@ -83,6 +83,7 @@ try{
  $phase='ENABLE_AUTOMATIC_MINUTE_TRIGGER'
  $current=$folder.GetTask($taskName)
  $ready=$current.Definition
+ $ready.Triggers.Item(1).StartBoundary=[DateTime]::Now.AddMinutes(1).ToString('yyyy-MM-ddTHH:mm:ss')
  $ready.Triggers.Item(1).Enabled=$true
  $null=$folder.RegisterTaskDefinition($taskName,$ready,2,$id,$null,5,$null)
  $final=$folder.GetTask($taskName)
