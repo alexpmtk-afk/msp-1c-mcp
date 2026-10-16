@@ -196,7 +196,7 @@ try{
   if($parts.Length -ne 4){Fail 'ROW_PARSE'}
   $guid=$parts[0]
   if($guid -notmatch '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$'){Fail 'GUID_INVALID'}
-  $phase='SOURCE_'+$guid
+  $phase='PROCESS_SOURCE_ROW'
   $name=HexField $parts[1];$full=HexField $parts[2];$inn=HexField $parts[3]
   if($name.Length -lt 3 -or $name.Length -gt 140 -or $full.Length -gt 256 -or $inn.Length -gt 12){
    Cursor $guid 'HELD' '0' '0';$script:held++;continue
