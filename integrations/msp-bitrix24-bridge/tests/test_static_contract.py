@@ -1,6 +1,8 @@
 """Offline safety contracts: excludes live Bitrix and 1C data access."""
 from pathlib import Path
 import unittest
+import sqlite3
+import json
 ROOT=Path(__file__).resolve().parents[1]
 BIN=ROOT/"bin"
 def read(name):return (BIN/name).read_text(encoding="utf-8-sig")
@@ -680,6 +682,55 @@ class BootstrapSafety(unittest.TestCase):
         for forbidden in ("System.Web.Extensions", "JavaScriptSerializer",
                           "ConvertFrom-Json", "Invoke-Expression", "Add-Type -TypeDefinition"):
             self.assertNotIn(forbidden, worker)
+
+    def test_bitrix_sqlite_json1_synthetic_protocol(self):
+        db=sqlite3.connect(":memory:")
+        def q(document, sql):
+            hx=document.encode("utf-8").hex()
+            return db.execute("WITH j(doc) AS (SELECT CAST(X'"+hx+"' AS TEXT)) "+sql).fetchone()[0]
+        job_sql=(
+            "SELECT CASE WHEN json_valid(doc)=0 THEN 'INVALID' "
+            "WHEN json_type(doc)<>'object' THEN 'INVALID' "
+            "WHEN coalesce(json_type(doc,'$.id'),'')<>'text' "
+            "OR coalesce(json_type(doc,'$.query'),'')<>'text' "
+            "OR coalesce(json_type(doc,'$.entityType'),'')<>'text' "
+            "OR coalesce(json_type(doc,'$.limit'),'')<>'integer' THEN 'INVALID' "
+            "ELSE hex(CAST(json_extract(doc,'$.id') AS BLOB))||'|'||"
+            "hex(CAST(json_extract(doc,'$.query') AS BLOB))||'|'||"
+            "hex(CAST(json_extract(doc,'$.entityType') AS BLOB))||'|'||"
+            "json_extract(doc,'$.limit') END FROM j;")
+        job={"id":"a"*32,"query":"Тест' OR 1=1 --","entityType":"COMPANY","limit":20}
+        fields=q(json.dumps(job,ensure_ascii=True),job_sql).split("|")
+        self.assertEqual([bytes.fromhex(x).decode("utf-8") for x in fields[:3]],
+                         [job["id"],job["query"],job["entityType"]])
+        self.assertEqual(fields[3],"20")
+        for bad in ("not JSON", "[]", '{"id":1}', '{"id":"a","query":"x","entityType":"COMPANY","limit":"20"}'):
+            self.assertEqual(q(bad,job_sql),"INVALID")
+        valid_sql=(
+            "SELECT CASE WHEN json_valid(doc)=0 THEN 'INVALID' "
+            "WHEN json_type(doc)<>'array' THEN 'INVALID' "
+            "WHEN json_array_length(doc)>20 THEN 'INVALID' "
+            "WHEN EXISTS(SELECT 1 FROM json_each(doc) AS e WHERE "
+            "CASE WHEN e.type<>'object' THEN 1 "
+            "WHEN coalesce(json_type(e.value,'$.id'),'')<>'text' "
+            "OR coalesce(json_type(e.value,'$.name'),'')<>'text' THEN 1 ELSE 0 END=1) "
+            "THEN 'INVALID' ELSE 'VALID' END FROM j;")
+        items=[{"id":"12345678-abcd-abcd-abcd-123456789abc","name":"Тест"}]
+        doc=json.dumps(items,ensure_ascii=False)
+        self.assertEqual(q(doc,valid_sql),"VALID")
+        for bad in ("{}", '["bad"]', '[{"id":1,"name":"x"}]', json.dumps(items*21)):
+            self.assertEqual(q(bad,valid_sql),"INVALID")
+        payload_sql=(
+            "SELECT hex(CAST(json_object('id','"+job["id"]+
+            "','items',json((SELECT json_group_array(json_object("
+            "'id',json_extract(value,'$.id'),'name',json_extract(value,'$.name'))) "
+            "FROM json_each(doc)))) AS BLOB)) FROM j;")
+        encoded=q(doc,payload_sql)
+        self.assertEqual(json.loads(bytes.fromhex(encoded).decode("utf-8")),
+                         {"id":job["id"],"items":items})
+        self.assertEqual(q("[]",valid_sql),"VALID")
+        self.assertEqual(json.loads(bytes.fromhex(q("[]",payload_sql)).decode("utf-8"))["items"],[])
+        db.close()
 
     def test_bitrix_worker_offline_staging_is_non_deploying(self):
         s=read("stage-bitrix-outbound-code.ps1")
