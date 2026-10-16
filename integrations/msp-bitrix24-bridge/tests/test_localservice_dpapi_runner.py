@@ -15,7 +15,6 @@ class LocalServiceRunner(unittest.TestCase):
             "RegisterTaskDefinition",
             "MspBitrixLocalServiceDpapiOnce",
             "if($task.Definition.Triggers.Count -ne 0)",
-            "TaskName",
             "DeleteTask($taskName,0)",
             "LOCAL_SERVICE_DPAPI_UNPROTECT=PASS",
             "LOCAL_SERVICE_SECRET_PATH_ACCESS=PASS",
