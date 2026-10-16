@@ -1,0 +1,23 @@
+name: 1C NewBase counterparty read-only schema preflight
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows/onec-counterparty-schema-preflight.ps1'
+      - 'tests/windows/test_onec_counterparty_schema_source.ps1'
+      - '.github/workflows/onec-counterparty-schema-ci.yml'
+permissions:
+  contents: read
+jobs:
+  ps2-source-and-safe-metadata:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Offline PowerShell 2 compatible parse and fixed read-only metadata fixture
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'tests/windows/test_onec_counterparty_schema_source.ps1'
+          if ($LASTEXITCODE -ne 0) { throw 'COUNTERPARTY_SCHEMA_OFFLINE_FAIL' }
