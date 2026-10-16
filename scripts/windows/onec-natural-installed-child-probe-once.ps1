@@ -38,7 +38,7 @@ try {
   if ($PinnedProbe -cne (Join-Path $env:TEMP 'onec-natural-installed-probe-verified.ps1')) {
     throw 'BAD_PREFETCH_PATH'
   }
-  if (Test-Path -LiteralPath $probe -PathType Leaf -or
+  if ((Test-Path -LiteralPath $probe -PathType Leaf) -or
       (Test-Path -LiteralPath $receipt -PathType Leaf)) {
     throw 'DIAGNOSTIC_ALREADY_PRESENT'
   }
