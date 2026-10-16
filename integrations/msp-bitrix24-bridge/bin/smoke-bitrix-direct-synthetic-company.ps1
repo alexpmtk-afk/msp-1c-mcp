@@ -48,7 +48,7 @@ function SqlJson([string]$Json,[string]$Select){
  }finally{$p.Close()}
 }
 function Http([string]$Method,[string]$Body){
- if($Method -notin @('crm.item.add','crm.item.get','crm.item.delete','crm.item.list')){Fail 'UNAPPROVED_METHOD'}
+ if(@('crm.item.add','crm.item.get','crm.item.delete','crm.item.list') -notcontains $Method){Fail 'UNAPPROVED_METHOD'}
  if($Body.Length -gt 512 -or $Body -match '[^\x20-\x7e]'){Fail 'BODY_NOT_ASCII'}
  $cfg='url = '+(Quote ($script:base+$Method+'.json'))+[Environment]::NewLine
  $cfg+='request = "POST"'+[Environment]::NewLine
