@@ -72,6 +72,7 @@ jobs:
                    'bin/run-customer-store-initial-6433.ps1',
                    'bin/accept-initial-load-6433-and-cleanup.ps1',
                    'bin/survey-exchange-plan-metadata-service.ps1',
+                   'bin/survey-exchange-plan-metadata-service-v2.ps1',
                    'bin/run-exchange-plan-survey.ps1',
                    'bin/build-bitrix-search-index.ps1',
                    'bin/query-bitrix-search-index.ps1',
