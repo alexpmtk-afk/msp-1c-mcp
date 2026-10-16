@@ -141,7 +141,7 @@ function PrintResult($output) {
   [byte[]]$bytes=[Text.Encoding]::UTF8.GetBytes($json)
   if ($bytes.Length -gt $MAX_RESPONSE) { throw 'RESULT_TOO_LARGE' }
   $encoded=[Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_')
-  Write-Output ('NAT_'+$encoded)
+  [Console]::Out.WriteLine(('NAT_'+$encoded))
 }
 
 try {
