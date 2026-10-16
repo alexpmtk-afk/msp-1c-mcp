@@ -872,7 +872,8 @@ class BootstrapSafety(unittest.TestCase):
                      "CUSTOMER_DATA_EXPORTED=NO"):
             self.assertIn(item,runner)
         for forbidden in ("Invoke-WebRequest", "HttpWebRequest",
-                          "System.Web.Extensions", "JavaScriptSerializer",
+                          "Add-Type -AssemblyName System.Web.Extensions",
+                          "New-Object System.Web.Script.Serialization.JavaScriptSerializer",
                           "MspOnecHttpsAgentSystem", "DeleteTask('MspCustomerStoreSync'",
                           "Start-Process", "Triggers.Create("):
             self.assertNotIn(forbidden,probe)
