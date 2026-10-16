@@ -848,6 +848,39 @@ class BootstrapSafety(unittest.TestCase):
                           "MspOnecHttpsAgentSystem"):
             self.assertNotIn(forbidden,s)
 
+    def test_installed_json1_local_service_acceptance_is_non_networking(self):
+        probe=read("probe-bitrix-json1-installed-service.ps1")
+        runner=read("run-bitrix-json1-installed-service-audit.ps1")
+        self.assertTrue(probe.isascii())
+        self.assertTrue(runner.isascii())
+        for item in ("S-1-5-19", "bitrix-json1-installed-runtime-status.txt",
+                     "bitrix-worker-json1-stage-accepted.txt",
+                     "bitrix-search-outbound-before-json1.ps1", "53007f8a1e3a6a193826876a965ec321f52183d266bf0a8d9842057f30d603d4",
+                     "8820c88eecfc1ffd85d4c6d8cc329f5dc6eca868fe56d45ecc5f49211d2366ff",
+                     "PS2_PARSE_FAILED", "6433:6433", "customer_search_v1",
+                     "PRAGMA quick_check", "FILE", "NETWORK_CALLS=NO",
+                     "ONEC_CALLS=NO", "BITRIX_CALLS=NO", "WORKER_ENABLED=NO"):
+            if item=="FILE":
+                continue
+            self.assertIn(item,probe)
+        for item in ("MspCustomerStoreBitrixInstalledJson1Audit",
+                     "MspCustomerStoreSync", "GetTasks(1)", "Triggers.Count -ne 0",
+                     "RegisterTaskDefinition(", "DeleteTask($taskName,0)",
+                     "6be2db660401d0d439b3c6acbd9900920f2c77d3722ae2deade0334b44619933",
+                     "1e4f90e67f9e812f2fe63384baab1806f46a36c4",
+                     "NO_AUTOMATIC_RETRY=YES", "WORKER_STILL_DISABLED=YES",
+                     "CUSTOMER_DATA_EXPORTED=NO"):
+            self.assertIn(item,runner)
+        for forbidden in ("Invoke-WebRequest", "HttpWebRequest",
+                          "System.Web.Extensions", "JavaScriptSerializer",
+                          "MspOnecHttpsAgentSystem", "DeleteTask('MspCustomerStoreSync'",
+                          "Start-Process", "Triggers.Create("):
+            self.assertNotIn(forbidden,probe)
+            self.assertNotIn(forbidden,runner)
+        self.assertNotIn("RegisterTaskDefinition(",probe)
+        self.assertNotIn("DeleteTask(",probe)
+        self.assertNotIn("& $worker",probe)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
