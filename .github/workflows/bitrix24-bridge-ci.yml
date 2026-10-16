@@ -105,6 +105,7 @@ jobs:
                    'bin/probe-bitrix-localservice-api-readonly-v2.ps1',
                    'bin/run-bitrix-localservice-api-readonly-v2-once.ps1',
                    'bin/export-bitrix-real-customers-csv.ps1',
+                   'bin/transfer-real-test-newbase-company01.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
