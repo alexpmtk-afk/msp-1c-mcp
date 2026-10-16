@@ -240,4 +240,13 @@ jobs:
           $items=@($json | ConvertFrom-Json)
           if($items.Count -ne 1 -or $items[0].name -ne 'ООО Ромашка' -or $items[0].sourceType -ne 'LEGAL'){throw 'UTF8_JSON_LOOKUP_FAILED'}
           Write-Output 'BITRIX_LOCAL_SEARCH_UTF8_JSON=PASS'
+          $backup=Join-Path $env:RUNNER_TEMP 'msp-search-index-backup-test.db'
+          if([IO.File]::Exists($backup)){throw 'BACKUP_TEST_COLLISION'}
+          $backupCmd='.backup "'+$backup.Replace('\','/')+'"'
+          $output=@(& $exe -readonly -batch -bail $db $backupCmd 2>&1)
+          if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($backup)){throw 'FTS_BACKUP_FAILED'}
+          $cnt=(& $exe -readonly -batch -bail $backup 'SELECT count(*) FROM customers;') -join ''
+          $chk=(& $exe -readonly -batch -bail $backup 'PRAGMA quick_check;') -join ''
+          if($cnt.Trim() -ne '3' -or $chk.Trim() -ne 'ok'){throw 'BACKUP_VERIFY_FAILED'}
+          Write-Output 'SQLITE_WINDOWS_BACKUP_VERIFY=PASS'
           Write-Output 'SQLITE_REAL_WINDOWS_FTS5_CYRILLIC_TRIGRAM=PASS'
