@@ -19,11 +19,20 @@ function CsvOut([string]$Db,[string]$Query,[string]$Path){
  try{
   if(-not $p.Start()){Fail 'SQL_START'}
   $p.StandardInput.WriteLine($Query);$p.StandardInput.Close()
-  $csv=$p.StandardOutput.ReadToEnd();$err=$p.StandardError.ReadToEnd()
+  # sqlite3 emits UTF8 bytes; never decode through the Windows OEM console code page.
+  $fs=New-Object IO.FileStream -ArgumentList @($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+  try{
+   $bom=New-Object byte[] 3;$bom[0]=239;$bom[1]=187;$bom[2]=191;$fs.Write($bom,0,3)
+   $buf=New-Object byte[] 8192;$size=0
+   do{
+    $n=$p.StandardOutput.BaseStream.Read($buf,0,$buf.Length)
+    if($n -gt 0){$size+=$n;if($size -gt 4000000){Fail 'SQL_OUTPUT_TOO_LARGE'};$fs.Write($buf,0,$n)}
+   }while($n -gt 0)
+   $fs.Flush()
+  }finally{$fs.Close()}
+  $err=$p.StandardError.ReadToEnd()
   if(-not $p.WaitForExit(30000)){$p.Kill();Fail 'SQL_TIMEOUT'}
-  if($p.ExitCode -ne 0 -or $err.Trim().Length -ne 0 -or $csv.Length -lt 40 -or $csv.Length -gt 4000000){Fail 'SQL_OUTPUT_INVALID'}
-  $enc=New-Object Text.UTF8Encoding -ArgumentList $true
-  [IO.File]::WriteAllText($Path,$csv,$enc)
+  if($p.ExitCode -ne 0 -or $err.Trim().Length -ne 0 -or $size -lt 40){Fail 'SQL_OUTPUT_INVALID'}
  }finally{$p.Close()}
 }
 function Count([string]$Db,[string]$Sql){
@@ -53,6 +62,17 @@ try{
  if($expected -ne '6433|1941|4486|6'){Fail 'SOURCE_BASELINE_CHANGED'}
  if((Count $db 'PRAGMA quick_check;') -ne 'ok'){Fail 'DB_INTEGRITY_FAILED'}
  [void][IO.Directory]::CreateDirectory($folder)
+ $a=[IO.Directory]::GetAccessControl($folder)
+ $a.SetAccessRuleProtection($true,$false)
+ $who=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ foreach($sid in @('S-1-5-18','S-1-5-32-544',$who.Value)){
+  $id=New-Object Security.Principal.SecurityIdentifier -ArgumentList $sid
+  $flags=[Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+  $rule=New-Object Security.AccessControl.FileSystemAccessRule -ArgumentList @($id,[Security.AccessControl.FileSystemRights]::FullControl,$flags,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
+  $a.AddAccessRule($rule)
+ }
+ [IO.Directory]::SetAccessControl($folder,$a)
+ if(-not ([IO.Directory]::GetAccessControl($folder)).AreAccessRulesProtected){Fail 'PRIVATE_EXPORT_ACL_FAILED'}
  $phase='COMPANIES'
  $sql="SELECT coalesce(nullif(trim(name_short),''),nullif(trim(name_full),''),'') AS TITLE,coalesce(trim(inn),'') AS INN,onec_guid AS ONEC_GUID FROM customers WHERE onec_type='LEGAL' AND buyer=1 AND deletion_mark=0 AND invalid=0 ORDER BY onec_guid;"
  CsvOut $db $sql (Join-Path $folder 'companies.csv')
