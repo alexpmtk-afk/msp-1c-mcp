@@ -668,6 +668,23 @@ class BootstrapSafety(unittest.TestCase):
         self.assertIn("--config -",worker)
         self.assertIn("data-binary = ",worker)
 
+    def test_bitrix_worker_offline_staging_is_non_deploying(self):
+        s=read("stage-bitrix-outbound-code.ps1")
+        self.assertTrue(s.isascii())
+        for expected in ("1c3cf6832bf513a9b5b4f1ac4907bfa85b9b8119f7b91b005e64df4f05fe02f8",
+                         "bb2ccf66cbc38c97e9588b22580bd0fcccab1725fffeac665f8f042ca2724c7b",
+                         "8820c88eecfc1ffd85d4c6d8cc329f5dc6eca868fe56d45ecc5f49211d2366ff",
+                         "S-1-5-19" if False else "MspCustomerStoreSync",
+                         "[IO.File]::Replace", "ORIGINAL_ADAPTER_BACKUP=PASS",
+                         "OUTBOUND_NETWORK_REQUESTS=NO",
+                         "WORKER_CONFIGURATION_CREATED=NO",
+                         "WORKER_TASK_REGISTERED=NO",
+                         "CUSTOMER_DATA_EXPORTED=NO", "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(expected,s)
+        self.assertNotIn("RegisterTaskDefinition(",s)
+        self.assertNotIn("DeleteTask(",s)
+        self.assertNotIn("Method='POST'",s)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

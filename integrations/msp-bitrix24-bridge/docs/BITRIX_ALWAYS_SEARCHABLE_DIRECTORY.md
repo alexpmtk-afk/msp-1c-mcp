@@ -1,3 +1,18 @@
+## Machine-side offline staging (not a live Bitrix connection)
+
+`bin/stage-bitrix-outbound-code.ps1` prepares the already checked
+SRV's existing machine-owned `query-bitrix-search-index.ps1` with
+a backwards-compatible stdin/hex adapter and installs the inactive
+`bitrix-search-outbound-once.ps1` source only. Before changes it checks
+the accepted 6433-row DB, all safe-idle flags, old query script hash,
+main collector boot-OFF. It pins both new files by SHA-256, makes an
+atomic NTFS swap of just the query adapter, and retains the original
+adapter in machine-owned staging for possible rollback. No 1C access,
+no calls to Bitrix, no worker config, no worker token, no worker
+scheduler task, no outbound HTTPS. Do not re-run if failed or staged.
+A future explicit acceptance must test .NET System.Web.Extensions and
+real PS2 LOCAL SERVICE runtime before any live worker enablement.
+
 ## Prepared machine-only outbound Bitrix search worker (not deployed)
 
 `bin/bitrix-search-outbound-once.ps1` is PowerShell 2.0 (ASCII), code-only
