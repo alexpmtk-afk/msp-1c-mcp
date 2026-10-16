@@ -6,7 +6,6 @@ SRV connects outbound to /worker/*; never expose SRV IIS/SMB/SQLite.
 """
 from __future__ import annotations
 
-import base64
 from collections import deque
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -18,12 +17,15 @@ import threading
 import time
 from urllib.parse import parse_qs, urlsplit, urlencode
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError, URLError
 
 
 DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{2,190}[a-z0-9]$")
 GUID_RE = re.compile(r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$")
 MAX_SEARCH = 80
 MAX_RESULTS = 20
+APPROVED_PORTAL = "b24-uwmjda.bitrix24.ru"
+REQUIRED_PLACEMENT = "CRM_DETAIL_SEARCH"
 
 
 class NoRedirects(HTTPRedirectHandler):
@@ -97,22 +99,26 @@ class Queue:
 
 def is_authenticated_user(domain, token, timeout=5):
     """Check bearer credentials directly with the *fixed* authorized Bitrix24 host."""
-    if not token or len(token) > 512:
+    if domain != APPROVED_PORTAL or not token or len(token) > 512:
         return False
     url = "https://" + domain + "/rest/user.current.json"
     payload = urlencode({"auth": token}).encode("ascii")
     req = Request(url, data=payload, method="POST",
                   headers={"Content-Type": "application/x-www-form-urlencoded",
                            "Accept": "application/json"})
-    with build_opener(NoRedirects).open(req, timeout=timeout) as result:
-        parsed = urlsplit(result.geturl())
-        if parsed.scheme != "https" or parsed.hostname != domain:
-            return False
-        if result.status != 200:
-            return False
-        data = json.loads(result.read(16384))
-        value = data.get("result", {})
-        return isinstance(value, dict) and str(value.get("ID", "")).isdigit()
+    try:
+        with build_opener(NoRedirects).open(req, timeout=timeout) as result:
+            parsed = urlsplit(result.geturl())
+            if parsed.scheme != "https" or parsed.hostname != APPROVED_PORTAL:
+                return False
+            if result.status != 200:
+                return False
+            data = json.loads(result.read(16384))
+            value = data.get("result", {})
+            return isinstance(value, dict) and str(value.get("ID", "")).isdigit()
+    except (HTTPError, URLError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
 
 
 def iframe_html(items, portal, sdk):
@@ -148,6 +154,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.close_connection = True
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         for key, value in (extra or {}).items():
@@ -218,7 +226,14 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError()
             if args.get("member_id", [""])[0] != self.server.member_id:
                 raise ValueError()
-            if args.get("PLACEMENT", [""])[0] != "CRM_DETAIL_SEARCH":
+            placement_query = params.get("PLACEMENT", [])
+            placement_body = args.get("PLACEMENT", [])
+            if (len(placement_query) > 1 or len(placement_body) > 1 or
+                    (placement_query and placement_body and
+                     placement_query[0] != placement_body[0])):
+                raise ValueError()
+            placement = placement_query[0] if placement_query else (placement_body[0] if placement_body else "")
+            if placement != REQUIRED_PLACEMENT:
                 raise ValueError()
             auth = args.get("AUTH_ID", [""])[0]
             if not self.server.validator(domain, auth):
@@ -235,8 +250,8 @@ class Handler(BaseHTTPRequestHandler):
 class RelayServer(ThreadingHTTPServer):
     def __init__(self, host, port, portal, member_id, worker_token, sdk,
                  validator=is_authenticated_user):
-        if not DOMAIN_RE.fullmatch(portal) or not member_id:
-            raise ValueError("portal config invalid")
+        if portal != APPROVED_PORTAL or not re.fullmatch(r"[a-f0-9]{32}", member_id):
+            raise ValueError("portal/member config invalid")
         if len(worker_token) < 32 or len(worker_token) > 256:
             raise ValueError("worker secret too short")
         if not sdk.startswith("https://unpkg.com/@bitrix24/b24jssdk@1/"):
@@ -253,7 +268,7 @@ class RelayServer(ThreadingHTTPServer):
 
 
 if __name__ == "__main__":
-    portal = os.environ["MSP_B24_PORTAL"].lower()
+    portal = APPROVED_PORTAL
     member_id = os.environ["MSP_B24_MEMBER_ID"]
     token = os.environ["MSP_B24_WORKER_TOKEN"]
     sdk = "https://unpkg.com/@bitrix24/b24jssdk@1/dist/umd/index.min.js"

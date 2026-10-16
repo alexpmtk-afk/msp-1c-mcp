@@ -4,6 +4,10 @@ This prototype is **source only**. It has no production endpoint and has
 NOT been connected to the user's Bitrix24 portal. The S3 customer index
 remains on physical SRV; do not mirror the 6,433 rows to VPS.
 
+Authorized target portal (non-secret): **https://b24-uwmjda.bitrix24.ru/**.
+The relay enforces this exact domain in code; no other Bitrix24 portal is accepted.
+The portal's `member_id` is intentionally UNKNOWN and MUST come from an actual installed app event, never guessed.
+
 Target flow:
 1. Bitrix24 installed local app opens CRM_DETAIL_SEARCH iframe by HTTPS POST
    to `/bitrix/search?DOMAIN=<PINNED_PORTAL>`.
@@ -21,7 +25,7 @@ Target flow:
    source GUID mapping and separate acceptance. Not a complete production
    client creation flow.
 
-Deployment is BLOCKED until: exact Bitrix24 portal host and member ID,
+Deployment is BLOCKED until: confirmed member ID (portal host is pinned),
 OAuth local app installation, explicit approved public HTTPS hostname and
 reverse proxy, approved data transfer of query and up-to-20 results,
 rate limiting, secrets provisioning, SDK pinning/self-hosting, a strictly
@@ -38,3 +42,5 @@ Local tests: `python -m unittest discover -s bitrix_relay_tests -v`.
 References:
 - https://apidocs.bitrix24.ru/api-reference/widgets/crm/detail-search.html
 - https://apidocs.bitrix24.ru/api-reference/widgets/ui-interaction/bx24-placement-call.html
+
+Official CRM_DETAIL_SEARCH callbacks may put PLACEMENT in URL query (or the form); both are checked for consistency. The handler accepts only the exact placement and configured portal. Synthetic tests cover an authorized call and rejected foreign portal. This is NOT a verified portal login or deployed app.
