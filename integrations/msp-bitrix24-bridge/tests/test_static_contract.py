@@ -828,7 +828,7 @@ class BootstrapSafety(unittest.TestCase):
                          "state\\bitrix-worker-runtime-smoke-status.txt",
                          "WORKER_SCHEDULED_ALREADY", "COLLECTOR_AUTOSTART_ENABLED",
                          "PRIOR_UPGRADE_OR_WORKER_CONFIGURATION",
-                         "System.Management.Automation.PSParser",
+                         "Management.Automation.PSParser",
                          "File]::Replace(", "ROLLBACK_COPY_HASH_MISMATCH",
                          "bitrix-search-outbound-before-json1.ps1",
                          "bitrix-worker-json1-stage-accepted.txt",
