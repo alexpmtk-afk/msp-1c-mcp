@@ -781,6 +781,43 @@ class BootstrapSafety(unittest.TestCase):
                        "Get-Credential"):
             self.assertNotIn(forbid,s)
 
+    def test_json1_v2_offline_service_probe_and_runner_are_isolated(self):
+        probe=read("probe-bitrix-json1-service-v2.ps1")
+        runner=read("run-bitrix-json1-service-v2.ps1")
+        self.assertTrue(probe.isascii())
+        self.assertTrue(runner.isascii())
+        self.assertIn("MspCustomerStoreBitrixJson1V2",runner)
+        self.assertIn("MspCustomerStoreBitrixRuntimeSmoke",runner)
+        self.assertIn("bitrix-json1-v2-smoke-status.txt",probe)
+        self.assertIn("bitrix-json1-v2-smoke-status.txt",runner)
+        self.assertIn("bitrix-worker-runtime-smoke-status.txt",probe)
+        self.assertIn("bitrix-worker-runtime-smoke-status.txt",runner)
+        self.assertIn("STATUS=FAIL;GATE=RUNTIME_ERROR;PHASE=CLR_JSON_CAPABILITY",probe)
+        self.assertIn("STATUS=FAIL;GATE=RUNTIME_ERROR;PHASE=CLR_JSON_CAPABILITY",runner)
+        for item in ("S-1-5-19","json_valid(doc)", "json_type(doc)",
+                     "json_object(", ":memory:", "-readonly",
+                     "D0A2D0B5D181D182", "6433:6433", "customer_search_v1",
+                     "WORKER_ENABLED=NO", "NETWORK_CALLS=NO",
+                     "ONEC_CALLS=NO", "BITRIX_CALLS=NO"):
+            self.assertIn(item,probe)
+        for item in ("RegisterTaskDefinition(", "Triggers.Count -ne 0",
+                     "DeleteTask($taskName,0)", "MspCustomerStoreSync",
+                     "LOCAL_SERVICE_RUNTIME", "RUNTIME_ERROR",
+                     "NO_AUTOMATIC_RETRY=YES", "PROBE_HASH_MISMATCH",
+                     "PS2_PARSE_FAILED"):
+            self.assertIn(item,runner)
+        for item in ("System.Web.Extensions", "JavaScriptSerializer", "Invoke-WebRequest",
+                     "HttpWebRequest", "crm.company.add", "WriteAllText($db",
+                     "MspOnecHttpsAgentSystem", "DeleteTask('MspCustomerStoreSync'",
+                     "DeleteTask('MspCustomerStoreBitrixRuntimeSmoke'"):
+            self.assertNotIn(item,probe)
+            self.assertNotIn(item,runner)
+        self.assertNotIn("RegisterTaskDefinition(",probe)
+        self.assertNotIn("DeleteTask(",probe)
+        self.assertNotIn("Triggers.Create(",runner)
+        self.assertIn("cfcdb5a92bac85853d3617663f64928906286e57",runner)
+        self.assertIn("a17ee3e71fc7f95cc957fbdd0835c2d4489335baf5b9928bddd6a5c330ada2fc",runner)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
