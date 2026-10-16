@@ -70,7 +70,7 @@ try{
  if(([IO.File]::GetAttributes($backupDir) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Fail 'BACKUP_DIRECTORY_REPARSE'}
  $backup=Join-Path $backupDir 'customers-pre-bitrix-search-v1.db'
  if([IO.File]::Exists($backup)){Fail 'PREVIOUS_BACKUP_REQUIRES_DIAGNOSIS'}
- $command='.backup "'+$backup.Replace('\\','/')+'"'
+ $command='.backup "'+$backup.Replace('\','/')+'"'
  $backupResult=@(& $exe -readonly -batch -bail $db $command 2>&1)
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($backup)){Fail 'SQLITE_BACKUP_FAILED'}
  if(([IO.FileInfo]$backup).Length -lt 8192){Fail 'BACKUP_TOO_SMALL'}
