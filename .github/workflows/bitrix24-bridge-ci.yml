@@ -194,14 +194,13 @@ jobs:
           $db=Join-Path $env:RUNNER_TEMP 'msp-search-fts5-test.db'
           if([IO.File]::Exists($db)){throw 'FTS_TEST_DB_COLLISION'}
           $q=@'
-CREATE TABLE customers(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);
-INSERT INTO customers VALUES('00000001-0000-0000-0000-000000000000','LEGAL','ООО Ромашка','Общество Ромашка','', '7701001112',1,0,0,0);
-INSERT INTO customers VALUES('00000002-0000-0000-0000-000000000000','PERSON','Петров Иван','','Петров Иван','',1,0,0,0);
-INSERT INTO customers VALUES('00000003-0000-0000-0000-000000000000','REVIEW','Елена Сидорова','','','',1,0,0,1);
-CREATE VIRTUAL TABLE customer_search_v1 USING fts5(onec_guid UNINDEXED,name_short,name_full,person_name,inn,tokenize='trigram');
-INSERT INTO customer_search_v1 SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers;
-'@
-          $psi=New-Object Diagnostics.ProcessStartInfo
+          CREATE TABLE customers(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);
+          INSERT INTO customers VALUES('00000001-0000-0000-0000-000000000000','LEGAL','ООО Ромашка','Общество Ромашка','', '7701001112',1,0,0,0);
+          INSERT INTO customers VALUES('00000002-0000-0000-0000-000000000000','PERSON','Петров Иван','','Петров Иван','',1,0,0,0);
+          INSERT INTO customers VALUES('00000003-0000-0000-0000-000000000000','REVIEW','Елена Сидорова','','','',1,0,0,1);
+          CREATE VIRTUAL TABLE customer_search_v1 USING fts5(onec_guid UNINDEXED,name_short,name_full,person_name,inn,tokenize='trigram');
+          INSERT INTO customer_search_v1 SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers;
+          '@          $psi=New-Object Diagnostics.ProcessStartInfo
           $psi.FileName=$exe
           $psi.Arguments='-batch -bail "'+$db+'"'
           $psi.UseShellExecute=$false
