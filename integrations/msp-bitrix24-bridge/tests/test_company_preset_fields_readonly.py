@@ -17,12 +17,14 @@ class PresetFieldSafety(unittest.TestCase):
                      "bitrix-direct-company-preset-fields-readonly-status.txt",
                      "DIRECT_BITRIX_COMPANY_PRESET_FIELDS=PASS",
                      "CRM_WRITES=NO", "ONEC_CALLS=NO",
-                     "CUSTOMER_DATA_EXPORTED=NO", "WEBHOOK_SAVED=NO"):
+                     "CUSTOMER_DATA_EXPORTED=NO", "WEBHOOK_SOURCE=MACHINE_DPAPI",
+                     "WEBHOOK_SAVED=YES_ENCRYPTED", "WEBHOOK_NOT_ENROLLED"):
             self.assertIn(term,s)
         for term in ("crm.item.add", "crm.item.update", "crm.item.delete",
                      "crm.requisite.add", "crm.requisite.update",
                      "Invoke-WebRequest","ConvertFrom-Json", "RegisterTaskDefinition("):
             self.assertNotIn(term,s)
+        self.assertNotIn('Read-Host',s)
 
     def test_json1_field_name_counts(self):
         con=sqlite3.connect(":memory:")
