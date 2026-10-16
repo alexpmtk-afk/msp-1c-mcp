@@ -1,0 +1,222 @@
+name: 1C Natural Stock Schema and Wire Offline Validation
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows/onec-natural-stock-schema-preflight.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-runner.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-once.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
+      - 'scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
+      - 'scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-v3.ps1'
+      - 'scripts/windows/onec-natural-stock-schema-v4.ps1'
+      - 'scripts/windows/onec-natural-stock-v3-once.ps1'
+      - 'src/msp_onec_mcp/natural_stock_contract.py'
+      - 'src/msp_onec_mcp/natural_stock_resolution.py'
+      - 'src/msp_onec_mcp/natural_stock_odata_pages.py'
+      - 'src/msp_onec_mcp/natural_stock_vps.py'
+      - 'src/msp_onec_mcp/onec_stock_stdio.py'
+      - 'tests/test_onec_natural_stock_contract.py'
+      - 'tests/test_onec_natural_stock_resolution.py'
+      - 'tests/test_onec_natural_stock_odata_pages.py'
+      - 'tests/test_onec_natural_stock_vps.py'
+      - 'tests/test_onec_stock_stdio.py'
+      - '.github/workflows/onec-natural-stock-ci.yml'
+permissions:
+  contents: read
+jobs:
+  unicode-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test Unicode article / warehouse transport and reject unsafe input
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'pytest>=8,<10'
+          PYTHONPATH=src python -m pytest -q tests/test_onec_natural_stock_contract.py tests/test_onec_natural_stock_resolution.py tests/test_onec_natural_stock_odata_pages.py tests/test_onec_natural_stock_vps.py tests/test_onec_stock_stdio.py
+  windows-readonly-schema:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Parse PS2 syntax and verify read-only OData schema boundaries
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $path='scripts/windows/onec-natural-stock-schema-preflight.ps1'
+          $bytes=[IO.File]::ReadAllBytes($path)
+          if($bytes.Length -lt 5 -or $bytes[0] -ne 239 -or $bytes[1] -ne 187 -or $bytes[2] -ne 191) {
+            throw 'UTF8_BOM_REQUIRED_FOR_PS2'
+          }
+          $script=[IO.File]::ReadAllText($path)
+          if(-not $script.TrimStart([char]0xFEFF).StartsWith('#requires -version 2')) {
+            throw 'PS2_GUARD_MISSING'
+          }
+          $errors=$null
+          $null=[Management.Automation.PSParser]::Tokenize($script,[ref]$errors)
+          if($errors -and $errors.Count -gt 0) { throw 'PS2_SYNTAX_INVALID' }
+          foreach($required in @('S-1-5-19','MCP_OData_ReadOnly',
+            '127.0.0.1:8085/NewBase/odata/standard.odata/',
+            "Method='GET'",'AllowAutoRedirect=$false',
+            'ProtectedData]::Unprotect','DtdProcessing','Prohibit',
+            'MaxCharactersInDocument','EscapeDataString',
+            'PropertyNames','warehouseCandidates',
+            'articlePresent','EXAMPLE_ARTICLE_MATCHES',
+            'RAW_NOMENCLATURE_AND_GUIDS_EXPORTED=NO','DATA_WRITES=NO')) {
+            if(-not $script.Contains($required)) { throw ('MISSING_GUARD='+$required) }
+          }
+          foreach($bad in @('Invoke-Expression','Invoke-RestMethod','Start-Process',
+            'RegisterTaskDefinition','New-ScheduledTask','Invoke-Command',
+            'HttpListener','WebClient','POST','PUT','DELETE')) {
+            if($script -cmatch ('\b'+[regex]::Escape($bad)+'\b')) {
+              throw ('UNSAFE_ACTION='+$bad)
+            }
+          }
+          $runnerPath='scripts/windows/onec-natural-stock-schema-runner.ps1'
+          $oncePath='scripts/windows/onec-natural-stock-schema-once.ps1'
+          $bootstrapPath='scripts/windows/onec-natural-stock-schema-bootstrap.ps1'
+          $v2RunnerPath='scripts/windows/onec-natural-stock-forensic-v2-runner.ps1'
+          $v2OncePath='scripts/windows/onec-natural-stock-forensic-v2-once.ps1'
+          $v3HelperPath='scripts/windows/onec-natural-stock-schema-v3.ps1'
+          $v4HelperPath='scripts/windows/onec-natural-stock-schema-v4.ps1'
+          $v3OncePath='scripts/windows/onec-natural-stock-v3-once.ps1'
+          foreach($file in @($runnerPath,$oncePath,$bootstrapPath,$v2RunnerPath,$v2OncePath,$v3HelperPath,$v3OncePath,$v4HelperPath)) {
+            $raw=[IO.File]::ReadAllBytes($file)
+            if($raw.Length -lt 4 -or $raw[0] -ne 239 -or $raw[1] -ne 187 -or $raw[2] -ne 191) {
+              throw ('UTF8_BOM_MISSING='+$file)
+            }
+            $code=[IO.File]::ReadAllText($file)
+            $errors=$null
+            $null=[Management.Automation.PSParser]::Tokenize($code,[ref]$errors)
+            if($errors -and $errors.Count -gt 0) {
+              foreach($e in $errors) { Write-Output ('PARSE_ERROR='+$file+'|'+$e.Message) }
+              throw ('PS2_PARSE_FAIL='+$file)
+            }
+            if(-not $code.TrimStart([char]0xFEFF).StartsWith('#requires -version 2')) {
+              throw ('PS2_GUARD_MISSING='+$file)
+            }
+          }
+          $runner=[IO.File]::ReadAllText($runnerPath)
+          foreach($expected in @('S-1-5-19','natural-stock-schema-report.txt',
+            'ONEC_NATURAL_STOCK_ONESHOT_RESULT','EXAMPLE_(ARTICLE|CODE)_MATCHES')) {
+            if(-not $runner.Contains($expected)) { throw ('RUNNER_GUARD_MISSING='+$expected) }
+          }
+          $installer=[IO.File]::ReadAllText($oncePath)
+          foreach($expected in @('MspOnecNaturalSchemaOnce','GetTask',
+            'MspOnecHttpsAgentSystem','SYSTEM_TASK_CHANGED=NO',
+            'Triggers.Count -ne 0','RegisterTaskDefinition',
+            'STAGED_HASH_MISMATCH','ADMIN_REQUIRED','S-1-5-19',
+            'DeleteTask($taskName,0)')) {
+            if(-not $installer.Contains($expected)) { throw ('ONESHOT_GUARD_MISSING='+$expected) }
+          }
+          if($runner -match 'RegisterTaskDefinition|New-ScheduledTask|Invoke-Expression' -or
+              $installer -match 'Start-ScheduledTask|Invoke-Expression|RegisterService') {
+            throw 'ONE_SHOT_UNSAFE_OPERATION'
+          }
+          $bootstrap=[IO.File]::ReadAllText($bootstrapPath)
+          foreach($required in @('ADMIN_REQUIRED','STAGING_ALREADY_PRESENT',
+            'PINNED_FILE_DOWNLOAD_FAILED','BlobHash $target','--max-redirs',
+            '--cacert',$null)) {
+            if($null -ne $required -and -not $bootstrap.Contains($required)) {
+              throw ('BOOTSTRAP_GUARD_MISSING='+$required)
+            }
+          }
+          if($bootstrap -match 'Invoke-Expression|RegisterTaskDefinition|Start-Service|New-ScheduledTask') { throw 'BOOTSTRAP_PRIVILEGE_BYPASS' }
+          $v2Runner=[IO.File]::ReadAllText($v2RunnerPath)
+          $v2Once=[IO.File]::ReadAllText($v2OncePath)
+          foreach($needle in @('natural-stock-schema-report-v2.txt',
+            'RESULT=FAIL;STAGE=(PRECHECK|SCHEMA_GET|EXACT_ARTICLE_FILTER)',
+            'PROBE_PHASE=','PROBE_RESULT=','S-1-5-19')) {
+            if(-not $v2Runner.Contains($needle)) {
+              throw ('FORENSIC_RUNNER_GUARD_MISSING='+$needle)
+            }
+          }
+          foreach($needle in @('MspOnecNaturalSchemaForensicV2',
+            'MspOnecHttpsAgentSystem','existingHelperBlob','RUN_READONLY_FORENSIC',
+            'Triggers.Count -ne 0','GitBlob $helper',
+            'V2_TASK_CLEANUP=PASS','FORENSIC_V2_ALREADY_STARTED')) {
+            if(-not $v2Once.Contains($needle)) {
+              throw ('FORENSIC_INSTALL_GUARD_MISSING='+$needle)
+            }
+          }
+          if($v2Runner -match 'RegisterTaskDefinition|New-ScheduledTask|Invoke-Expression' -or
+             $v2Once -match 'Invoke-Expression|Start-Service|Restart-Service|New-ScheduledTask') {
+            throw 'FORENSIC_UNSAFE_OPERATION'
+          }
+          $v3=[IO.File]::ReadAllText($v3HelperPath)
+          $v3Once=[IO.File]::ReadAllText($v3OncePath)
+          foreach($needle in @('S-1-5-19','MCP_OData_ReadOnly',
+            '127.0.0.1:8085/NewBase/odata/standard.odata/',
+            'ProhibitDtd=$true','XmlResolver=$null','MaxCharactersInDocument=16777216',
+            "Method='GET'",'AllowAutoRedirect=$false',
+            'METADATA_HTTP_GET','METADATA_XML_PARSE','SCHEMA_PROPERTY_MAP',
+            'EXACT_CODE_FILTER','EXACT_ARTICLE_FILTER',
+            'ODATA_ACCESS_DENIED','ODATA_RESPONSE_TOO_LARGE',
+            'natural-stock-schema-report-v3.txt','DATA_WRITES','NO')) {
+            if(-not $v3.Contains($needle)) { throw ('V3_HELPER_GUARD_MISSING='+$needle) }
+          }
+          if($v3.Contains('DtdProcessing]::') -or
+             $v3 -match 'Invoke-Expression|Invoke-RestMethod|Start-Service|RegisterTaskDefinition|New-ScheduledTask|WebClient|HttpListener') {
+            throw 'V3_UNSAFE_HELPER'
+          }
+          foreach($needle in @('MspOnecNaturalSchemaV3',
+            'MspOnecHttpsAgentSystem','V2_EVIDENCE_MISSING',
+            'f8f34426e1be4cb4d14a9003774e4876b1167698',
+            'GitBlob $v1','Triggers.Count -ne 0',
+            'STAGE=REPORT_CAPTURE_ONLY')) {
+            if(-not $v3Once.Contains($needle)) {
+              throw ('V3_ONESHOT_GUARD_MISSING='+$needle)
+            }
+          }
+          if($v3Once -match 'Invoke-Expression|Start-Service|Restart-Service|New-ScheduledTask') {
+            throw 'V3_ONESHOT_UNSAFE'
+          }
+          # ProhibitDtd exists on CLR2 and should reject inline DTD on CI host too.
+          $settings=New-Object System.Xml.XmlReaderSettings
+          $settings.ProhibitDtd=$true
+          $settings.XmlResolver=$null
+          $settings.MaxCharactersInDocument=1024
+          $inputXml='<!DOCTYPE foo [<!ENTITY x "abc">]><foo>&x;</foo>'
+          $reader=New-Object System.IO.StringReader -ArgumentList @($inputXml)
+          $reject=$false
+          $xr=$null
+          try {
+            $xr=[Xml.XmlReader]::Create($reader,$settings)
+            while($xr.Read()) {}
+          } catch [Xml.XmlException] {
+            $reject=$true
+          } finally {
+            if($null -ne $xr) { $xr.Close() }
+            $reader.Close()
+          }
+          if(-not $reject) { throw 'DTD_NOT_PROHIBITED' }
+          $v4=[IO.File]::ReadAllText($v4HelperPath)
+          foreach($needle in @('ProhibitDtd=$true','XmlResolver=$null',
+            'MAX','METADATA_HTTP_GET','METADATA_XML_PARSE',
+            'KNOWN_NAME_MATCHES','EXAMPLE_UPPER_MATCHES',
+            'WAREHOUSE_HTTP_GET','BALANCE_ROUTE_HTTP',
+            'Balance(Dimensions=',
+            "Method='GET'",'DATA_WRITES')) {
+            if(-not $v4.Contains($needle) -and $needle -ne 'MAX') {
+              throw ('V4_READONLY_GUARD_MISSING='+$needle)
+            }
+          }
+          if($v4 -match 'Invoke-Expression|Invoke-RestMethod|Start-Service|RegisterTaskDefinition|New-ScheduledTask|WebClient|HttpListener') {
+            throw 'V4_UNSAFE_OPERATION'
+          }
+          'ONEC_V4_FIXED_GET_STATIC=PASS'
+          'ONEC_V3_CLR2_SAFE_STATIC=PASS'
+          'ONEC_FORENSIC_V2_STATIC=PASS'
+          'ONEC_ONESHOT_PS2_STATIC=PASS'
+          'ONEC_SCHEMA_PS2_STATIC=PASS'
+          'NATIVE_SERVER_2008_R2_RUNTIME=NOT_TESTED'
+          'LIVE_ODATA_ARTICLE_MATCH=NOT_TESTED'

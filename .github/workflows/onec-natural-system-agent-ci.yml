@@ -1,0 +1,434 @@
+name: 1C NewBase natural LocalService agent PS2 safety
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows/onec-system-odata-natural.ps1'
+      - 'scripts/windows/onec-system-probe-poll.ps1'
+      - 'scripts/windows/onec-natural-live-smoke-runner.ps1'
+      - 'scripts/windows/onec-natural-agent-cutover.ps1'
+      - 'scripts/windows/onec-natural-agent-cutover-v2.ps1'
+      - 'scripts/windows/onec-natural-agent-final-cutover.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-once.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-v2.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-v2-once.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-v3.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-v3-once.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-v4.ps1'
+      - 'scripts/windows/onec-natural-installed-child-probe-v4-once.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-helper.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-once.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-helper-v2.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-v2-once.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-helper-v3.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-v3-once.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-v3-prefetched-once.ps1'
+      - 'scripts/windows/onec-natural-diagnostic-helper-v4-card-smoke.ps1'
+      - 'scripts/windows/onec-natural-card-smoke-v4-prefetched-once.ps1'
+      - 'scripts/windows/onec-legacy-json.ps1'
+      - 'scripts/windows/onec-natural-stock-json-writer.ps1'
+      - 'tests/windows/test_onec_legacy_json.ps1'
+      - 'tests/windows/test_onec_natural_json_writer.ps1'
+      - 'tests/windows/test_onec_natural_stdout_contract.ps1'
+      - 'tests/windows/test_onec_natural_all_warehouses_contract.ps1'
+      - 'src/msp_onec_mcp/onec_stock_stdio.py'
+      - 'src/msp_onec_mcp/natural_stock_vps.py'
+      - 'tests/test_onec_natural_stock_vps.py'
+      - 'tests/test_onec_stock_stdio.py'
+      - '.github/workflows/onec-natural-system-agent-ci.yml'
+permissions:
+  contents: read
+jobs:
+  powershell-compat:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Parse PS2 scripts, bound allowed operations and block caller-controlled URLs
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $helper='scripts/windows/onec-system-odata-natural.ps1'
+          $poller='scripts/windows/onec-system-probe-poll.ps1'
+          $smoke='scripts/windows/onec-natural-live-smoke-runner.ps1'
+          $installer='scripts/windows/onec-natural-agent-cutover.ps1'
+          $retry='scripts/windows/onec-natural-agent-cutover-v2.ps1'
+          $final='scripts/windows/onec-natural-agent-final-cutover.ps1'
+          $installedProbe='scripts/windows/onec-natural-installed-child-probe.ps1'
+          $installedProbeOnce='scripts/windows/onec-natural-installed-child-probe-once.ps1'
+          $shapeProbe='scripts/windows/onec-natural-installed-child-probe-v2.ps1'
+          $shapeProbeOnce='scripts/windows/onec-natural-installed-child-probe-v2-once.ps1'
+          $shapeProbeV3='scripts/windows/onec-natural-installed-child-probe-v3.ps1'
+          $shapeOnceV3='scripts/windows/onec-natural-installed-child-probe-v3-once.ps1'
+          $shapeV4='scripts/windows/onec-natural-installed-child-probe-v4.ps1'
+          $shapeOnceV4='scripts/windows/onec-natural-installed-child-probe-v4-once.ps1'
+          $diag='scripts/windows/onec-natural-diagnostic-once.ps1'
+          $diagHelper='scripts/windows/onec-natural-diagnostic-helper.ps1'
+          $diagV2Helper='scripts/windows/onec-natural-diagnostic-helper-v2.ps1'
+          $diagV2='scripts/windows/onec-natural-diagnostic-v2-once.ps1'
+          $diagV3Helper='scripts/windows/onec-natural-diagnostic-helper-v3.ps1'
+          $diagV3='scripts/windows/onec-natural-diagnostic-v3-once.ps1'
+          $diagV3Prefetch='scripts/windows/onec-natural-diagnostic-v3-prefetched-once.ps1'
+          $cardV4='scripts/windows/onec-natural-card-smoke-v4-prefetched-once.ps1'
+          $cardV4Helper='scripts/windows/onec-natural-diagnostic-helper-v4-card-smoke.ps1'
+          $jsonLibrary='scripts/windows/onec-legacy-json.ps1'
+          $jsonWriter='scripts/windows/onec-natural-stock-json-writer.ps1'
+          $jsonTests='tests/windows/test_onec_legacy_json.ps1'
+          $writerTests='tests/windows/test_onec_natural_json_writer.ps1'
+          $stdoutTests='tests/windows/test_onec_natural_stdout_contract.ps1'
+          $allWarehouseTests='tests/windows/test_onec_natural_all_warehouses_contract.ps1'
+          foreach($path in @($helper,$poller,$smoke,$installer,$retry,$final,$installedProbe,$installedProbeOnce,$shapeProbe,$shapeProbeOnce,$shapeProbeV3,$shapeOnceV3,$shapeV4,$shapeOnceV4,$diag,$diagHelper,$diagV2,$diagV2Helper,$diagV3,$diagV3Prefetch,$diagV3Helper,$cardV4,$cardV4Helper,$jsonLibrary,$jsonWriter,$jsonTests,$writerTests,$stdoutTests,$allWarehouseTests)) {
+            $bytes=[IO.File]::ReadAllBytes($path)
+            if($bytes.Length -lt 6 -or $bytes[0] -ne 239 -or $bytes[1] -ne 187 -or $bytes[2] -ne 191) {
+              throw ('PS2_UTF8_BOM_REQUIRED='+$path)
+            }
+            $s=[IO.File]::ReadAllText($path,[Text.Encoding]::UTF8)
+            if(-not $s.TrimStart([char]0xFEFF).StartsWith('#requires -version 2')) {
+              throw ('PS2_GUARD_MISSING='+$path)
+            }
+            $errors=$null
+            $null=[Management.Automation.PSParser]::Tokenize($s,[ref]$errors)
+            if($errors -and $errors.Count -gt 0) {
+              foreach($e in $errors) { Write-Output ('PARSE_ERROR='+$path+'|'+$e.Message) }
+              throw ('PS2_PARSE_FAILED='+$path)
+            }
+            if($s -cmatch '(?<![A-Za-z])-(c?notin|c?in)\b') { throw ('PS3_OPERATOR_USED='+$path) }
+            if($s -match 'Invoke-Expression|Invoke-Command|New-ScheduledTask|Start-Service|Restart-Service' -or
+               ($path -notin @($installer,$retry,$final,$installedProbeOnce,$shapeProbeOnce,$shapeOnceV3,$shapeOnceV4,$diag,$diagV2,$diagV3,$diagV3Prefetch,$cardV4) -and $s -match 'RegisterTaskDefinition')) {
+              throw ('UNSAFE_HELPER_OPERATION='+$path)
+            }
+          }
+          $h=[IO.File]::ReadAllText($helper,[Text.Encoding]::UTF8)
+          foreach($required in @('S-1-5-19','MCP_OData_ReadOnly','ProtectedData]::Unprotect',
+            '127.0.0.1:8085/NewBase/odata/standard.odata/',
+            'Catalog_','Catalog_',
+            'AccumulationRegister_','Balance(',
+            "Method='GET'",'AllowAutoRedirect=$false',
+            'ROW_PRESENT','NO_BALANCE_ROW','Description',
+            'MspLegacyJson',
+            'DeserializeObject','NAT_')) {
+            if(-not $h.Contains($required)) { throw ('NATURAL_HELPER_GUARD_MISSING='+$required) }
+          }
+          $p=[IO.File]::ReadAllText($poller,[Text.Encoding]::UTF8)
+          foreach($required in @('odata_stock_selected','odata_natural_stock',
+            '/v1/agent/poll','/v1/agent/result','/v1/agent/natural-result',
+            'NATURAL_RESULT_RECOVERED=YES','NATURAL_ACK_MISMATCH',
+            'VERSION=ODATA_NATURAL_V1','VERSION=ODATA_SELECTED_V1')) {
+            if(-not $p.Contains($required)) { throw ('NATURAL_POLLER_GUARD_MISSING='+$required) }
+          }
+          $accept=[IO.File]::ReadAllText($smoke,[Text.Encoding]::UTF8)
+          foreach($needle in @('S-1-5-19','NAT_','OBSERVED_STOCK_6=PASS',
+            'MISSING_BALANCE_QUALIFIED_ZERO=PASS',
+            'natural-stock-live-smoke.txt','RESULT=PASS',
+            'MspLegacyJson')) {
+            if(-not $accept.Contains($needle)) { throw ('SMOKE_GUARD_MISSING='+$needle) }
+          }
+          $install=[IO.File]::ReadAllText($installer,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspOnecHttpsAgentSystem','MspOnecNaturalAcceptanceOnce',
+            'SRV','ADMIN_REQUIRED','S-1-5-19','LocalService',
+            'c7ad87b2d6ec41b0124a083d1bdf3305f5aee71f',
+            '006a0b618575b4ab3a00b54c2863a436841e00ed',
+            '31e15a0dcd6a6c23a879a9d121f400344d4b9fac',
+            '5aa96846681bd51441d2cbc5c25a3d5250506ad9',
+            'PINNED_SOURCE_HASH_MISMATCH','LIVE_ODATA_SMOKE_FAILED',
+            'File]::Replace','PREVIOUS_AGENT_ROLLBACK=PASS',
+            'ONE_SHOT_TASK_CLEANUP=PASS','NEW_AGENT_AUTOMATIC_HEARTBEAT=PASS')) {
+            if(-not $install.Contains($needle)) {
+              throw ('CUTOVER_GUARD_MISSING='+$needle)
+            }
+          }
+          if($install.IndexOf("LIVE_ODATA_SMOKE_FAILED") -gt
+             $install.IndexOf("ATOMIC_UPDATE_POLLING_SCRIPT")) {
+            throw 'CUTOVER_PROBE_ORDER_UNSAFE'
+          }
+          $dia=[IO.File]::ReadAllText($diag,[Text.Encoding]::UTF8)
+          foreach($needle in @('S-1-5-19','MspOnecNaturalDiagnosticOnce',
+            'OPERATING_AGENT_UNCHANGED=YES','25b692b7f4baf63667a6f25462846877371b8dc6',
+            'natural-stock-diagnostic-result.txt','SOURCE_HASH_MISMATCH',
+            'TEMPORARY_TASK_CLEANUP=PASS')) {
+            if(-not $dia.Contains($needle)) {
+              throw ('DIAG_STAGE_GUARD_MISSING='+$needle)
+            }
+          }
+          $dh=[IO.File]::ReadAllText($diagHelper,[Text.Encoding]::UTF8)
+          foreach($needle in @('S-1-5-19','STAGE=','REASON=','ERROR_TYPE=',
+            'RESULT=FAIL','DATA','INVALID_ODATA_PAYLOAD','HTTP_400',
+            'natural-stock-diagnostic-result.txt')) {
+            if(-not $dh.Contains($needle)) {
+              throw ('DIAG_HELPER_GUARD_MISSING='+$needle)
+            }
+          }
+          $v4=[IO.File]::ReadAllText($cardV4,[Text.Encoding]::UTF8)
+          $v4Helper=[IO.File]::ReadAllText($cardV4Helper,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspOnecNaturalV4CardSmokeOnce',
+            'V3_READONLY_DIAGNOSTIC_NOT_ACCEPTED',
+            'natural-stock-v4-card-smoke-result.txt','OPERATING_AGENT_UNCHANGED=YES',
+            'TEMPORARY_TASK_CLEANUP=PASS','c30c849e089740c054b4d926c9fd66833ba6addf')) {
+            if(-not $v4.Contains($needle)) { throw ('V4_CARD_RUNNER_GUARD_MISSING='+$needle) }
+          }
+          foreach($needle in @('ASSERT_TWO_REAL_CARDS',
+            'CARD_FIRST_BALANCE_CHANGED','CARD_SECOND_BALANCE_CHANGED',
+            'EXPECTED_CARD_MISSING','NO_BALANCE_ROW',
+            'natural-stock-v4-card-smoke-result.txt')) {
+            if(-not $v4Helper.Contains($needle)) {
+              throw ('V4_CARD_ACCEPTANCE_GUARD_MISSING='+$needle)
+            }
+          }
+          $blobV4=(& git hash-object -- $cardV4Helper).Trim()
+          if($LASTEXITCODE -ne 0 -or $blobV4 -ne 'c30c849e089740c054b4d926c9fd66833ba6addf') {
+            throw 'V4_CARD_ACCEPTANCE_SOURCE_PIN_INVALID'
+          }
+          if($v4.Contains('raw.githubusercontent.com') -or
+             $v4.Contains('& $curl @')) {
+            throw 'V4_CARD_RUNNER_MUST_USE_VERIFIED_PREFETCH'
+          }
+          'ONEC_NATURAL_V4_CARD_SMOKE_STATIC=PASS'
+          $installed=[IO.File]::ReadAllText($installedProbe,[Text.Encoding]::UTF8)
+          $once=[IO.File]::ReadAllText($installedProbeOnce,[Text.Encoding]::UTF8)
+          foreach($must in @('INVOKE_INSTALLED_HELPER','CHILD_EXIT_ZERO=',
+             'STDOUT_COUNT=','NAT_WIRE_SHAPE=','DECODED_STATUS=',
+             'DECODED_CARD_COUNT=','natural-stock-installed-child-result.txt',
+             'onec-system-odata-natural.ps1','S-1-5-19')) {
+             if(-not $installed.Contains($must)){throw ('INSTALLED_CHILD_CHECK_MISSING='+$must)}
+          }
+          foreach($must in @('MspOnecInstalledNaturalProbeOnce',
+             'RegisterTaskDefinition','TEMPORARY_TASK_CLEANUP=PASS',
+             'OPERATING_AGENT_CHANGED=NO','6f1912394d44418f14c136e2c3c21c5784bea911',
+             'SOURCE_SHA_MISMATCH','DIAGNOSTIC_ALREADY_PRESENT',
+             'natural-stock-installed-child-result.txt')) {
+             if(-not $once.Contains($must)){throw ('INSTALLED_ONE_SHOT_GUARD_MISSING='+$must)}
+          }
+          if($once.Contains('raw.githubusercontent.com') -or
+             $once.Contains('& $curl @') -or
+             $installed.Contains('RegisterTaskDefinition')) {
+             throw 'INSTALLED_CHILD_PROBE_UNSAFE_REMOTE_OR_TASK'
+          }
+          $shape=[IO.File]::ReadAllText($shapeProbe,[Text.Encoding]::UTF8)
+          $shapeRunner=[IO.File]::ReadAllText($shapeProbeOnce,[Text.Encoding]::UTF8)
+          foreach($needle in @('STDOUT_ITEM_COUNT=','NAT_ITEM_COUNT=',
+              'NAT_STATUS=','NAT_CARD_COUNT=','OTHER_SHORT=','OTHER_MEDIUM=',
+              'OTHER_LONG=','OTHER_NONSTRING=','OTHER_EMPTY=',
+              'natural-stock-installed-child-shape-v2.txt',
+              'INSTALLED_HASH_MISMATCH')) {
+              if(-not $shape.Contains($needle)) {throw ('SHAPE_PROBE_GUARD_MISSING='+$needle)}
+          }
+          foreach($needle in @('MspOnecInstalledNaturalShapeV2Once',
+              'RegisterTaskDefinition','TEMPORARY_TASK_CLEANUP=PASS',
+              'PREVIOUS_PROBE_NOT_CONFIRMED','OPERATING_AGENT_CHANGED=NO',
+              '23c62c67d55b2ab56da31b6335ba51771486e7f2',
+              'INVALID_REPORT_LINE_COUNT','natural-stock-installed-child-shape-v2.txt')) {
+              if(-not $shapeRunner.Contains($needle)) {throw ('SHAPE_RUNNER_GUARD_MISSING='+$needle)}
+          }
+          if($shape.Contains('RegisterTaskDefinition') -or
+             $shape.Contains('raw.githubusercontent.com') -or
+             $shapeRunner.Contains('raw.githubusercontent.com')){
+             throw 'SHAPE_PROBE_TASK_OR_REMOTE_FORBIDDEN'
+          }
+          if(((& git hash-object -- $shapeProbe).Trim()) -ne
+             '23c62c67d55b2ab56da31b6335ba51771486e7f2') {
+             throw 'SHAPE_PROBE_SOURCE_HASH_INVALID'
+          }
+          'INSTALLED_HELPER_STDOUT_SHAPE_V2_STATIC=PASS'
+          $thirdShape=[IO.File]::ReadAllText($shapeProbeV3,[Text.Encoding]::UTF8)
+          $thirdRunner=[IO.File]::ReadAllText($shapeOnceV3,[Text.Encoding]::UTF8)
+          foreach($needle in @('NAT_COUNT=','NAT_STATUS=','NAT_TWO_CARDS=',
+            'EXTRA_ASCII=','EXTRA_NONASCII=','EXTRA_DIAGNOSTIC_LIKE=',
+            'EXTRA_TYPE_LIKE=','STDOUT_COUNT=','[IO.File]::WriteAllLines',
+            'natural-stock-installed-child-shape-v3.txt')) {
+            if(-not $thirdShape.Contains($needle)) {
+              throw ('INSTALLED_V3_SHAPE_GUARD_MISSING='+$needle)
+            }
+          }
+          foreach($needle in @('MspOnecInstalledNaturalShapeV3Once',
+            'PREVIOUS_PROBE_NOT_CONFIRMED','STDOUT_ITEM_COUNT=12',
+            'NAT_ITEM_COUNT=1','TEMPORARY_TASK_CLEANUP=PASS',
+            'd0b67dec4959902370c58fce7ee9f38cbd434ce8',
+            'INVALID_REPORT_LINE_COUNT','OPERATING_AGENT_CHANGED=NO')) {
+            if(-not $thirdRunner.Contains($needle)) {
+              throw ('INSTALLED_V3_RUNNER_GUARD_MISSING='+$needle)
+            }
+          }
+          if($thirdShape.Contains('RegisterTaskDefinition') -or
+             $thirdShape.Contains('raw.githubusercontent.com') -or
+             $thirdRunner.Contains('raw.githubusercontent.com')) {
+             throw 'INSTALLED_V3_SHAPE_UNSAFE'
+          }
+          if(((& git hash-object -- $shapeProbeV3).Trim()) -ne
+               'd0b67dec4959902370c58fce7ee9f38cbd434ce8') {
+            throw 'INSTALLED_V3_SHAPE_BLOB_CHANGED'
+          }
+          'ONEC_INSTALLED_NAT_STDOUT_V3_CLASSIFIER_STATIC=PASS'
+          $pattern=[IO.File]::ReadAllText($shapeV4,[Text.Encoding]::UTF8)
+          $controller=[IO.File]::ReadAllText($shapeOnceV4,[Text.Encoding]::UTF8)
+          foreach($needle in @('NAT_MATCH_COUNT=','NAT_CODE_FIELDS=',
+            'EXTRA_GUID_LIKE=','EXTRA_PATH_LIKE=','EXTRA_KEYVALUE_LIKE=',
+            'EXTRA_BASE64_LIKE=','EXTRA_WITH_SPACES=','EXTRA_PURE_ALPHA=',
+            '[IO.File]::WriteAllLines','string[] 27')) {
+            if(-not $pattern.Contains($needle)) {throw ('PATTERN_V4_REQUIRED='+$needle)}
+          }
+          foreach($needle in @('MspOnecInstalledNaturalPatternV4Once',
+            'PREVIOUS_PROBE_NOT_CONFIRMED','NAT_STATUS=PASS',
+            'TEMPORARY_TASK_CLEANUP=PASS','INVALID_REPORT_LINE_COUNT',
+            '0585ad99e882eadb1e4e5766c27b99de35a0c709',
+            'OPERATING_AGENT_CHANGED=NO','if ($lines.Count -ne 27)')) {
+            if(-not $controller.Contains($needle)) {throw ('PATTERN_V4_RUNNER_REQUIRED='+$needle)}
+          }
+          if($pattern.Contains('RegisterTaskDefinition') -or
+             $pattern.Contains('raw.githubusercontent.com') -or
+             $controller.Contains('raw.githubusercontent.com')) {
+            throw 'PATTERN_V4_UNSAFE'
+          }
+          if(((& git hash-object -- $shapeV4).Trim()) -ne
+             '0585ad99e882eadb1e4e5766c27b99de35a0c709') {
+            throw 'PATTERN_V4_BLOB_CHANGED'
+          }
+          'NATURAL_INSTALLED_STDOUT_PATTERN_V4_STATIC=PASS'
+          $actualProbe=(& git hash-object -- $installedProbe).Trim()
+          if($LASTEXITCODE -ne 0 -or $actualProbe -ne '6f1912394d44418f14c136e2c3c21c5784bea911'){
+             throw 'INSTALLED_CHILD_PROBE_PIN_MISMATCH'
+          }
+          'INSTALLED_CHILD_LOCAL_SERVICE_SANITIZED_BOUNDARY_STATIC=PASS'
+          $pinnedPrefetch=[IO.File]::ReadAllText($diagV3Prefetch,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspOnecNaturalV3DiagnosticOnce',
+            'natural-stock-v3-diagnostic-result.txt',
+            'onec-natural-helper-v3-verified.ps1','onec-natural-writer-v3-verified.ps1',
+            'PREFETCHED_HELPER_HASH_MISMATCH','PREFETCHED_WRITER_HASH_MISMATCH',
+            "3d262ec0a5df7bd89c21d4df5ce085c5065e270b",
+            "981a2e1ec0404b4afc42f0e35432f7cfbcde8e8a",
+            'OPERATING_AGENT_UNCHANGED=YES','TEMPORARY_TASK_CLEANUP=PASS')) {
+            if(-not $pinnedPrefetch.Contains($needle)) {
+              throw ('PREFETCHED_DIAGNOSTIC_GUARD_MISSING='+$needle)
+            }
+          }
+          if($pinnedPrefetch.Contains('raw.githubusercontent.com') -or
+             $pinnedPrefetch.Contains('& $curl @') -or
+             $pinnedPrefetch.Contains('SOURCE_HASH_MISMATCH')) {
+             throw 'PREFETCHED_DIAGNOSTIC_MUST_NOT_DOWNLOAD'
+          }
+          'ONEC_NATURAL_PREFETCHED_V3_DIAGNOSTIC_STATIC=PASS'
+          $third=[IO.File]::ReadAllText($diagV3,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspOnecNaturalV3DiagnosticOnce',
+            'natural-stock-v3-diagnostic-result.txt','981a2e1ec0404b4afc42f0e35432f7cfbcde8e8a',
+            '3d262ec0a5df7bd89c21d4df5ce085c5065e270b',
+            'WRITER_STAGING_HASH_FAILED','OPERATING_AGENT_UNCHANGED=YES',
+            'TEMPORARY_TASK_CLEANUP=PASS')) {
+            if(-not $third.Contains($needle)) { throw ('V3_DIAGNOSTIC_GUARD_MISSING='+$needle) }
+          }
+          # Regression guard: a V3 URL must not download the V2 helper and
+          # compare against V3's Git blob SHA (real SRV failed this gate).
+          if(-not $third.Contains("'/scripts/windows/onec-natural-diagnostic-helper-v3.ps1'") -or
+             $third.Contains("'/scripts/windows/onec-natural-diagnostic-helper-v2.ps1'")) {
+            throw 'V3_DIAGNOSTIC_WRONG_HELPER_URL'
+          }
+          if(-not $third.Contains("$"+"expectedHelper='3d262ec0a5df7bd89c21d4df5ce085c5065e270b'")) {
+            throw 'V3_DIAGNOSTIC_PIN_CHANGED'
+          }
+          $actualV3Blob=(& git hash-object -- $diagV3Helper).Trim()
+          if($LASTEXITCODE -ne 0 -or $actualV3Blob -ne '3d262ec0a5df7bd89c21d4df5ce085c5065e270b') {
+            throw 'V3_DIAGNOSTIC_HELPER_HASH_MISMATCH'
+          }
+          'ONEC_V3_DIAGNOSTIC_FILENAME_AND_SHA=PASS'
+          $thirdHelper=[IO.File]::ReadAllText($diagV3Helper,[Text.Encoding]::UTF8)
+          foreach($needle in @('ConvertTo-NaturalStockJson','LOAD_FIXED_JSON_WRITER',
+            'READ_STOCK_REGISTER','SERIALIZE_COMPLETE_RESULT','STAGE=','REASON=',
+            'natural-stock-v3-diagnostic-result.txt')) {
+            if(-not $thirdHelper.Contains($needle)) { throw ('V3_HELPER_GUARD_MISSING='+$needle) }
+          }
+          'ONEC_NATURAL_V3_DIAGNOSTIC_STATIC=PASS'
+          $cutover=[IO.File]::ReadAllText($final,[Text.Encoding]::UTF8)
+          foreach($needle in @(
+            'REAL_LOCAL_SERVICE_V4_SMOKE_NOT_ACCEPTED',
+            'natural-stock-v4-card-smoke-result.txt',
+            'c7ad87b2d6ec41b0124a083d1bdf3305f5aee71f',
+            '006a0b618575b4ab3a00b54c2863a436841e00ed',
+            '08c23d0d6316ba7ddf1fd3e0f62e3269314838c7',
+            '05a3939ed2b8eb28378b395fc8a1b52989b5c3d5',
+            '981a2e1ec0404b4afc42f0e35432f7cfbcde8e8a',
+            'MspOnecHttpsAgentSystem',
+            'S-1-5-19','ADMIN_REQUIRED','[IO.File]::Replace',
+            'ATOMIC_SWAP_HASH_MISMATCH',
+            'AUTOMATIC_TIMER_HEARTBEAT_TIMEOUT',
+            'OLD_AGENT_ROLLBACK=PASS','OLD_HELPERS_ROLLBACK=PASS',
+            'SYSTEM_TIMER_CHANGED=NO','NATURAL_VPS_E2E=NOT_TESTED'
+          )) {
+            if(-not $cutover.Contains($needle)) {throw ('FINAL_CUTOVER_GUARD_MISSING='+$needle)}
+          }
+          if($cutover.IndexOf("REAL_LOCAL_SERVICE_V4_SMOKE_NOT_ACCEPTED") -gt
+             $cutover.IndexOf("ATOMIC_SWAP_HASH_MISMATCH")) {
+            throw 'FINAL_CUTOVER_ACCEPTANCE_ORDER_INVALID'
+          }
+          if($cutover.Contains('raw.githubusercontent.com') -or
+             $cutover.Contains('& $curl @') -or
+             $cutover.Contains('RegisterTaskDefinition')) {
+            throw 'FINAL_CUTOVER_MUST_NOT_DOWNLOAD_OR_MODIFY_TASK'
+          }
+          $expectedKeys=@(
+            'onec-natural-final-poller.ps1','onec-natural-final-odata.ps1',
+            'onec-natural-final-json.ps1','onec-natural-final-writer.ps1',
+            'onec-natural-final-smoke.ps1'
+          )
+          foreach($key in $expectedKeys){
+            if(-not $cutover.Contains($key)) {throw ('FINAL_PREFETCH_MISSING='+$key)}
+          }
+          'ONEC_FINAL_CUTOVER_SOURCE_SAFETY=PASS'
+          $diagnostic=[IO.File]::ReadAllText($diagV2,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspOnecNaturalV2DiagnosticOnce',
+             'V2_JSON_SOURCE_CHANGED','PREVIOUS_REPORT_CHANGED',
+             '0311d1a3a6e3f22babe8aa91383f35e0bd035073',
+             '05a3939ed2b8eb28378b395fc8a1b52989b5c3d5',
+             'c7ad87b2d6ec41b0124a083d1bdf3305f5aee71f',
+             'natural-stock-v2-diagnostic-result.txt',
+             'TEMPORARY_TASK_CLEANUP=PASS','OPERATING_AGENT_UNCHANGED=YES')) {
+            if(-not $diagnostic.Contains($needle)) { throw ('V2_DIAGNOSTIC_GUARD_MISSING='+$needle) }
+          }
+          $diagnosticHelper=[IO.File]::ReadAllText($diagV2Helper,[Text.Encoding]::UTF8)
+          foreach($needle in @('LOAD_CLR2_JSON_LIBRARY','READ_CATALOG_ITEMS',
+              'READ_STOCK_REGISTER','STAGE=','REASON=','ERROR_TYPE=',
+              'NO_BALANCE_ROW','MspLegacyJson')) {
+            if(-not $diagnosticHelper.Contains($needle)) { throw ('V2_DIAGNOSTIC_HELPER_GUARD_MISSING='+$needle) }
+          }
+          'ONEC_NATURAL_V2_DIAGNOSTIC_STATIC=PASS'
+          $v2=[IO.File]::ReadAllText($retry,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspOnecHttpsAgentSystem','MspOnecNaturalAcceptanceOnce',
+            'JSON_RUNTIME_CLR2_FALLBACK=INSTALLED','PREVIOUS_FAILED_STAGE_NOT_FOUND',
+            'PREVIOUS_HELPERS_CHANGED','PREVIOUS_FAILURE_RECEIPT_CHANGED',
+            '6a50c09f2a31d0b15891314ae94a3264ce240433',
+            '05a3939ed2b8eb28378b395fc8a1b52989b5c3d5',
+            '9dcaf6039d6728adb123660df464f356f5e8b3d4',
+            '0282d46c2935777a72987c37c1e4533a243a5842',
+            'PREVIOUS_NONACTIVE_HELPERS_RESTORED=PASS',
+            'PREVIOUS_AGENT_ROLLBACK=PASS','ONE_SHOT_TASK_CLEANUP=PASS',
+            'LIVE_ODATA_SMOKE_FAILED','NEW_AGENT_AUTOMATIC_HEARTBEAT=PASS')) {
+            if(-not $v2.Contains($needle)) { throw ('RETRY_V2_GUARD_MISSING='+$needle) }
+          }
+          if($v2.IndexOf("LIVE_ODATA_SMOKE_FAILED") -gt
+             $v2.IndexOf("ATOMIC_UPDATE_POLLING_SCRIPT")) {
+            throw 'RETRY_V2_PROBE_ORDER_UNSAFE'
+          }
+          'ONEC_NATURAL_RETRY_V2_STATIC=PASS'
+          $legacyJson=[IO.File]::ReadAllText($jsonLibrary,[Text.Encoding]::UTF8)
+          foreach($needle in @('MspLegacyJson','DeserializeObject','Serialize',
+            'Add-Type -TypeDefinition','JSON duplicate key','JSON depth')) {
+            if(-not $legacyJson.Contains($needle)) { throw ('CLR2_JSON_GUARD_MISSING='+$needle) }
+          }
+          & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $jsonTests
+          if($LASTEXITCODE -ne 0) { throw 'CLR2_JSON_RUNTIME_TEST_FAIL' }
+          $writer=[IO.File]::ReadAllText($jsonWriter,[Text.Encoding]::UTF8)
+          foreach($required in @('ConvertTo-NaturalStockJson','StockJsonString','INTERNAL_GUID_NOT_ALLOWED',
+            'JSON_TOTAL_MISMATCH','NO_BALANCE_ROW')) {
+            if(-not $writer.Contains($required)){throw ('JSON_WRITER_GUARD_MISSING='+$required)}
+          }
+          & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $writerTests
+          if ($LASTEXITCODE -ne 0) {throw 'ONEC_NATURAL_WRITER_TEST_FAIL'}
+          & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $stdoutTests
+          if ($LASTEXITCODE -ne 0) {throw 'NAT_CONSOLE_STDOUT_CONTRACT_TEST_FAIL'}
+          & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $allWarehouseTests
+          if ($LASTEXITCODE -ne 0) { throw 'NAT_ALL_WAREHOUSES_PS2_CONTRACT_TEST_FAIL' }
+          'ONEC_NATURAL_JSON_WRITER_RUNTIME_SMOKE=PASS'
+          'CLR2_JSON_RUNTIME_SMOKE=PASS'
+          'ONEC_NATURAL_LOCAL_SERVICE_DIAGNOSTIC_STATIC=PASS'
+          'ONEC_NATURAL_CUTOVER_PS2_STATIC=PASS'
+          'ONEC_NATURAL_PS2_SOURCE_AND_SAFETY=PASS'
+          'WINDOWS_2008_R2_NATIVE_RUNTIME=NOT_TESTED'

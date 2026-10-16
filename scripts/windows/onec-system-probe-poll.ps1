@@ -1,4 +1,5 @@
-#requires -version 2
+﻿#requires -version 2
+# VERSION=ODATA_SELECTED_V1 (legacy accepted task retained for compatibility)
 # LocalService fixed operations: probe or sandbox OData Balance GET. No arbitrary commands.
 # NEVER run with the personal user-scoped token or personal state directory.
 # PowerShell 2.0 / Windows Server 2008 R2. TLS handled by approved portable curl.
@@ -15,7 +16,7 @@ $TokenFile=Join-Path (Join-Path $RootDir 'secrets') 'agent-token.machine.dpapi'
 function Health([string]$Mode) {
   try {
     if (Test-Path -LiteralPath $StateDir -PathType Container) {
-      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_SELECTED_V1')
+      $msg=('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS='+$Mode+';VERSION=ODATA_NATURAL_V1')
       [IO.File]::WriteAllText((Join-Path $StateDir 'last-status.txt'),$msg,[Text.Encoding]::ASCII)
     }
   } catch {}
@@ -42,7 +43,7 @@ function ReadLocalToken {
 }
 function AgentRequest([string]$Method,[string]$Path,[string]$Payload) {
   if (($Method -eq 'GET' -and $Path -ne '/v1/agent/poll') -or
-      ($Method -eq 'POST' -and $Path -ne '/v1/agent/result') -or
+      ($Method -eq 'POST' -and $Path -ne '/v1/agent/result' -and $Path -ne '/v1/agent/natural-result') -or
       ($Method -ne 'GET' -and $Method -ne 'POST')) { throw 'PATH_NOT_ALLOWED' }
   $configFile=Join-Path $StateDir ('curl-'+[Guid]::NewGuid().ToString('N')+'.cfg')
   $replyFile=Join-Path $StateDir ('body-'+[Guid]::NewGuid().ToString('N')+'.txt')
@@ -64,7 +65,8 @@ function AgentRequest([string]$Method,[string]$Path,[string]$Payload) {
     if ($LASTEXITCODE -ne 0) { throw 'CURL_FAILED' }
     if (-not (Test-Path -LiteralPath $replyFile -PathType Leaf)) { throw 'MISSING_REPLY' }
     $reply=[IO.File]::ReadAllText($replyFile,[Text.Encoding]::ASCII).Trim()
-    if ($reply.Length -gt 256) { throw 'REPLY_TOO_LARGE' }
+    $cap=if ($Path -eq '/v1/agent/poll') { 1500 } else { 256 }
+    if ($reply.Length -gt $cap) { throw 'REPLY_TOO_LARGE' }
     return $reply
   } finally {
     Remove-Item -LiteralPath $configFile -Force -ErrorAction SilentlyContinue
@@ -104,9 +106,24 @@ try {
       Remove-Item -LiteralPath $file.FullName -Force
       Write-Output 'PENDING_RESULT_RECOVERED=YES'
     }
+    # Recover only securely shaped completed natural receipts.
+    $naturalPending=@(Get-ChildItem -LiteralPath $StateDir -Filter 'natural-result-*.txt' -ErrorAction SilentlyContinue)
+    foreach($file in $naturalPending) {
+      if ($file.Length -gt 360100) { throw 'NATURAL_PENDING_TOO_LARGE' }
+      $payload=[IO.File]::ReadAllText($file.FullName,[Text.Encoding]::ASCII).Trim()
+      if ($payload -notmatch '^NRESULT\|([0-9a-f]{32})\|([0-9a-f]{32})\|([A-Za-z0-9_-]{3,360000})$') {
+        throw 'INVALID_NATURAL_PENDING_RESULT'
+      }
+      $jid=$Matches[1]
+      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $file.FullName
+      if ($ack -ne ('RECORDED|'+$jid)) { throw 'BAD_NATURAL_PENDING_ACK' }
+      Remove-Item -LiteralPath $file.FullName -Force
+      Write-Output 'NATURAL_RESULT_RECOVERED=YES'
+    }
     $task=AgentRequest 'GET' '/v1/agent/poll' $null
     if ($task -eq 'EMPTY') { Health 'POLL_OK'; Write-Output 'RESULT=PASS;STAGE=AUTHENTICATED_EMPTY'; exit 0 }
     $itemGuid=$null;$warehouseGuid=$null
+    $naturalKind=$null;$naturalItem=$null;$naturalWarehouse=$null
     if ($task -match '^TASK\|([0-9a-f]{32})\|(probe|odata_balance|odata_pair_check)\|([0-9a-f]{32})$') {
       $jid=$Matches[1];$operation=$Matches[2];$lease=$Matches[3]
     } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_stock_selected\|([0-9a-f]{32})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$') {
@@ -116,6 +133,9 @@ try {
           $warehouseGuid -eq '00000000-0000-0000-0000-000000000000') {
         throw 'INVALID_SELECTED_GUID'
       }
+    } elseif ($task -match '^TASK\|([0-9a-f]{32})\|odata_natural_stock\|([0-9a-f]{32})\|(name|article)\|([A-Za-z0-9_-]{1,700})\|([A-Za-z0-9_-]{1,400}|-)$') {
+      $jid=$Matches[1];$operation='odata_natural_stock';$lease=$Matches[2]
+      $naturalKind=$Matches[3];$naturalItem=$Matches[4];$naturalWarehouse=$Matches[5]
     } else {
       throw 'UNRECOGNIZED_TASK'
     }
@@ -182,6 +202,29 @@ try {
           }
         }
       }
+    }
+    if ($operation -eq 'odata_natural_stock') {
+      $naturalHelper=Join-Path $bin 'onec-system-odata-natural.ps1'
+      $encoded=$null
+      if (Test-Path -LiteralPath $naturalHelper -PathType Leaf) {
+        $native=& (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $naturalHelper -Kind $naturalKind -ItemB64 $naturalItem -WarehouseB64 $(if($naturalWarehouse -eq '-'){'ALL'}else{$naturalWarehouse})
+        if ($LASTEXITCODE -eq 0 -and $native -is [string] -and
+            $native -match '^NAT_([A-Za-z0-9_-]{3,360000})$') {
+          $encoded=$Matches[1]
+        }
+      }
+      if ($null -eq $encoded) {
+        $fail=[Text.Encoding]::UTF8.GetBytes('{"status":"UNAVAILABLE"}')
+        $encoded=[Convert]::ToBase64String($fail).TrimEnd('=').Replace('+','-').Replace('/','_')
+      }
+      $naturalResult=Join-Path $StateDir ('natural-result-'+$jid+'.txt')
+      [IO.File]::WriteAllText($naturalResult,('NRESULT|'+$jid+'|'+$lease+'|'+$encoded),[Text.Encoding]::ASCII)
+      $ack=AgentRequest 'POST' '/v1/agent/natural-result' $naturalResult
+      if ($ack -ne ('RECORDED|'+$jid)) { throw 'NATURAL_ACK_MISMATCH' }
+      Remove-Item -LiteralPath $naturalResult -Force
+      Health 'PROBE_ACK'
+      Write-Output ('RESULT=PASS;STAGE=NATURAL_ACK;TASK_ID='+$jid)
+      exit 0
     }
     [IO.File]::WriteAllText($result,('RESULT|'+$jid+'|'+$lease+'|'+$status+'|'+$reason),[Text.Encoding]::ASCII)
     $ack=AgentRequest 'POST' '/v1/agent/result' $result

@@ -1,0 +1,159 @@
+﻿#requires -version 2
+# Admin-launched one-time diagnostic. No active-agent or task-schedule changes.
+param([Parameter(Mandatory=$true)][string]$PinnedProbe)
+$ErrorActionPreference='Stop'
+$root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'MspOnecAgent'
+$bin=Join-Path $root 'bin'
+$state=Join-Path $root 'state'
+$active=Join-Path $bin 'onec-system-probe-poll.ps1'
+$main=Join-Path $bin 'onec-system-odata-natural.ps1'
+$probe=Join-Path $bin 'onec-natural-installed-child-probe-v4.ps1'
+$receipt=Join-Path $state 'natural-stock-installed-child-pattern-v4.txt'
+$taskName='MspOnecInstalledNaturalPatternV4Once'
+$expected='0585ad99e882eadb1e4e5766c27b99de35a0c709'
+$stage='PREFLIGHT'
+$folder=$null
+$created=$false
+$installed=$false
+function Blob([string]$file) {
+  [byte[]]$raw=[IO.File]::ReadAllBytes($file)
+  $header=[Text.Encoding]::ASCII.GetBytes(('blob '+$raw.Length+[char]0))
+  $mem=New-Object IO.MemoryStream
+  $sha=[Security.Cryptography.SHA1]::Create()
+  try {
+    $mem.Write($header,0,$header.Length);$mem.Write($raw,0,$raw.Length)
+    $mem.Position=0
+    return ([BitConverter]::ToString($sha.ComputeHash($mem))).Replace('-','').ToLowerInvariant()
+  } finally { $mem.Close();$sha.Clear() }
+}
+try {
+  if ($env:COMPUTERNAME -cne 'SRV' -or $PSVersionTable.PSVersion.Major -ne 2) {
+    throw 'WRONG_HOST'
+  }
+  $who=[Security.Principal.WindowsIdentity]::GetCurrent()
+  $admin=New-Object Security.Principal.WindowsPrincipal -ArgumentList $who
+  if (-not $admin.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'ADMIN_REQUIRED'
+  }
+  if ($PinnedProbe -cne (Join-Path $env:TEMP 'onec-natural-pattern-v4-probe-verified.ps1')) {
+    throw 'BAD_PREFETCH_PATH'
+  }
+  if ((Test-Path -LiteralPath $probe -PathType Leaf) -or
+      (Test-Path -LiteralPath $receipt -PathType Leaf)) {
+    throw 'DIAGNOSTIC_ALREADY_PRESENT'
+  }
+  if (-not (Test-Path -LiteralPath $PinnedProbe -PathType Leaf) -or
+      -not (Test-Path -LiteralPath $main -PathType Leaf) -or
+      -not (Test-Path -LiteralPath $active -PathType Leaf)) {
+    throw 'MISSING_REQUIRED_FILE'
+  }
+  if ((Blob $PinnedProbe) -ne $expected -or
+      (Blob $active) -ne '006a0b618575b4ab3a00b54c2863a436841e00ed' -or
+      (Blob $main) -ne '08c23d0d6316ba7ddf1fd3e0f62e3269314838c7') {
+    throw 'SOURCE_SHA_MISMATCH'
+  }
+  $bytes=[IO.File]::ReadAllBytes($PinnedProbe)
+  if ($bytes.Length -lt 3 -or $bytes[0] -ne 239 -or
+      $bytes[1] -ne 187 -or $bytes[2] -ne 191) { throw 'SOURCE_BOM_INVALID' }
+  $tokensErrors=$null
+  $code=[IO.File]::ReadAllText($PinnedProbe,[Text.Encoding]::UTF8)
+  $null=[Management.Automation.PSParser]::Tokenize($code,[ref]$tokensErrors)
+  if ($tokensErrors -and $tokensErrors.Count) { throw 'SOURCE_PARSE_FAILED' }
+
+  $stage='VERIFY_SYSTEM_IDENTITY'
+  $sched=New-Object -ComObject 'Schedule.Service'
+  $sched.Connect()
+  $folder=$sched.GetFolder('\')
+  $system=$folder.GetTask('MspOnecHttpsAgentSystem')
+  $sid=(New-Object Security.Principal.NTAccount -ArgumentList @($system.Definition.Principal.UserId)).Translate([Security.Principal.SecurityIdentifier]).Value
+  if (-not $system.Enabled -or $sid -ne 'S-1-5-19' -or
+      $system.Definition.Principal.LogonType -ne 5 -or
+      -not $system.Definition.Triggers.Item(1).Enabled) { throw 'SYSTEM_TASK_CHANGED' }
+  foreach($task in $folder.GetTasks(0)) {
+    if ($task.Name -eq $taskName) { throw 'DIAGNOSTIC_TASK_EXISTS' }
+  }
+
+  $previous=Join-Path $state 'natural-stock-installed-child-shape-v3.txt'
+  if (-not (Test-Path -LiteralPath $previous -PathType Leaf)) {
+    throw 'PREVIOUS_PROBE_RECEIPT_MISSING'
+  }
+  $oldText=[IO.File]::ReadAllText($previous,[Text.Encoding]::ASCII)
+  if ($oldText -notmatch 'STDOUT_COUNT=12' -or
+      $oldText -notmatch 'NAT_COUNT=1' -or
+      $oldText -notmatch 'NAT_STATUS=PASS') {
+    throw 'PREVIOUS_PROBE_NOT_CONFIRMED'
+  }
+  $stage='STAGE_READONLY_PROBE'
+  Copy-Item -LiteralPath $PinnedProbe -Destination $probe -ErrorAction Stop
+  $installed=$true
+  $ic=Join-Path $env:WINDIR 'System32\icacls.exe'
+  & $ic $probe '/reset' | Out-Null
+  if ($LASTEXITCODE -ne 0 -or (Blob $probe) -ne $expected) { throw 'PROBE_STAGING_FAIL' }
+  $local=(New-Object Security.Principal.SecurityIdentifier -ArgumentList 'S-1-5-19').Translate([Security.Principal.NTAccount]).Value
+  $job=$sched.NewTask(0)
+  $job.RegistrationInfo.Description='Isolated read-only inspect of installed natural helper subprocess output'
+  $job.Principal.UserId=$local
+  $job.Principal.LogonType=5
+  $job.Principal.RunLevel=0
+  $job.Settings.Enabled=$true
+  $job.Settings.AllowDemandStart=$true
+  $job.Settings.StartWhenAvailable=$false
+  $job.Settings.ExecutionTimeLimit='PT4M'
+  $act=$job.Actions.Create(0)
+  $act.Path=Join-Path $PSHOME 'powershell.exe'
+  $act.Arguments=('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$probe+'"')
+  $registered=$folder.RegisterTaskDefinition($taskName,$job,2,$local,$null,5,$null)
+  if ($null -eq $registered) { throw 'TASK_REGISTRATION_FAILED' }
+  $created=$true
+  if ($folder.GetTask($taskName).Definition.Triggers.Count -ne 0) {
+    throw 'UNEXPECTED_AUTO_TRIGGER'
+  }
+  $stage='LOCAL_SERVICE_PROBE'
+  $started=[DateTime]::UtcNow
+  $null=$registered.Run($null)
+  $ready=$false
+  for($i=0;$i -lt 110;$i++) {
+    Start-Sleep -Seconds 2
+    if (Test-Path -LiteralPath $receipt -PathType Leaf) {
+      $info=Get-Item -LiteralPath $receipt
+      if ($info.Length -le 2048 -and $info.LastWriteTimeUtc -ge $started) {
+        $ready=$true;break
+      }
+    }
+  }
+  if (-not $ready) { throw 'NO_FRESH_RECEIPT' }
+  $lines=@([IO.File]::ReadAllLines($receipt,[Text.Encoding]::ASCII))
+  if ($lines.Count -ne 27) { throw 'INVALID_REPORT_LINE_COUNT' }
+  $prefixes=@('STAGE','CHILD_EXIT_ZERO','STDOUT_COUNT','NAT_COUNT',
+    'NAT_STATUS','NAT_TWO_CARDS','NAT_MATCH_COUNT','NAT_CODE_FIELDS',
+    'EXTRA_ASCII','EXTRA_NONASCII','EXTRA_BLANK','EXTRA_SHORT',
+    'EXTRA_MEDIUM','EXTRA_LONG','EXTRA_DIAGNOSTIC_LIKE',
+    'EXTRA_JSON_LIKE','EXTRA_TYPE_LIKE','EXTRA_NUMERIC',
+    'EXTRA_GUID_LIKE','EXTRA_PATH_LIKE','EXTRA_URL_LIKE',
+    'EXTRA_KEYVALUE_LIKE','EXTRA_BASE64_LIKE','EXTRA_PURE_ALPHA',
+    'EXTRA_WITH_SPACES','EXTRA_PUNCTUATION_PREFIX','EXTRA_QUOTED')
+  for($i=0;$i -lt $lines.Count;$i++) {
+    if ($lines[$i] -notmatch ('^'+$prefixes[$i]+'=[A-Z0-9_]{1,40}$')) {
+      throw 'INVALID_SANITIZED_LINE'
+    }
+  }
+  foreach($line in $lines) {Write-Output $line}
+  Write-Output 'OPERATING_AGENT_CHANGED=NO'
+} catch {
+  $reason=$_.Exception.Message
+  if ($reason -notmatch '^[A-Z_]{1,60}$') { $reason='DIAGNOSTIC_FAILURE' }
+  Write-Output ('DIAGNOSTIC=FAIL;STAGE='+$stage+';CODE='+$reason)
+  Write-Output 'OPERATING_AGENT_CHANGED=NO'
+} finally {
+  if ($created -and $null -ne $folder) {
+    try {
+      $task=$folder.GetTask($taskName)
+      if ($task.State -eq 4) { $task.Stop(0) }
+      $folder.DeleteTask($taskName,0)
+      Write-Output 'TEMPORARY_TASK_CLEANUP=PASS'
+    } catch { Write-Output 'TEMPORARY_TASK_CLEANUP=RECHECK' }
+  }
+  if ($installed -and (Test-Path -LiteralPath $probe -PathType Leaf)) {
+    Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+  }
+}
