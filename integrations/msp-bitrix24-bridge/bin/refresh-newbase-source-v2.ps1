@@ -180,6 +180,7 @@ try{
  [void]$sql.AppendLine('CREATE TABLE IF NOT EXISTS msp_auto_outbox(onec_guid TEXT PRIMARY KEY,changed_utc TEXT NOT NULL,change_kind TEXT NOT NULL);')
  [void]$sql.AppendLine('CREATE TABLE IF NOT EXISTS msp_auto_scan_runs(id INTEGER PRIMARY KEY,scan_utc TEXT NOT NULL,source_rows INTEGER NOT NULL,new_or_changed INTEGER NOT NULL,missing_buyer INTEGER NOT NULL);')
  $comparison="c.onec_guid IS NULL OR c.onec_type IS NOT i.onec_type OR c.name_short IS NOT i.name_short OR c.name_full IS NOT i.name_full OR c.person_name IS NOT i.person_name OR coalesce(c.inn,'') IS NOT coalesce(i.inn,'') OR c.buyer IS NOT 1 OR c.invalid IS NOT 0 OR c.deletion_mark IS NOT 0 OR c.needs_review IS NOT i.needs_review"
+ [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','UPSERT' FROM _incoming WHERE NOT EXISTS (SELECT 1 FROM msp_auto_scan_runs) AND 1=1 ON CONFLICT(onec_guid) DO NOTHING;")
  [void]$sql.AppendLine("CREATE TEMP TABLE _changed AS SELECT i.onec_guid FROM _incoming i LEFT JOIN customers c ON c.onec_guid=i.onec_guid WHERE "+$comparison+";")
  [void]$sql.AppendLine("CREATE TEMP TABLE _missing AS SELECT c.onec_guid FROM customers c WHERE c.buyer=1 AND NOT EXISTS (SELECT 1 FROM _incoming i WHERE i.onec_guid=c.onec_guid);")
  [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','UPSERT' FROM _changed WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET changed_utc=excluded.changed_utc,change_kind=excluded.change_kind;")
