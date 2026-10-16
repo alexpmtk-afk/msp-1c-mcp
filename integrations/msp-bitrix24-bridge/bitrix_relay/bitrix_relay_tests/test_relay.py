@@ -82,6 +82,11 @@ class TestRelay(unittest.TestCase):
         self.assertEqual(relay.APPROVED_PORTAL,"b24-uwmjda.bitrix24.ru")
         self.assertFalse(relay.is_authenticated_user("another.bitrix24.ru","fake"))
 
+    def test_required_scopes_for_bitrix_auth(self):
+        self.assertEqual(relay.REQUIRED_SCOPES,{"crm","placement"})
+        self.assertIn("user_basic",relay.USER_LOOKUP_SCOPES)
+        self.assertNotIn("crm",relay.USER_LOOKUP_SCOPES)
+
     def test_placement_query_form_contract(self):
         import urllib.request
         import urllib.parse
@@ -99,7 +104,7 @@ class TestRelay(unittest.TestCase):
             def call(domain,placement,token="synthetic-ok"):
                 url=("http://127.0.0.1:%d/bitrix/search?"%s.server_address[1]+
                      urllib.parse.urlencode({"DOMAIN":domain,"PLACEMENT":placement}))
-                form={"member_id":"a"*32,"AUTH_ID":token,
+                form={"member_id":"a"*32,"AUTH_ID":token,"APPLICATION_SCOPE":"crm,placement,user_basic",
                       "PLACEMENT_OPTIONS":json.dumps({"entityTypeName":"COMPANY","searchQuery":"Рома"})}
                 return urllib.request.urlopen(urllib.request.Request(
                     url,data=urllib.parse.urlencode(form).encode(),method="POST"),timeout=3)

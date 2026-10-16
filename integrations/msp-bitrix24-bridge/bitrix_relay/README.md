@@ -26,7 +26,7 @@ Target flow:
    client creation flow.
 
 Deployment is BLOCKED until: confirmed member ID (portal host is pinned),
-OAuth local app installation, explicit approved public HTTPS hostname and
+OAuth local app installation with `crm`, `placement`, and one of `user_basic`/`user_brief`/`user` (needed for `user.current`), explicit approved public HTTPS hostname and
 reverse proxy, approved data transfer of query and up-to-20 results,
 rate limiting, secrets provisioning, SDK pinning/self-hosting, a strictly
 outbound SRV worker with least-privilege credentials, independent synthetic

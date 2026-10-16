@@ -26,6 +26,8 @@ MAX_SEARCH = 80
 MAX_RESULTS = 20
 APPROVED_PORTAL = "b24-uwmjda.bitrix24.ru"
 REQUIRED_PLACEMENT = "CRM_DETAIL_SEARCH"
+REQUIRED_SCOPES = frozenset({"crm", "placement"})
+USER_LOOKUP_SCOPES = frozenset({"user", "user_basic", "user_brief"})
 
 
 class NoRedirects(HTTPRedirectHandler):
@@ -234,6 +236,12 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError()
             placement = placement_query[0] if placement_query else (placement_body[0] if placement_body else "")
             if placement != REQUIRED_PLACEMENT:
+                raise ValueError()
+            scope_values = args.get("APPLICATION_SCOPE", [])
+            if len(scope_values) != 1:
+                raise ValueError()
+            scopes = {part.strip().lower() for part in scope_values[0].split(",")}
+            if not REQUIRED_SCOPES.issubset(scopes) or not scopes.intersection(USER_LOOKUP_SCOPES):
                 raise ValueError()
             auth = args.get("AUTH_ID", [""])[0]
             if not self.server.validator(domain, auth):
