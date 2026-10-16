@@ -109,6 +109,8 @@ jobs:
                    'bin/reconcile-newbase-company03-readonly.ps1',
                    'bin/complete-newbase-company03-requisite-once.ps1',
                    'bin/import-newbase-companies-batch-v1.ps1',
+                   'bin/refresh-newbase-source-v2.ps1',
+                   'bin/msp-newbase-bitrix-core-v2.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
