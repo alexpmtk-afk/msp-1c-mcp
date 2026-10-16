@@ -1,6 +1,6 @@
 # 1C NewBase: natural-language stock requests (implementation boundary)
 
-Status as of **2026-10-16** (supersedes 15 October snapshots below): **VPS relay and scheduled SRV natural agent deployed; physically verified one-line PowerShell 2.0 stdout fix; real queue and native MCP exact-name lookup at named `Основной склад` PASS with two separate cards. Natural MCP wrapper flag enabled and Hermes default include-list updated. Unspecified/all-warehouse queries still fail `UNAVAILABLE`; substring matching, article live acceptance and Telegram conversational test remain PENDING.**
+**Latest accepted status (16 October 2026, after final physical SRV handoff):** Both legacy PowerShell 2.0 failures are fixed: single-line `NAT_` stdout and the mandatory child `-WarehouseB64 -` problem. Fresh real queue/native STDIO MCP calls **PASS** for exact full name and exact business article, both with a named warehouse and no warehouse filter. In particular: `UW-2827` → 20 units on `Основной склад ИП Новокшенов`, and `Слэмбол 6 кг` → two separate cards with 6 and qualified 0 (`NO_BALANCE_ROW`). **Partial-name/substring search remains NOT IMPLEMENTED, the literal article from Issue #15 remains untested live, and a conversational 1C call through Telegram remains untested.** Authoritative scoped evidence, current blob pins and safety gates: [NATURAL_STOCK_ACCEPTANCE_2026-10-16.md](NATURAL_STOCK_ACCEPTANCE_2026-10-16.md). The prior failing all-warehouse descriptions below are **historical investigation notes**, not current state.
 
 ## Accepted user-facing requests
 
