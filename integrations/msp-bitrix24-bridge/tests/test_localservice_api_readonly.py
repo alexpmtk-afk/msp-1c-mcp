@@ -63,6 +63,8 @@ class LocalServiceApiReadonly(unittest.TestCase):
         for forbidden in ("Read-Host","crm.item.add","crm.requisite.add",
                           "Invoke-WebRequest","ProtectedData]::Unprotect"):
             self.assertNotIn(forbidden,s)
+        self.assertNotIn("__CHILD_HASH_PENDING__",s)
+        self.assertIn("da0614cda171b639218cb5ecbcb605efecbd21fd3961b1a0f4f217f277ce2ac1",s)
         self.assertEqual(s.count("$null=$task.Run($null)"),1)
         self.assertNotIn("MspCustomerStoreSync',$def",s)
 
