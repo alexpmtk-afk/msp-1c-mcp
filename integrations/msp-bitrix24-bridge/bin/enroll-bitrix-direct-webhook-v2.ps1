@@ -127,13 +127,14 @@ try{
  'ONEC_CALLS=NO'
  'RESULT=PASS;STAGE=SRV_BITRIX_DIRECT_WEBHOOK_ENROLLMENT'
 }catch{
+ $exceptionType=$_.Exception.GetType().Name
  $gate='RUNTIME_ERROR'
  if($_.Exception.Message -match '^ENROLL_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  if($null -ne $dir -and [IO.Directory]::Exists($dir) -and -not [IO.File]::Exists((Join-Path 'C:\ProgramData\MspCustomerStore' 'state\bitrix-direct-webhook-enrolled.txt'))){
   try{if($null -ne $fs){$fs.Close();$fs=$null};[IO.Directory]::Delete($dir,$true)}catch{}
   'TEMP_PRIVATE_DIRECTORY_REMOVED='+$(if(-not [IO.Directory]::Exists($dir)){'YES'}else{'NO'})
  }
- 'RESULT=FAIL;STAGE=SRV_BITRIX_DIRECT_WEBHOOK_ENROLLMENT;GATE='+$gate+';PHASE='+$phase+';EXCEPTION_TYPE='+$_.Exception.GetType().Name
+ 'RESULT=FAIL;STAGE=SRV_BITRIX_DIRECT_WEBHOOK_ENROLLMENT;GATE='+$gate+';PHASE='+$phase+';EXCEPTION_TYPE='+$exceptionType
  'NO_AUTOMATIC_RETRY=YES'
  exit 1
 }finally{
