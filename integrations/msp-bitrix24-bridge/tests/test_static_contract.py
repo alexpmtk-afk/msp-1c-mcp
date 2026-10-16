@@ -701,6 +701,22 @@ class BootstrapSafety(unittest.TestCase):
                      "DeleteTask(", "WriteAllText($db", "MspOnecHttpsAgentSystem"):
             self.assertNotIn(item,s)
 
+    def test_bitrix_service_runtime_one_time_runner(self):
+        s=read("run-bitrix-worker-runtime-smoke.ps1")
+        self.assertTrue(s.isascii())
+        for item in ("MspCustomerStoreBitrixRuntimeSmoke","MspCustomerStoreSync",
+                     "237c57cab1d011a83f5f293d03d03ca53d3494bb1b50eb40d6babcfcee768515",
+                     "PS2_PARSE_FAILED", "SERVICE_SMOKE_RESULT_MISSING",
+                     "DeleteTask('MspCustomerStoreBitrixRuntimeSmoke'",
+                     "RUNTIME_TEMP_TASK_REMOVED=YES",
+                     "NETWORK_PROBE_REQUESTS=NO", "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(item,s)
+        for forbid in ("DeleteTask('MspCustomerStoreSync'",
+                       "bitrix-search-worker.ini','ACTIVE=1",
+                       "Invoke-WebRequest","DELETE FROM customers",
+                       "Get-Credential"):
+            self.assertNotIn(forbid,s)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

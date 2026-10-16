@@ -1,3 +1,23 @@
+## PS2 LocalService worker runtime acceptance (next, zero network)
+
+`bin/probe-bitrix-worker-runtime-service.ps1` is an offline smoke:
+under LOCAL SERVICE verify actual PowerShell 2.0 x64, signed staged source
+hashes, ability to load System.Web.Extensions JavaScriptSerializer,
+synthetic Unicode JSON and UTF-8 roundtrip, and read-only SQLite
+6,433 customers / 6,433 index / quick_check. It must reject configured
+or enabled worker. It writes only aggregate PASS/FAIL to the machine state
+receipt and **never queries a customer's name**, calls HTTP/1C/Bitrix,
+or touches SQLite.
+
+`bin/run-bitrix-worker-runtime-smoke.ps1` is the elevated PS2 one-time
+runner: hash-pin and syntax check the probe, register one manually
+started zero-trigger task under LOCAL SERVICE, accept the status and
+database unchanged, delete that exact temporary task on PASS.
+It does not enable the worker, set any token, start a listener, alter the
+existing collector or remove the prior failed S4 exchange-plan survey.
+A FAIL may leave a temporary task; never blindly rerun without
+read-only diagnosis.
+
 ## Machine-side offline staging (not a live Bitrix connection)
 
 `bin/stage-bitrix-outbound-code.ps1` prepares the already checked
