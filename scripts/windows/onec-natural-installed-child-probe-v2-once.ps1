@@ -122,45 +122,14 @@ try {
   }
   if (-not $ready) { throw 'NO_FRESH_RECEIPT' }
   $lines=@([IO.File]::ReadAllLines($receipt,[Text.Encoding]::ASCII))
-  # Fixed-shape, bounded, ASCII-only indicators; never return original stdout.
   if ($lines.Count -ne 11) { throw 'INVALID_REPORT_LINE_COUNT' }
   $prefixes=@('STAGE','CHILD_EXIT_ZERO','STDOUT_ITEM_COUNT','NAT_ITEM_COUNT',
     'NAT_STATUS','NAT_CARD_COUNT','OTHER_SHORT','OTHER_MEDIUM','OTHER_LONG',
     'OTHER_NONSTRING','OTHER_EMPTY')
   for($i=0;$i -lt $lines.Count;$i++) {
-    if ($lines[$i] -notmatch ('^'+$prefixes[$i]+'=[A-Z0-9_]{1,40}
-} catch {
-  $reason=$_.Exception.Message
-  if ($reason -notmatch '^[A-Z_]{1,60}$') { $reason='DIAGNOSTIC_FAILURE' }
-  Write-Output ('DIAGNOSTIC=FAIL;STAGE='+$stage+';CODE='+$reason)
-  Write-Output 'OPERATING_AGENT_CHANGED=NO'
-} finally {
-  if ($created -and $null -ne $folder) {
-    try {
-      $task=$folder.GetTask($taskName)
-      if ($task.State -eq 4) { $task.Stop(0) }
-      $folder.DeleteTask($taskName,0)
-      Write-Output 'TEMPORARY_TASK_CLEANUP=PASS'
-    } catch { Write-Output 'TEMPORARY_TASK_CLEANUP=RECHECK' }
-  }
-  if ($installed -and (Test-Path -LiteralPath $probe -PathType Leaf)) {
-    Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
-  }
-}
-)) {
+    if ($lines[$i] -notmatch ('^'+$prefixes[$i]+'=[A-Z0-9_]{1,40}$')) {
       throw 'INVALID_SANITIZED_LINE'
     }
-  }
-  foreach($line in $lines) { Write-Output $line }
-  Write-Output 'OPERATING_AGENT_CHANGED=NO'
-  if ($lines.Count -ne 6 -or
-      $lines[0] -notmatch '^STAGE=[A-Z_]{1,60}$' -or
-      $lines[1] -notmatch '^CHILD_EXIT_ZERO=(YES|NO|NOT_RUN)$' -or
-      $lines[2] -notmatch '^STDOUT_COUNT=(ONE|ZERO|MULTIPLE|NOT_RUN)$' -or
-      $lines[3] -notmatch '^NAT_WIRE_SHAPE=(YES|NO|NOT_RUN)$' -or
-      $lines[4] -notmatch '^DECODED_STATUS=(PASS|UNAVAILABLE|OTHER|NOT_RUN)$' -or
-      $lines[5] -notmatch '^DECODED_CARD_COUNT=(TWO|OTHER|NOT_RUN)$') {
-      throw 'INVALID_SANITIZED_RESULT'
   }
   foreach($line in $lines) { Write-Output $line }
   Write-Output 'OPERATING_AGENT_CHANGED=NO'
