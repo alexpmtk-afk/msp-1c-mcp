@@ -88,7 +88,7 @@ try{
   if([IO.File]::Exists((Join-Path $root $f))){Fail 'LEGACY_RELAY_WORKER_CONFIGURED'}
  }
  $secure=Read-Host -Prompt 'Enter dedicated Bitrix incoming webhook BASE URL (hidden; never share)' -AsSecureString
- if($null -eq $secure -or $secure.Length -lt 60 -or $secure.Length -gt 220){Fail 'WEBHOOK_FORMAT_INVALID'}
+ if($null -eq $secure -or $secure.Length -lt 45 -or $secure.Length -gt 220){Fail 'WEBHOOK_FORMAT_INVALID'}
  $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
  $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
