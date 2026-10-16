@@ -79,6 +79,7 @@ jobs:
                    'bin/run-bitrix-direct-https-service.ps1',
                    'bin/probe-bitrix-direct-crm-readonly.ps1',
                    'bin/probe-bitrix-direct-contact-readonly.ps1',
+                   'bin/smoke-bitrix-direct-synthetic-company.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
