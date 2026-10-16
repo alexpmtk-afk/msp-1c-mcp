@@ -640,6 +640,34 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
         self.assertNotIn("Get-Credential",s)
         self.assertNotIn("Method='POST'",s)
+    def test_s4_bitrix_outbound_worker_is_machine_only_and_fail_closed(self):
+        worker=read("bitrix-search-outbound-once.ps1")
+        adapter=read("query-bitrix-search-index.ps1")
+        self.assertTrue(worker.isascii())
+        self.assertTrue(adapter.isascii())
+        for expected in ("S-1-5-19", "WORKER_NOT_ENABLED",
+                         "MspBitrixSearchWorker-v1", "DataProtectionScope]::LocalMachine",
+                         "bitrix-search-worker.dpapi", "bitrix-search-worker.ini",
+                         "https://vm-817589", "ReadHexQueryFromStandardInput",
+                         "OutputUtf8Hex", "Customer", "WORKER_ENDPOINT_NOT_APPROVED",
+                         "WORKER_TOKEN_INVALID", "SEARCH_RESULT_MAX=20",
+                         "BITRIX_WRITES=NO", "ONEC_CALLS=NO",
+                         "NO_AUTOMATIC_RETRY=YES"):
+            if expected=="Customer":
+                continue
+            self.assertIn(expected, worker)
+        for forbidden in ("Invoke-WebRequest", "127.0.0.1:8085",
+                          "Set-Acl", "RegisterTaskDefinition(", "CreateFile",
+                          "WriteAllText(", "C:\\Users\\parshin"):
+            self.assertNotIn(forbidden,worker)
+        for expected in ("ReadHexQueryFromStandardInput",
+                         "OutputUtf8Hex", "QUERY_HEX_INVALID",
+                         "DUAL_INPUT_CHANNEL", "UTF8.GetString($termBytes)"):
+            self.assertIn(expected,adapter)
+        self.assertIn("if($OutputUtf8Hex){[Console]::Out.WriteLine($text)}",adapter)
+        self.assertIn("--config -",worker)
+        self.assertIn("data-binary = ",worker)
+
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)

@@ -1,3 +1,38 @@
+## Prepared machine-only outbound Bitrix search worker (not deployed)
+
+`bin/bitrix-search-outbound-once.ps1` is PowerShell 2.0 (ASCII), code-only
+until a dedicated HTTPS relay, registered Bitrix app, and separate
+machine-DPAPI worker-token provisioning are accepted. It refuses to run
+unless executing as LOCAL SERVICE on SRV, an already accepted 6433-row
+search index exists, a machine-owned worker.ini explicitly says ACTIVE=1,
+and BASE_URL is the pinned VPS Tailscale hostname with a distinct
+/b24-relay path. It **does not reuse or change** the existing 1C queue,
+1C bridge agent or public :8443 endpoint.
+
+Each invocation: HTTPS GET /worker/next with a strong machine-secret
+header -> validate bounded query type/length/id -> invoke local SQLite
+search adapter with Unicode query sent only as ASCII UTF-8 HEX over
+standard input (not visible in process command line) -> return up to
+20 GUID/name matches as ASCII-escaped JSON via HTTPS POST /worker/result.
+Uses the previously verified machine curl and CA bundle; no incoming
+SRV listener, no password in arguments, no user-profile files, no query
+text or customer names in diagnostic stdout. CURL config with token
+is passed through anonymous process stdin; no persistent secret file.
+No 1C/Bitrix write operations. No automatic schedule or service created.
+The bounded result is transferred to VPS **only after explicit enablement**.
+
+`query-bitrix-search-index.ps1` now supports
+`-ReadHexQueryFromStandardInput -OutputUtf8Hex` for lossless Cyrillic
+and to avoid personal search strings in process listings. The original
+read-only JSON CLI mode remains available.
+
+Required before a live user test: SRV runtime System.Web.Extensions
+availability on Windows Server 2008 R2/PS2, dedicated HTTPS path
+and proxy verified independently without touching Hermes or 1C service,
+private worker token provisioned with restrictive NTFS/DPAPI, a synthetic
+closed-loop test, then explicit opt-in of machine worker ACTIVE=1.
+The initial SQLite snapshot is static while Option B remains paused.
+
 ### Before creating the local FTS5 index
 
 The one-shot installer first creates a **machine-owned SQLite consistent
