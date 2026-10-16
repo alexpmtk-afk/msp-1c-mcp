@@ -623,6 +623,22 @@ class BootstrapSafety(unittest.TestCase):
         self.assertNotIn("Method='POST'",s)
         self.assertNotIn("Invoke-WebRequest",s)
         self.assertNotIn("WriteAllText(",s)
+    def test_bitrix_index_one_time_service_install_is_gated(self):
+        s=read("run-bitrix-search-index-setup.ps1")
+        self.assertTrue(s.isascii())
+        for item in ("MspCustomerStoreBitrixIndex","MspCustomerStoreSync",
+                     "S-1-5-19", "SEARCH_SCRIPT_SHA256=PASS",
+                     "INDEX_BUILDER_SHA256=PASS", "SAFE_IDLE_CONFIG_CHANGED",
+                     "SEARCH_INDEX_ALREADY_PRESENT", "INDEX_BUILD_NOT_ACCEPTED",
+                     "TEMPORARY_INDEX_TASK_REMOVED=YES",
+                     "NO_BITRIX_PORTAL_CONNECTION=YES", "CUSTOMER_DATA_EXPORTED=NO",
+                     "MAIN_COLLECTOR_AUTOSTART=OFF",
+                     "NO_AUTOMATIC_RETRY=YES"):
+            self.assertIn(item,s)
+        self.assertIn("DeleteTask('MspCustomerStoreBitrixIndex'",s)
+        self.assertNotIn("DeleteTask('MspCustomerStoreSync'",s)
+        self.assertNotIn("Get-Credential",s)
+        self.assertNotIn("Method='POST'",s)
     def test_rollback_is_task_specific(self):
         s=read("rollback-system.ps1")
         self.assertIn("MspBitrix24Bridge",s)
