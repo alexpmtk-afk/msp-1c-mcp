@@ -78,8 +78,8 @@ try{
   $rule=New-Object Security.AccessControl.FileSystemAccessRule -ArgumentList @($sid,$right,[Security.AccessControl.AccessControlType]::Allow)
   $fileAcl.AddAccessRule($rule)
  }
- $fs.SetAccessControl($fileAcl)
  $fs.Close();$fs=$null
+ [IO.File]::SetAccessControl($secret,$fileAcl)
  $secure=Read-Host -Prompt 'Enter Bitrix24 incoming webhook BASE URL ONCE (hidden; do not share)' -AsSecureString
  if($null -eq $secure -or $secure.Length -lt 45 -or $secure.Length -gt 220){Fail 'WEBHOOK_LENGTH_INVALID'}
  $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
