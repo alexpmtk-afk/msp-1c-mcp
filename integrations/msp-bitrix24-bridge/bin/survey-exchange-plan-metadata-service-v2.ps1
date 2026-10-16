@@ -25,7 +25,6 @@ function SafeName([string]$Value){
   return $b.ToString()
 }
 function ParseMetadata([string]$XmlText){
-  # No assumptions about PowerShell 2 XmlNodeList pipeline enumeration.
   $settings=New-Object System.Xml.XmlReaderSettings
   $settings.DtdProcessing=[System.Xml.DtdProcessing]::Prohibit
   $settings.XmlResolver=$null
@@ -42,11 +41,12 @@ function ParseMetadata([string]$XmlText){
     $stringReader.Close()
   }
   if($null -ne $xml.DocumentType){Fail 'DOCTYPE_NOT_ALLOWED'}
+  # Explicit XmlNodeList indexing works consistently in old Windows PowerShell.
   $sets=$xml.SelectNodes("//*[local-name()='EntitySet']")
-  if($null -eq $sets -or $entityCount -lt 1 -or $entityCount -gt 10000){Fail 'ENTITY_SET_COUNT_INVALID'}
+  if($null -eq $sets -or $sets.Count -lt 1 -or $sets.Count -gt 10000){Fail 'ENTITY_SET_COUNT_INVALID'}
   $plans=New-Object System.Collections.ArrayList
   $seen=@{}
-  for($i=0;$i -lt $entityCount;$i++){
+  for($i=0;$i -lt $sets.Count;$i++){
     $node=$sets.Item($i)
     $a=$node.Attributes.GetNamedItem('Name')
     if($null -eq $a){Fail 'ENTITY_SET_NAME_MISSING'}
@@ -56,21 +56,22 @@ function ParseMetadata([string]$XmlText){
     if($seen.ContainsKey($name)){Fail 'EXCHANGE_PLAN_DUPLICATE'}
     $seen[$name]=$true
     [void]$plans.Add($name)
-    if($planCount -gt 100){Fail 'EXCHANGE_PLAN_LIMIT'}
+    if($plans.Count -gt 100){Fail 'EXCHANGE_PLAN_LIMIT'}
   }
   $functions=$xml.SelectNodes("//*[local-name()='FunctionImport']")
   $select=$false
   $notify=$false
-  for($i=0;$i -lt $functions.Count;$i++){
-    $func=$functions.Item($i)
-    $a=$func.Attributes.GetNamedItem('Name')
-    if($null -eq $a){continue}
-    if($a.Value -eq 'SelectChanges'){$select=$true}
-    if($a.Value -eq 'NotifyChangesReceived'){$notify=$true}
+  if($null -ne $functions){
+    for($i=0;$i -lt $functions.Count;$i++){
+      $func=$functions.Item($i)
+      $a=$func.Attributes.GetNamedItem('Name')
+      if($null -eq $a){continue}
+      if($a.Value -eq 'SelectChanges'){$select=$true}
+      if($a.Value -eq 'NotifyChangesReceived'){$notify=$true}
+    }
   }
-  # A FunctionImport declaration alone cannot prove the POST call works.
-  # Missing declaration also cannot prove the operation is unsupported.
-  return @{ EntitySets=[int]$entityCount; PlanCount=[int]$planCount;
+  # Metadata declaration does not prove a working POST endpoint.
+  return @{ EntitySets=[int]$sets.Count; PlanCount=[int]$plans.Count;
             Names=[string[]]@($plans.ToArray() | Sort-Object);
             SelectChangesDeclared=[bool]$select;
             NotifyChangesReceivedDeclared=[bool]$notify }
@@ -143,7 +144,7 @@ try{
     }while($n -gt 0)
   }finally{$reader.Close()}
   $phase='PARSE_EXCHANGE_PLANS'
-  $metadata=ParseMetadata $text.ToString()
+  $metadata=ParseMetadata ($text.ToString())
   $plans=$metadata.Names
   $entityCount=$metadata.EntitySets
   $planCount=$metadata.PlanCount
@@ -179,41 +180,29 @@ try{
 }catch [Net.WebException]{
   $gate='ODATA_TRANSPORT_ERROR'
   if($null -ne $_.Exception.Response){$gate='HTTP_'+[int]$_.Exception.Response.StatusCode}
-  try{if($OfflineFixturePath -eq ''){[IO.File]::WriteAllText($status,('STATUS=FAIL;PHASE='+$phase+';GATE='+$gate),[Text.Encoding]::ASCII)}}catch{}
+  try{
+    if($OfflineFixturePath -eq ''){
+      [IO.File]::WriteAllText($status,('STATUS=FAIL;PHASE='+$phase+';GATE='+$gate),[Text.Encoding]::ASCII)
+    }
+  }catch{}
   'RESULT=FAIL;STAGE=SRV_ONEC_EXCHANGE_METADATA_SURVEY_V2;GATE='+$gate+';PHASE='+$phase
   exit 1
 }catch{
   $gate='RUNTIME_ERROR'
-  if($_.Exception.Message -match '^S4_([A-Z0-9_]+)
-  try{if($OfflineFixturePath -eq ''){[IO.File]::WriteAllText($status,('STATUS=FAIL;PHASE='+$phase+';GATE='+$gate),[Text.Encoding]::ASCII)}catch{}
-  'RESULT=FAIL;STAGE=SRV_ONEC_EXCHANGE_METADATA_SURVEY_V2;GATE='+$gate+';PHASE='+$phase
-  exit 1
-}finally{
-  if($null -ne $response){$response.Close()}
-  if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
-  if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
-  if($null -ne $secure){$secure.Dispose()}
-}
-){$gate=$Matches[1]}
-  # No exception messages, URLs, credentials, or source XML in output.
+  if($_.Exception.Message -match '^S4_([A-Z0-9_]+)$'){$gate=$Matches[1]}
+  # Only safe exception type and XML position; never log exception messages or source records.
   $exceptionType=$_.Exception.GetType().Name
-  if($exceptionType -notmatch '^[A-Za-z0-9_]{1,80}
-  try{if($OfflineFixturePath -eq ''){[IO.File]::WriteAllText($status,('STATUS=FAIL;PHASE='+$phase+';GATE='+$gate),[Text.Encoding]::ASCII)}catch{}
-  'RESULT=FAIL;STAGE=SRV_ONEC_EXCHANGE_METADATA_SURVEY_V2;GATE='+$gate+';PHASE='+$phase
-  exit 1
-}finally{
-  if($null -ne $response){$response.Close()}
-  if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
-  if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
-  if($null -ne $secure){$secure.Dispose()}
-}
-){$exceptionType='UNKNOWN'}
+  if($exceptionType -notmatch '^[A-Za-z0-9_]{1,80}$'){$exceptionType='UNKNOWN'}
   'S4_EXCEPTION_TYPE='+$exceptionType
   if($_.Exception -is [System.Xml.XmlException]){
     'S4_XML_LINE='+[int]$_.Exception.LineNumber
     'S4_XML_POSITION='+[int]$_.Exception.LinePosition
   }
-  try{if($OfflineFixturePath -eq ''){[IO.File]::WriteAllText($status,('STATUS=FAIL;PHASE='+$phase+';GATE='+$gate),[Text.Encoding]::ASCII)}catch{}
+  try{
+    if($OfflineFixturePath -eq ''){
+      [IO.File]::WriteAllText($status,('STATUS=FAIL;PHASE='+$phase+';GATE='+$gate),[Text.Encoding]::ASCII)
+    }
+  }catch{}
   'RESULT=FAIL;STAGE=SRV_ONEC_EXCHANGE_METADATA_SURVEY_V2;GATE='+$gate+';PHASE='+$phase
   exit 1
 }finally{
