@@ -78,7 +78,8 @@ try {
     throw 'PREVIOUS_PROBE_RECEIPT_MISSING'
   }
   $oldText=[IO.File]::ReadAllText($previous,[Text.Encoding]::ASCII)
-  if ($oldText -notmatch 'STDOUT_COUNT=MULTIPLE' -or
+  if ($oldText -notmatch 'STDOUT_ITEM_COUNT=12' -or
+      $oldText -notmatch 'NAT_ITEM_COUNT=1' -or
       $oldText -notmatch 'CHILD_EXIT_ZERO=YES') {
     throw 'PREVIOUS_PROBE_NOT_CONFIRMED'
   }
