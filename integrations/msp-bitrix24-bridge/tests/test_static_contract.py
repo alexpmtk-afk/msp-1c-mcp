@@ -668,6 +668,19 @@ class BootstrapSafety(unittest.TestCase):
         self.assertIn("--config -",worker)
         self.assertIn("data-binary = ",worker)
 
+    def test_bitrix_worker_json1_clr2_compatibility(self):
+        worker=read("bitrix-search-outbound-once.ps1")
+        self.assertTrue(worker.isascii())
+        for item in ("function JsonSql(", "function DecodeHex(", "json_valid(doc)",
+                     "json_type(doc", "json_each(doc)", "json_object(",
+                     "CAST(X'", "RedirectStandardInput=$true", ":memory:",
+                     "RESULT_ARRAY_INVALID", "JOB_NOT_OBJECT",
+                     "json_group_array(", "ToAsciiJson"):
+            self.assertIn(item, worker)
+        for forbidden in ("System.Web.Extensions", "JavaScriptSerializer",
+                          "ConvertFrom-Json", "Invoke-Expression", "Add-Type -TypeDefinition"):
+            self.assertNotIn(forbidden, worker)
+
     def test_bitrix_worker_offline_staging_is_non_deploying(self):
         s=read("stage-bitrix-outbound-code.ps1")
         self.assertTrue(s.isascii())
