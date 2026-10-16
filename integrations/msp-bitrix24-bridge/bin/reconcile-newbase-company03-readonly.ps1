@@ -58,7 +58,7 @@ function SqlJson([string]$Json,[string]$Select){
  }finally{$p.Close()}
 }
 function Http([string]$Method,[string]$Body){
- if(@('crm.item.add','crm.item.get','crm.item.list','crm.requisite.add','crm.requisite.get','crm.requisite.list') -notcontains $Method){Fail 'UNAPPROVED_METHOD'}
+ if(@('crm.item.get','crm.requisite.list') -notcontains $Method){Fail 'UNAPPROVED_METHOD'}
  if($Body.Length -gt 8192 -or $Body -match '[^\x20-\x7e]'){Fail 'BODY_NOT_ASCII'}
  $cfg='url = '+(Quote ($script:base+$Method+'.json'))+[Environment]::NewLine
  $cfg+='request = "POST"'+[Environment]::NewLine
@@ -79,7 +79,8 @@ function Http([string]$Method,[string]$Body){
  try{
   if(-not $p.Start()){Fail 'CURL_START'}
   $p.StandardInput.Write($cfg);$p.StandardInput.Close();$cfg=$null
-  $out=$p.StandardOutput.ReadToEnd()
+  $utf8=New-Object IO.StreamReader -ArgumentList @($p.StandardOutput.BaseStream,[Text.Encoding]::UTF8,$true)
+  $out=$utf8.ReadToEnd()
   $err=$p.StandardError.ReadToEnd()
   if(-not $p.WaitForExit(30000)){$p.Kill();Fail 'CURL_TIMEOUT'}
   if($p.ExitCode -ne 0 -or $out.Length -gt 65536){Fail 'CURL_FAILED'}
