@@ -99,6 +99,7 @@ jobs:
                    'bin/enroll-bitrix-direct-webhook-v3.ps1',
                    'bin/probe-bitrix-enrolled-webhook-api-readonly.ps1',
                    'bin/probe-bitrix-localservice-dpapi-offline.ps1',
+                   'bin/run-bitrix-localservice-dpapi-once.ps1',
                    'config/bridge.ini')
           foreach($f in $files){
             $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
