@@ -45,6 +45,40 @@ function Http([string]$Method,[string]$Route,[string]$Body){
   return @{Code=[int]::Parse($o.Substring($n+13));Body=$o.Substring(0,$n)}
  }finally{$p.Close()}
 }
+# SQLite 3.43.2 JSON1 is the parser (compatible with PowerShell 2 and CLR 2.0).
+# Untrusted JSON enters SQL only as UTF8 hex, supplied through process stdin.
+function JsonSql([string]$Json,[string]$Select){
+ if($Json.Length -gt 131072){Fail 'JSON_SIZE_EXCEEDED'}
+ $hex=[BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($Json)).Replace('-','')
+ $sql="WITH j(doc) AS (SELECT CAST(X'"+$hex+"' AS TEXT)) "+$Select
+ $i=New-Object Diagnostics.ProcessStartInfo
+ $i.FileName=Join-Path $script:root 'bin\sqlite3.exe'
+ $i.Arguments='-batch -bail ":memory:"'
+ $i.UseShellExecute=$false
+ $i.CreateNoWindow=$true
+ $i.RedirectStandardInput=$true
+ $i.RedirectStandardOutput=$true
+ $i.RedirectStandardError=$true
+ $p=New-Object Diagnostics.Process
+ $p.StartInfo=$i
+ try{
+  if(-not $p.Start()){Fail 'JSON_SQLITE_START'}
+  $p.StandardInput.WriteLine($sql)
+  $p.StandardInput.Close()
+  $out=$p.StandardOutput.ReadToEnd().Trim()
+  $err=$p.StandardError.ReadToEnd()
+  if(-not $p.WaitForExit(10000)){$p.Kill();Fail 'JSON_SQLITE_TIMEOUT'}
+  if($p.ExitCode -ne 0 -or $err.Trim().Length -gt 0 -or $out.Length -gt 131072){Fail 'JSON_SQLITE_FAILED'}
+  return $out
+ }finally{$p.Close()}
+}
+function DecodeHex([string]$Hex){
+ if($Hex.Length -gt 131072 -or ($Hex.Length % 2) -ne 0 -or $Hex -notmatch '^[a-fA-F0-9]*$'){Fail 'JSON_HEX_INVALID'}
+ $b=New-Object byte[] ($Hex.Length/2)
+ for($i=0;$i -lt $b.Length;$i++){$b[$i]=[Convert]::ToByte($Hex.Substring($i*2,2),16)}
+ return [Text.Encoding]::UTF8.GetString($b)
+}
+
 function ToAsciiJson([string]$Json){
  $b=New-Object Text.StringBuilder
  foreach($ch in $Json.ToCharArray()){
@@ -109,9 +143,7 @@ try{
  if($r -notmatch ';STATUS=PASS;IDENTITY=LOCAL_SERVICE;SEARCH_INDEX=customer_search_v1;INDEXED=6433;CUSTOMERS=6433;DB_INTEGRITY=ok;ONEC_CALLS=0;BITRIX_CALLS=0$'){Fail 'SEARCH_INDEX_NOT_ACCEPTED'}
  $phase='DECRYPT'
  Add-Type -AssemblyName System.Security
- Add-Type -AssemblyName System.Web.Extensions
- $ser=New-Object System.Web.Script.Serialization.JavaScriptSerializer
- $ser.MaxJsonLength=131072
+ # JSON1 is present in sqlite3.exe, no CLR 3.5 dependency.
  $encrypted=[IO.File]::ReadAllBytes($secret)
  $entropy=[Text.Encoding]::ASCII.GetBytes('MspBitrixSearchWorker-v1')
  $plain=[Security.Cryptography.ProtectedData]::Unprotect($encrypted,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
