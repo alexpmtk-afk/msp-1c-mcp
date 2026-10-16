@@ -34,8 +34,6 @@ $extraPureAlpha=0
 $extraSpaces=0
 $extraPunctuation=0
 $extraQuoted=0
-$extraLengthMin=1000000
-$extraLengthMax=0
 $natJsonCount='NOT_RUN'
 $natJsonCards='NOT_RUN'
 $stage='START'
@@ -84,13 +82,16 @@ try {
     }
     $value=[string]$entry
     if ($value.Trim().Length -eq 0) { $extraBlank++ }
-    if ($value.Length -lt $extraLengthMin) { $extraLengthMin=$value.Length }
-    if ($value.Length -gt $extraLengthMax) { $extraLengthMax=$value.Length }
     if ($value -match '(?i)[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}') { $extraGuid++ }
     if ($value -match '(?i)[A-Z]:\\|/home/|/opt/') { $extraPath++ }
     if ($value -match '(?i)https?://') { $extraUrl++ }
     if ($value -match '^[A-Za-z_]{1,60}=') { $extraKeyValue++ }
-    if ($value -match '^[A-Za-z0-9_-]{20,}
+    if ($value -match '^[A-Za-z0-9_-]{20,}$') { $extraBase64++ }
+    if ($value -match '^[A-Za-z]+$') { $extraPureAlpha++ }
+    if ($value -match ' ') { $extraSpaces++ }
+    if ($value -match '^[^A-Za-z0-9]') { $extraPunctuation++ }
+    if ($value -match '^"[^"]*"$') { $extraQuoted++ }
+    if ($value.Length -le 12) { $extraShort++ }
     elseif ($value.Length -le 100) { $extraMedium++ }
     else { $extraLong++ }
     if ($value -match '^[\x00-\x7f]*$') { $extraAscii++ }
@@ -114,14 +115,10 @@ try {
     else { $natStatus='OTHER' }
     if ($natStatus -eq 'PASS') {
       $m=[regex]::Match($jsonBody,'"match_count"\s*:\s*([0-9]{1,3})')
-      if ($m.Success) {
-        $natJsonCount=$m.Groups[1].Value
-      } else { $natJsonCount='MISSING' }
-      $codeMarkers=[regex]::Matches($jsonBody,'"code"\s*:')
-      if ($codeMarkers.Count -eq 2) { $natJsonCards='TWO' }
-      elseif ($codeMarkers.Count -eq 1) { $natJsonCards='ONE' }
-      else { $natJsonCards='OTHER' }
-      $natTwo=$(if ($natJsonCount -eq '2' -and $natJsonCards -eq 'TWO') {'CLAIMED_TWO'}else{'NOT_CONFIRMED'})
+      $natJsonCount=$(if($m.Success){$m.Groups[1].Value}else{'MISSING'})
+      $n=([regex]::Matches($jsonBody,'"code"\s*:')).Count
+      $natJsonCards=$(if($n -eq 2){'TWO'}elseif($n -eq 1){'ONE'}else{'OTHER'})
+      $natTwo=$(if($natJsonCount -eq '2' -and $natJsonCards -eq 'TWO'){'CLAIMED_TWO'}else{'NOT_CONFIRMED'})
     } else { $natTwo='NOT_CONFIRMED' }
   }
   $stage='COMPLETED'
@@ -132,7 +129,7 @@ try {
   else { $stage='OUTPUT_FAIL' }
 } finally {
   if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) {
-    [string[]]$lines=New-Object string[] 28
+    [string[]]$lines=New-Object string[] 27
     $lines[0]='STAGE='+$stage
     $lines[1]='CHILD_EXIT_ZERO='+$exitZero
     $lines[2]='STDOUT_COUNT='+$stdoutTotal
@@ -160,178 +157,6 @@ try {
     $lines[24]='EXTRA_WITH_SPACES='+$extraSpaces
     $lines[25]='EXTRA_PUNCTUATION_PREFIX='+$extraPunctuation
     $lines[26]='EXTRA_QUOTED='+$extraQuoted
-    $lines[27]='EXTRA_MIN_MAX_LENGTH='+(if ($extraLengthMin -eq 1000000) {'NONE'}else{$extraLengthMin.ToString()+'_'+$extraLengthMax.ToString()})
-
-    try { [IO.File]::WriteAllLines($receipt,$lines,[Text.Encoding]::ASCII) }
-    catch {}
-  }
-}
-) { $extraBase64++ }
-    if ($value -match '^[A-Za-z]+
-    elseif ($value.Length -le 100) { $extraMedium++ }
-    else { $extraLong++ }
-    if ($value -match '^[\x00-\x7f]*$') { $extraAscii++ }
-    else { $extraNonAscii++ }
-    if ($value -match '(?i)warning|add-type|exception|compil|error|powershell|copyright') {
-      $extraDiagnostic++
-    }
-    if ($value -match '^\s*[\{\[]') { $extraJsonLike++ }
-    if ($value -match '^System\.[A-Za-z0-9_.+]{1,120}$') { $extraTypeLike++ }
-    if ($value -match '^-?[0-9]{1,12}(\.[0-9]{1,5})?$') { $extraNumeric++ }
-  }
-  if ($natTotal -eq 1) {
-    $stage='CLASSIFY_ENCODED_JSON_STATUS'
-    $token=$tokenValue.Replace('-','+').Replace('_','/')
-    $token+=('='*((4-$token.Length%4)%4))
-    [byte[]]$bytes=[Convert]::FromBase64String($token)
-    if ($bytes.Length -gt 262144) { throw 'PAYLOAD_TOO_LARGE' }
-    $jsonBody=[Text.Encoding]::UTF8.GetString($bytes)
-    if ($jsonBody -match '^\{"status":"PASS",') { $natStatus='PASS' }
-    elseif ($jsonBody -ceq '{"status":"UNAVAILABLE"}') { $natStatus='UNAVAILABLE' }
-    else { $natStatus='OTHER' }
-    if ($natStatus -eq 'PASS' -and $jsonBody -match '"match_count":2[,}]') {
-      $natTwo='CLAIMED_TWO'
-    } else { $natTwo='NOT_CONFIRMED' }
-  }
-  $stage='COMPLETED'
-} catch {
-  if ($stage -eq 'START') { $stage='PREFLIGHT_FAIL' }
-  elseif ($stage -eq 'VERIFY_INSTALLED_SOURCES') { $stage='HASH_FAIL' }
-  elseif ($stage -eq 'INVOKE_INSTALLED_HELPER') { $stage='INVOKE_FAIL' }
-  else { $stage='OUTPUT_FAIL' }
-} finally {
-  if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) {
-    [string[]]$lines=New-Object string[] 16
-    $lines[0]='STAGE='+$stage
-    $lines[1]='CHILD_EXIT_ZERO='+$exitZero
-    $lines[2]='STDOUT_COUNT='+$stdoutTotal
-    $lines[3]='NAT_COUNT='+$natTotal
-    $lines[4]='NAT_STATUS='+$natStatus
-    $lines[5]='NAT_TWO_CARDS='+$natTwo
-    $lines[6]='EXTRA_ASCII='+$extraAscii
-    $lines[7]='EXTRA_NONASCII='+$extraNonAscii
-    $lines[8]='EXTRA_BLANK='+$extraBlank
-    $lines[9]='EXTRA_SHORT='+$extraShort
-    $lines[10]='EXTRA_MEDIUM='+$extraMedium
-    $lines[11]='EXTRA_LONG='+$extraLong
-    $lines[12]='EXTRA_DIAGNOSTIC_LIKE='+$extraDiagnostic
-    $lines[13]='EXTRA_JSON_LIKE='+$extraJsonLike
-    $lines[14]='EXTRA_TYPE_LIKE='+$extraTypeLike
-    $lines[15]='EXTRA_NUMERIC='+$extraNumeric
-    try { [IO.File]::WriteAllLines($receipt,$lines,[Text.Encoding]::ASCII) }
-    catch {}
-  }
-}
-) { $extraPureAlpha++ }
-    if ($value -match ' ') { $extraSpaces++ }
-    if ($value -match '^[^A-Za-z0-9]') { $extraPunctuation++ }
-    if ($value -match '^["''][^"'']*["'']
-    elseif ($value.Length -le 100) { $extraMedium++ }
-    else { $extraLong++ }
-    if ($value -match '^[\x00-\x7f]*$') { $extraAscii++ }
-    else { $extraNonAscii++ }
-    if ($value -match '(?i)warning|add-type|exception|compil|error|powershell|copyright') {
-      $extraDiagnostic++
-    }
-    if ($value -match '^\s*[\{\[]') { $extraJsonLike++ }
-    if ($value -match '^System\.[A-Za-z0-9_.+]{1,120}$') { $extraTypeLike++ }
-    if ($value -match '^-?[0-9]{1,12}(\.[0-9]{1,5})?$') { $extraNumeric++ }
-  }
-  if ($natTotal -eq 1) {
-    $stage='CLASSIFY_ENCODED_JSON_STATUS'
-    $token=$tokenValue.Replace('-','+').Replace('_','/')
-    $token+=('='*((4-$token.Length%4)%4))
-    [byte[]]$bytes=[Convert]::FromBase64String($token)
-    if ($bytes.Length -gt 262144) { throw 'PAYLOAD_TOO_LARGE' }
-    $jsonBody=[Text.Encoding]::UTF8.GetString($bytes)
-    if ($jsonBody -match '^\{"status":"PASS",') { $natStatus='PASS' }
-    elseif ($jsonBody -ceq '{"status":"UNAVAILABLE"}') { $natStatus='UNAVAILABLE' }
-    else { $natStatus='OTHER' }
-    if ($natStatus -eq 'PASS' -and $jsonBody -match '"match_count":2[,}]') {
-      $natTwo='CLAIMED_TWO'
-    } else { $natTwo='NOT_CONFIRMED' }
-  }
-  $stage='COMPLETED'
-} catch {
-  if ($stage -eq 'START') { $stage='PREFLIGHT_FAIL' }
-  elseif ($stage -eq 'VERIFY_INSTALLED_SOURCES') { $stage='HASH_FAIL' }
-  elseif ($stage -eq 'INVOKE_INSTALLED_HELPER') { $stage='INVOKE_FAIL' }
-  else { $stage='OUTPUT_FAIL' }
-} finally {
-  if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) {
-    [string[]]$lines=New-Object string[] 16
-    $lines[0]='STAGE='+$stage
-    $lines[1]='CHILD_EXIT_ZERO='+$exitZero
-    $lines[2]='STDOUT_COUNT='+$stdoutTotal
-    $lines[3]='NAT_COUNT='+$natTotal
-    $lines[4]='NAT_STATUS='+$natStatus
-    $lines[5]='NAT_TWO_CARDS='+$natTwo
-    $lines[6]='EXTRA_ASCII='+$extraAscii
-    $lines[7]='EXTRA_NONASCII='+$extraNonAscii
-    $lines[8]='EXTRA_BLANK='+$extraBlank
-    $lines[9]='EXTRA_SHORT='+$extraShort
-    $lines[10]='EXTRA_MEDIUM='+$extraMedium
-    $lines[11]='EXTRA_LONG='+$extraLong
-    $lines[12]='EXTRA_DIAGNOSTIC_LIKE='+$extraDiagnostic
-    $lines[13]='EXTRA_JSON_LIKE='+$extraJsonLike
-    $lines[14]='EXTRA_TYPE_LIKE='+$extraTypeLike
-    $lines[15]='EXTRA_NUMERIC='+$extraNumeric
-    try { [IO.File]::WriteAllLines($receipt,$lines,[Text.Encoding]::ASCII) }
-    catch {}
-  }
-}
-) { $extraQuoted++ }
-    if ($value.Length -le 12) { $extraShort++ }
-    elseif ($value.Length -le 100) { $extraMedium++ }
-    else { $extraLong++ }
-    if ($value -match '^[\x00-\x7f]*$') { $extraAscii++ }
-    else { $extraNonAscii++ }
-    if ($value -match '(?i)warning|add-type|exception|compil|error|powershell|copyright') {
-      $extraDiagnostic++
-    }
-    if ($value -match '^\s*[\{\[]') { $extraJsonLike++ }
-    if ($value -match '^System\.[A-Za-z0-9_.+]{1,120}$') { $extraTypeLike++ }
-    if ($value -match '^-?[0-9]{1,12}(\.[0-9]{1,5})?$') { $extraNumeric++ }
-  }
-  if ($natTotal -eq 1) {
-    $stage='CLASSIFY_ENCODED_JSON_STATUS'
-    $token=$tokenValue.Replace('-','+').Replace('_','/')
-    $token+=('='*((4-$token.Length%4)%4))
-    [byte[]]$bytes=[Convert]::FromBase64String($token)
-    if ($bytes.Length -gt 262144) { throw 'PAYLOAD_TOO_LARGE' }
-    $jsonBody=[Text.Encoding]::UTF8.GetString($bytes)
-    if ($jsonBody -match '^\{"status":"PASS",') { $natStatus='PASS' }
-    elseif ($jsonBody -ceq '{"status":"UNAVAILABLE"}') { $natStatus='UNAVAILABLE' }
-    else { $natStatus='OTHER' }
-    if ($natStatus -eq 'PASS' -and $jsonBody -match '"match_count":2[,}]') {
-      $natTwo='CLAIMED_TWO'
-    } else { $natTwo='NOT_CONFIRMED' }
-  }
-  $stage='COMPLETED'
-} catch {
-  if ($stage -eq 'START') { $stage='PREFLIGHT_FAIL' }
-  elseif ($stage -eq 'VERIFY_INSTALLED_SOURCES') { $stage='HASH_FAIL' }
-  elseif ($stage -eq 'INVOKE_INSTALLED_HELPER') { $stage='INVOKE_FAIL' }
-  else { $stage='OUTPUT_FAIL' }
-} finally {
-  if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) {
-    [string[]]$lines=New-Object string[] 16
-    $lines[0]='STAGE='+$stage
-    $lines[1]='CHILD_EXIT_ZERO='+$exitZero
-    $lines[2]='STDOUT_COUNT='+$stdoutTotal
-    $lines[3]='NAT_COUNT='+$natTotal
-    $lines[4]='NAT_STATUS='+$natStatus
-    $lines[5]='NAT_TWO_CARDS='+$natTwo
-    $lines[6]='EXTRA_ASCII='+$extraAscii
-    $lines[7]='EXTRA_NONASCII='+$extraNonAscii
-    $lines[8]='EXTRA_BLANK='+$extraBlank
-    $lines[9]='EXTRA_SHORT='+$extraShort
-    $lines[10]='EXTRA_MEDIUM='+$extraMedium
-    $lines[11]='EXTRA_LONG='+$extraLong
-    $lines[12]='EXTRA_DIAGNOSTIC_LIKE='+$extraDiagnostic
-    $lines[13]='EXTRA_JSON_LIKE='+$extraJsonLike
-    $lines[14]='EXTRA_TYPE_LIKE='+$extraTypeLike
-    $lines[15]='EXTRA_NUMERIC='+$extraNumeric
     try { [IO.File]::WriteAllLines($receipt,$lines,[Text.Encoding]::ASCII) }
     catch {}
   }
