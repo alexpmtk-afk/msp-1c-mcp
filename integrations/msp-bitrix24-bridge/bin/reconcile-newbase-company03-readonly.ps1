@@ -97,58 +97,7 @@ try{
  $script:root=$root
  if(-not [IO.File]::Exists($receipt)){Fail 'SOURCE_RECEIPT_MISSING'}
  $state=[IO.File]::ReadAllText($receipt,[Text.Encoding]::ASCII).Trim()
- if($state -match '^UTC=[^;]+;STATUS=FAIL_SQLITE_PARSE;MARKER=([a-f0-9-]{36});CREATED_ID=3
- if($sourceGuid -notmatch '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$'){Fail 'SOURCE_GUID_INVALID'}
- $db=Join-Path $root 'data\customers.db'
- $sqlite=Join-Path $root 'bin\sqlite3.exe'
- if(-not [IO.File]::Exists($db) -or -not [IO.File]::Exists($sqlite)){Fail 'SQLITE_MISSING'}
- $lookup="SELECT count(*) FROM customers WHERE onec_guid='"+$sourceGuid+"' AND onec_type='LEGAL' AND buyer=1 AND deletion_mark=0 AND invalid=0;"
- $n=@(& $sqlite -readonly -batch -bail $db $lookup 2>&1)
- if($LASTEXITCODE -ne 0 -or $n.Count -ne 1 -or ([string]$n[0]).Trim() -ne '1'){Fail 'SOURCE_ROW_NOT_CONFIRMED'}
- $phase='DPAPI'
- Add-Type -AssemblyName System.Security
- $secretBytes=[IO.File]::ReadAllBytes((Join-Path $root 'staging\bitrix-direct-private\bitrix-direct-webhook.dpapi'))
- $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-Bitrix24-Direct-Webhook-v1')
- $decoded=[Security.Cryptography.ProtectedData]::Unprotect($secretBytes,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
- $tokenText=[Text.Encoding]::UTF8.GetString($decoded)
- if($tokenText -notmatch '^https://b24-uwmjda\.bitrix24\.ru/rest/[1-9][0-9]{0,9}/[A-Za-z0-9_-]{8,128}/?$'){Fail 'WEBHOOK_FORMAT'}
- $script:base=$tokenText.TrimEnd('/')+'/'
- $tokenText=$null
- $phase='READ_EXISTING_COMPANY_3'
- $answer=Http 'crm.item.get' '{"entityTypeId":4,"id":3}'
- $sql="SELECT CASE WHEN json_valid(doc)<>1 THEN 'INVALID' WHEN CAST(json_extract(doc,'$.result.item.id') AS TEXT)='3' AND json_extract(doc,'$.result.item.originatorId')='MSP_ONEC_NEWBASE' AND json_extract(doc,'$.result.item.originId')='"+$sourceGuid+"' THEN 'MATCH' ELSE 'NOT_MATCHED' END FROM j;"
- $company=SqlJson $answer $sql
- $answer=$null
- if($company -ne 'MATCH'){
-  'COMPANY_3_SOURCE_MATCH=NO_OR_UNCONFIRMED'
-  'CRM_WRITES=NO'
-  'RESULT=FAIL;STAGE=NEWBASE_COMPANY03_READONLY_RECONCILE;GATE=COMPANY_MAPPING_MISMATCH'
-  exit 1
- }
- $phase='READ_COMPANY_REQUISITES'
- $answer=Http 'crm.requisite.list' '{"filter":{"ENTITY_TYPE_ID":4,"ENTITY_ID":3},"select":["ID","ENTITY_ID","PRESET_ID"],"start":0}'
- $sql="SELECT CASE WHEN json_valid(doc)<>1 THEN 'INVALID' WHEN json_type(doc,'$.result')<>'array' THEN 'INVALID' WHEN json_array_length(doc,'$.result')>50 THEN 'INVALID' ELSE CAST(json_array_length(doc,'$.result') AS TEXT) END FROM j;"
- $count=SqlJson $answer $sql
- $answer=$null
- if($count -notmatch '^[0-9]{1,2}$'){Fail 'REQUISITES_RESPONSE_UNEXPECTED'}
- 'COMPANY_3_SOURCE_MATCH=PASS'
- 'SOURCE_GUID_MATCH=YES'
- 'COMPANY_REQUISITES_COUNT='+$count
- 'CRM_WRITES=NO'
- 'SOURCE_1C_WRITES=NO'
- 'SOURCE_SQLITE_WRITES=NO'
- 'RESULT=PASS;STAGE=NEWBASE_COMPANY03_READONLY_RECONCILE'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^NEWBASE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- 'RESULT=FAIL;STAGE=NEWBASE_COMPANY03_READONLY_RECONCILE;GATE='+$gate+';PHASE='+$phase
- 'NO_AUTOMATIC_RETRY=YES'
- exit 1
-}finally{
- if($null -ne $secretBytes){[Array]::Clear($secretBytes,0,$secretBytes.Length)}
- if($null -ne $decoded){[Array]::Clear($decoded,0,$decoded.Length)}
- $tokenText=$null;$script:base=$null
-}){$sourceGuid=$Matches[1]}else{Fail 'SOURCE_RECEIPT_UNEXPECTED'}
+ if($state -match '^UTC=[^;]+;STATUS=FAIL_SQLITE_PARSE;MARKER=([a-f0-9-]{36});CREATED_ID=3$'){$sourceGuid=$Matches[1]}else{Fail 'SOURCE_RECEIPT_UNEXPECTED'}
  if($sourceGuid -notmatch '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$'){Fail 'SOURCE_GUID_INVALID'}
  $db=Join-Path $root 'data\customers.db'
  $sqlite=Join-Path $root 'bin\sqlite3.exe'
