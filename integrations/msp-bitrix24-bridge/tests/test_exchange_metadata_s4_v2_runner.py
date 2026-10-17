@@ -20,7 +20,7 @@ class OneShotSurveyV2RunnerTest(unittest.TestCase):
             "$null=$folder.RegisterTaskDefinition($taskName,$def,2",
             "$folder.DeleteTask($taskName,0)",
             "$null=$task.Run($null)",
-            "if($task.Definition.Triggers.Count -ne 0)",
+            "$task.Definition.Triggers.Count -ne 0",
             "$phase='WAIT_WORKER_FINISH'",
             "if([int]$task.LastTaskResult -ne 0)",
             "V2_PREVIOUS_STATE_PRESENT",
