@@ -105,6 +105,7 @@ try{
   'ORIGIN_VERIFIED=YES'
   'ITEM_STATUS='+$itemState
   'REQUISITE_STATUS='+$(if($kind -eq 3){'NOT_APPLICABLE'}elseif($reqMatch){'MATCH'}else{'DIFF'})
+  'SOURCE_GENERATION='+$stamp
   if(-not $Apply){
    'CRM_WRITES=0'
    'LOCAL_WRITES=0'
@@ -114,7 +115,9 @@ try{
   $phase='CHECK_EXPLICIT_APPROVAL'
   $approval=Join-Path $root 'config\crm-newbase-existing-one-approval.txt'
   Need ([IO.File]::Exists($approval)) 'APPROVAL_FILE_MISSING'
-  Need (([IO.File]::ReadAllText($approval,[Text.Encoding]::ASCII).Trim()) -eq ('APPROVE_TEST_NEWBASE_GUID='+$OnecGuid+';ALLOW_ONE_UPDATE=YES')) 'APPROVAL_NOT_MATCHED'
+  Need (([IO.File]::GetAttributes($approval) -band [IO.FileAttributes]::ReparsePoint) -eq 0) 'APPROVAL_REPARSE_DENIED'
+  # Approval is tied to one exact source generation, not indefinitely to a GUID.
+  Need (([IO.File]::ReadAllText($approval,[Text.Encoding]::ASCII).Trim()) -eq ('APPROVE_TEST_NEWBASE_GUID='+$OnecGuid+';SOURCE_STAMP='+$stamp+';ALLOW_ONE_UPDATE=YES')) 'APPROVAL_NOT_MATCHED'
   Need (Stable $OnecGuid $stamp) 'SOURCE_CHANGED_BEFORE_WRITE'
   $phase='CRM_APPLY'
   $null=Query "CREATE TABLE IF NOT EXISTS msp_auto_ops(onec_guid TEXT PRIMARY KEY,operation TEXT NOT NULL,crm_id INTEGER NOT NULL,entity_kind TEXT NOT NULL,created_utc TEXT NOT NULL);CREATE TABLE IF NOT EXISTS msp_auto_map(onec_guid TEXT PRIMARY KEY,crm_id INTEGER NOT NULL,entity_kind INTEGER NOT NULL,mapped_utc TEXT NOT NULL);"
