@@ -29,12 +29,12 @@ class OutboxSafetyV2(unittest.TestCase):
         c=self.core
         p=self.pump
         self.assertIn("function MarkDone([string]$Guid,[int]$CrmId,[int]$Kind,[string]$ExpectedStamp)",c)
-        self.assertIn("changed_utc="+(Lit $ExpectedStamp)",c)
+        self.assertIn('changed_utc="+(Lit $ExpectedStamp)',c)
         self.assertIn("AND change_kind='UPSERT' AND changed_utc=",c)
         self.assertIn("MarkDone $item.guid $item.crmId $item.entity $item.sourceStamp",p)
         self.assertIn("hex(CAST(o.changed_utc AS BLOB))",p)
         self.assertIn("if($v.Length -ne 7)",p)
-        self.assertIn("changed_utc="+(Lit $ExpectedStamp)",p)
+        self.assertIn('changed_utc="+(Lit $ExpectedStamp)',p)
         self.assertIn("yyyy-MM-ddTHH:mm:ss.fffffffZ",self.refresh)
 
     def test_sqlite_upsert_changed_during_delivery_is_not_deleted(self):
