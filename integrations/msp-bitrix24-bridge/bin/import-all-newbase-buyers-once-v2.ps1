@@ -160,7 +160,7 @@ try{
  $phase='BITRIX_CREDENTIAL'
  Secret
  for($loop=0;$loop -lt $MaxBatches;$loop++){
-  $phase='READ_SOURCE_BATCH'
+  $phase='READ_SOURCE_SQL'
   $query="SELECT c.onec_guid||'|'||c.onec_type||'|'||hex(CAST(coalesce(c.name_short,'') AS BLOB))||'|'||hex(CAST(coalesce(c.name_full,'') AS BLOB))||'|'||hex(CAST(coalesce(c.person_name,'') AS BLOB))||'|'||hex(CAST(coalesce(c.inn,'') AS BLOB)) FROM customers c WHERE c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND NOT EXISTS(SELECT 1 FROM msp_initial_map m WHERE m.onec_guid=c.onec_guid) ORDER BY c.onec_guid LIMIT "+$BatchSize+";"
   $pending=SqlRead $query
   $phase='READ_SOURCE_PARSE'
