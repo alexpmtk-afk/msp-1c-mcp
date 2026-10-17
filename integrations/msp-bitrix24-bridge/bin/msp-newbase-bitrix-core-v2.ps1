@@ -141,7 +141,7 @@ function SqlStatus([string]$Guid,[string]$State,[string]$CrmId,[string]$Kind){
 }
 function MarkDone([string]$Guid,[int]$CrmId,[int]$Kind,[string]$ExpectedStamp){
  if($Guid -notmatch '^[0-9a-f-]{36}$' -or $CrmId -lt 1 -or @('3','4') -notcontains ([string]$Kind)){Fail 'MAP_INVALID'}
- if($ExpectedStamp -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'){Fail 'SOURCE_STAMP_INVALID'}
+ if($ExpectedStamp -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{7})?Z$'){Fail 'SOURCE_STAMP_INVALID'}
  # Never remove a newer outbox change created while a Bitrix24 request was in flight.
  $sql="BEGIN IMMEDIATE;INSERT INTO msp_auto_map(onec_guid,crm_id,entity_kind,mapped_utc) VALUES ('"+$Guid+"',"+$CrmId+","+$Kind+",datetime('now')) ON CONFLICT(onec_guid) DO UPDATE SET crm_id=excluded.crm_id,entity_kind=excluded.entity_kind,mapped_utc=excluded.mapped_utc;DELETE FROM msp_auto_outbox WHERE onec_guid='"+$Guid+"' AND change_kind='UPSERT' AND changed_utc="+(Lit $ExpectedStamp)+";DELETE FROM msp_auto_ops WHERE onec_guid='"+$Guid+"';COMMIT;"
  $null=Query $sql
