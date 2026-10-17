@@ -39,7 +39,7 @@ CREATE TABLE msp_initial_map(onec_guid TEXT PRIMARY KEY);""")
     conn.close()
     # These exact SQL and parsing statements also appear in the shipping V2 worker.
     qstart=worker.index('  $query="SELECT c.onec_guid')
-    qend=worker.index('  $phase=',qstart)
+    qend=worker.index('  Require ($items.Count',qstart)
     first_batch=worker[qstart:qend]
     if "  $pending=SqlRead $query" not in first_batch:
         raise RuntimeError("SOURCE_SQL_NOT_PARENTHESIZED_AS_SINGLE_VARIABLE")
@@ -52,7 +52,9 @@ $BatchSize=20
 function Fail([string]$Code){{throw('NEWBASE_'+$Code)}}
 {real_functions}
 try{{
+for($loop=0;$loop -lt 1;$loop++){{
 {first_batch}
+}}
  if($items.Count -ne 20){{throw('SOURCE_BATCH_COUNT='+$items.Count)}}
  if($items[0].title -ne 'ООО Тестовая компания 0'){{throw 'FIRST_LEGAL_MISMATCH'}}
  if($items[1].kind -ne 3){{throw 'SECOND_PERSON_NOT_CONTACT'}}
@@ -66,7 +68,7 @@ try{{
  exit 3
 }}
 """
-    f=root/"smoke.ps1";f.write_text(test,encoding="ascii",errors="xmlcharrefreplace")
+    f=root/"smoke.ps1"
     # Script contains Cyrillic text in fixture assertion; use UTF-8 with BOM for Windows PowerShell 5.
     f.write_text(test,encoding="utf-8-sig")
     p=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive","-File",str(f)],
