@@ -1,5 +1,6 @@
 """In-flight TEST buyer CRM read-only diagnostic safety gate."""
 from pathlib import Path
+import hashlib
 import unittest
 class InflightAudit(unittest.TestCase):
     @classmethod
@@ -39,5 +40,6 @@ class InflightAudit(unittest.TestCase):
         self.assertIn("STATUS=PASS",s)
         self.assertIn("STATUS=FAIL",s)
         self.assertNotIn("GUIDS=",s)
+        print("INFLIGHT_AUDIT_SHA256="+hashlib.sha256((Path(__file__).resolve().parents[1]/"bin"/"audit-initial-buyer-inflight-v1.ps1").read_bytes()).hexdigest())
         self.assertNotIn("INNS=",s)
 if __name__=="__main__": unittest.main()
