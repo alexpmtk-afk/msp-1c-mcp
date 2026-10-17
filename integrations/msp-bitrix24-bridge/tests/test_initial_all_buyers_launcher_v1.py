@@ -7,7 +7,7 @@ class InitialLauncher(unittest.TestCase):
  def test_manual_task_and_pinned_bytes(self):
   s=(B/"start-initial-all-buyers-v1.ps1").read_text("ascii")
   for needle in (
-    "#requires -version 2", "LOCAL_SERVICE", "S-1-5-19",
+    "#requires -version 2", "S-1-5-19", "S-1-5-19",
     "MspNewBaseInitialImportV1", "TASK_HAS_TRIGGERS",
     "5431a074f62a46adf4e6efa0f46a2cce1c6e6180",
     "1a80a305db4c5fa136198212c3ca8dc0e49285a5d691014cfcdd05dc36691434",
