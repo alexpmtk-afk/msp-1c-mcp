@@ -16,7 +16,7 @@ class FullPopulation(unittest.TestCase):
             "6433:1941:4486:6",
             "@('LEGAL','PERSON','REVIEW')",
             "$kind=if($category -eq 'PERSON'){3}else{4}",
-            "[Тип 1С требует проверки]",
+            "[1C TYPE REVIEW]",
             "SOURCE=TEST_NEWBASE",
             "SOURCE_POPULATION_CHANGED",
             "ONEC_WRITES=0",
