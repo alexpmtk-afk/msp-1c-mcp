@@ -160,6 +160,10 @@ jobs:
           if($LASTEXITCODE -ne 0){throw ('SQLITE_DOT_READ_FAILED: '+($result -join ' '))}
           Write-Output 'SQLITE_WIN_DOT_READ_FORWARD_SLASH=PASS'
 
+      - name: Native PowerShell real SQLite first-batch import regression
+        shell: pwsh
+        run: python integrations/msp-bitrix24-bridge/tests/smoke_initial_import_first_batch_windows.py
+
       - name: Real Windows SQLite 6433 UPSERT plus rollback acceptance
         shell: pwsh
         run: |
