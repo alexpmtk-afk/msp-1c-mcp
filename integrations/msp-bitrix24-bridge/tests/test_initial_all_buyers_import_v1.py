@@ -23,6 +23,10 @@ class FullPopulation(unittest.TestCase):
             "AUTO_UPDATE=OFF",
             "TARGET=6433",
             "TOTAL_IN_CRM_VERIFIED=6433",
+            "fields[comments]",
+            "FullName=",
+            "INN=",
+            "CRM_DETAILS_BACKREAD_MISMATCH",
         ):
             self.assertIn(needle,s)
     def test_no_1c_or_recurring_scheduler(self):
