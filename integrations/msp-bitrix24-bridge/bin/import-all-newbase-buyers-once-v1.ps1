@@ -88,7 +88,7 @@ function Search($Items){
  }
  return ,$out
 }
-function Verify($Items,$Ids){
+function Verify($Items,$Ids,[bool]$RequireDetails=$false){
  $q=New-Object Collections.ArrayList
  for($i=0;$i -lt $Items.Count;$i++){
   [void]$q.Add('crm.item.get?entityTypeId='+$Items[$i].kind+'&id='+$Ids[$i])
@@ -100,6 +100,13 @@ function Verify($Items,$Ids){
   $rOwner=Extract $answer $i '.item.originatorId'
   if($rId -ne [string]$Ids[$i] -or $rOrigin -ne $Items[$i].guid -or $rOwner -ne 'MSP_ONEC_NEWBASE'){
    Fail 'CRM_BACKREAD_ORIGIN_MISMATCH'
+  }
+  if($RequireDetails){
+   $key='k'+$i
+   $p="'$.result.result."+$key+".item.comments'"
+   $want=HexUtf8 (Details $Items[$i])
+   $sql="SELECT CASE WHEN json_valid(doc)<>1 THEN 'INVALID' WHEN hex(CAST(coalesce(json_extract(doc,"+$p+"),'') AS BLOB))='"+$want+"' THEN 'MATCH' ELSE 'DIFF' END FROM j;"
+   if((SqlJson $answer $sql) -ne 'MATCH'){Fail 'CRM_DETAILS_BACKREAD_MISMATCH'}
   }
  }
 }
@@ -187,7 +194,7 @@ try{
     [void]$ids.Add([int]$id)
    }
    $phase='CRM_CREATE_BACKREAD'
-   Verify $new $ids
+   Verify $new $ids $true
    CommitMap $new $ids
    $script:created+=$new.Count;$script:processed+=$new.Count
   }
