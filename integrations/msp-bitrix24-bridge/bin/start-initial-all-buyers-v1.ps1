@@ -50,14 +50,14 @@ try{
  $staging=Join-Path $root 'staging\bitrix-initial-6433-v1'
  if([IO.Directory]::Exists($staging)){Fail 'STAGING_ALREADY_EXISTS'}
  [void][IO.Directory]::CreateDirectory($staging)
- $base='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/5431a074f62a46adf4e6efa0f46a2cce1c6e6180/integrations/msp-bitrix24-bridge/bin/'
+ $base='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/567a25e294d5995a33642a229c52721b6bf9c609/integrations/msp-bitrix24-bridge/bin/'
  $w=Join-Path $staging 'import-all-newbase-buyers-once-v1.ps1'
  $c=Join-Path $staging 'msp-newbase-bitrix-core-v2.ps1'
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --output $w ($base+'import-all-newbase-buyers-once-v1.ps1')
  if($LASTEXITCODE -ne 0){Fail 'WORKER_DOWNLOAD_FAILED'}
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --output $c ($base+'msp-newbase-bitrix-core-v2.ps1')
  if($LASTEXITCODE -ne 0){Fail 'CORE_DOWNLOAD_FAILED'}
- CheckScript $w '1a80a305db4c5fa136198212c3ca8dc0e49285a5d691014cfcdd05dc36691434'
+ CheckScript $w '52d8d1e140273761cda8f157a440aca31c36567ca8b09a4d27cb277798596c8e'
  CheckScript $c '6d6d1c385c0dc648310772fce86be7936bb30cbafb3790c5ae48cc4fcbc8e852'
  'INITIAL_BULK_PACKAGE_SHA256=PASS'
  $phase='REGISTER_ONE_TIME_TASK'
