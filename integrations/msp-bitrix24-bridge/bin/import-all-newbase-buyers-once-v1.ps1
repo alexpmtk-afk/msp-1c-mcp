@@ -9,7 +9,7 @@ $script:root=$root
 $phase='PRECHECK';$locked=$false;$mutex=$null
 $script:created=0;$script:reused=0;$script:processed=0
 $state=Join-Path $root 'state\bitrix-initial-all-buyers-v1.status'
-. (Join-Path $root 'bin\msp-newbase-bitrix-core-v2.ps1')
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'msp-newbase-bitrix-core-v2.ps1')
 function Require([bool]$Condition,[string]$Code){if(-not $Condition){Fail $Code}}
 function Number([string]$Text){
  if($Text -notmatch '^[0-9]{1,10}$'){Fail 'COUNT_INVALID'}
