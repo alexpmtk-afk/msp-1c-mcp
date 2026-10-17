@@ -43,8 +43,8 @@ function Rows([string]$Data){
   $short=DecodeHex $v[2];$full=DecodeHex $v[3];$person=DecodeHex $v[4];$inn=DecodeHex $v[5]
   $kind=if($category -eq 'PERSON'){3}else{4}
   $title=if($kind -eq 3){$person}else{$short}
-  if($title.Trim().Length -eq 0){$title=if($full.Trim().Length -gt 0){$full}else{'Без наименования в 1С '+$guid}}
-  if($category -eq 'REVIEW'){$title='[Тип 1С требует проверки] '+$title}
+  if($title.Trim().Length -eq 0){$title=if($full.Trim().Length -gt 0){$full}else{'[1C UNNAMED] '+$guid}}
+  if($category -eq 'REVIEW'){$title='[1C TYPE REVIEW] '+$title}
   if($title.Length -gt 240){$title=$title.Substring(0,240)}
   $item=New-Object PSObject -Property @{guid=$guid;category=$category;kind=$kind;title=$title;full=$full;inn=$inn}
   [void]$list.Add($item)
