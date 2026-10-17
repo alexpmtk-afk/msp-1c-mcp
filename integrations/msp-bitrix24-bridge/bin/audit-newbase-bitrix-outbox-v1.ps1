@@ -50,12 +50,12 @@ try{
  }
  if(@($found.Split(':')) -notcontains 'customers'){Fail 'CUSTOMERS_TABLE_MISSING'}
  $phase='CUSTOMER_COUNTS'
- $c=Query $exe $db 'SELECT count(*) || ":" || count(DISTINCT onec_guid) || ":" || sum(CASE WHEN buyer=1 AND deletion_mark=0 AND invalid=0 THEN 1 ELSE 0 END) FROM customers;'
+ $c=Query $exe $db 'SELECT count(*) || ":" || count(DISTINCT onec_guid) || ":" || coalesce(sum(CASE WHEN buyer=1 AND deletion_mark=0 AND invalid=0 THEN 1 ELSE 0 END),0) FROM customers;'
  if($c -notmatch '^[0-9]+:[0-9]+:[0-9]+$'){Fail 'CUSTOMER_COUNT_INVALID'}
  'CUSTOMERS_TOTAL_UNIQUE_ELIGIBLE='+$c
  if(@($found.Split(':')) -contains 'msp_auto_outbox'){
   $phase='OUTBOX_COUNTS'
-  $q="SELECT count(*) || ':' || sum(CASE WHEN change_kind='UPSERT' THEN 1 ELSE 0 END) || ':' || sum(CASE WHEN change_kind='UPDATE_REQUIRED' THEN 1 ELSE 0 END) || ':' || sum(CASE WHEN change_kind='HELD' THEN 1 ELSE 0 END) || ':' || sum(CASE WHEN change_kind='REMOVED' THEN 1 ELSE 0 END) || ':' || sum(CASE WHEN change_kind NOT IN ('UPSERT','UPDATE_REQUIRED','HELD','REMOVED') THEN 1 ELSE 0 END) FROM msp_auto_outbox;"
+  $q="SELECT count(*) || ':' || coalesce(sum(CASE WHEN change_kind='UPSERT' THEN 1 ELSE 0 END),0) || ':' || coalesce(sum(CASE WHEN change_kind='UPDATE_REQUIRED' THEN 1 ELSE 0 END),0) || ':' || coalesce(sum(CASE WHEN change_kind='HELD' THEN 1 ELSE 0 END),0) || ':' || coalesce(sum(CASE WHEN change_kind='REMOVED' THEN 1 ELSE 0 END),0) || ':' || coalesce(sum(CASE WHEN change_kind NOT IN ('UPSERT','UPDATE_REQUIRED','HELD','REMOVED') THEN 1 ELSE 0 END),0) FROM msp_auto_outbox;"
   $s=Query $exe $db $q
   if($s -notmatch '^[0-9]+(:[0-9]+){5}$'){Fail 'OUTBOX_COUNTS_INVALID'}
   'OUTBOX_TOTAL_UPSERT_UPDATE_HELD_REMOVED_UNKNOWN='+$s
