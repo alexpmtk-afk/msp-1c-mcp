@@ -192,7 +192,7 @@ try{
  'OUTBOX_PROGRESS_PERSISTED=YES'
  'SOURCE_1C_WRITES=NO'
  'SOURCE_SQLITE_RECORDS_NOT_MODIFIED=YES'
- if($script:uncertain -gt 0){'RESULT=PARTIAL;STAGE=NEWBASE_CRM_BATCH_V2'}else{'RESULT=PASS;STAGE=NEWBASE_CRM_BATCH_V2'}
+ if($script:uncertain -gt 0 -or $script:updateRequired -gt 0){'RESULT=PARTIAL;STAGE=NEWBASE_CRM_BATCH_V2'}else{'RESULT=PASS;STAGE=NEWBASE_CRM_BATCH_V2'}
 }catch{
  $gate='RUNTIME_ERROR'
  if($_.Exception.Message -match '^NEWBASE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
