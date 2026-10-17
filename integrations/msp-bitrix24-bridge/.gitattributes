@@ -1,0 +1,4 @@
+# Force deterministic bytes for hash-pinned source and raw GitHub downloads.
+bin/*.ps1 text eol=lf
+config/*.ini text eol=lf
+schema/*.sql text eol=lf

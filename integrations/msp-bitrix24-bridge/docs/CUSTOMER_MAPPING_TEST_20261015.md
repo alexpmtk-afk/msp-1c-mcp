@@ -1,0 +1,117 @@
+# MSP Bitrix24 Bridge: counterparty mapping (schema gate 2026-10-15)
+
+## Evidence
+- Physical SRV, only TEST 1C NewBase OData, `$metadata` GET returned HTTP 200 and 1492 entity sets.
+- `Catalog_Контрагенты`: key `Ref_Key` (Edm.Guid), 66 properties.
+- `Catalog_Контрагенты_КонтактнаяИнформация`: compound key `Ref_Key` and `LineNumber`, 16 properties.
+- Count-only check on SRV returned 7,635 counterparties, 6,770 buyer-flagged, and 6,433 active not-deleted buyers (15 Oct 2026). No customer rows were fetched, no Bitrix24 portal queried, no 1C writes.
+- Full 65-page audited scan on SRV: 6,433/6,433 read, 6,433 unique GUIDs, no duplicates, PASS.
+- Among active buyers: full name nonblank 5,577; INN nonblank 1,925; both nonblank 1,912.
+- Missing full name 856; missing INN 4,508; either required field missing 4,521.
+- INN containing exactly 10/12 ASCII digits 1,921 (4 nonempty values have another shape; checksum NOT validated).
+- These results do NOT classify legal entities versus individuals; never treat the missing INNs as 4,508 faulty organizations.
+- No source customer names, INNs or GUIDs were exported. No 1C writes or Bitrix REST calls.
+- Actual field labels/types below were obtained from current 1C metadata, not assumed.
+
+## Provisional mapping (Bitrix24 target NOT validated against portal yet)
+
+| TEST 1C source | Bitrix24 candidate | Gate |
+| --- | --- | --- |
+| `Ref_Key` | company/contact `ORIGIN_ID` with stable `ORIGINATOR_ID` namespace | Portal integration identity and collision strategy pending |
+| `НаименованиеПолное` | company `TITLE` (suggested visible title) | Must show complete name; verify display policy |
+| `НаименованиеПолное` | requisite `RQ_COMPANY_FULL_NAME` | **Required for organizations**; validate requisite preset in portal |
+| `ИНН` | requisite `RQ_INN` | **Required for organizations**; validate nonempty value and requisite preset |
+| `Description` | optional company short name or requisite `RQ_COMPANY_NAME` | Secondary field; never replace full organization name |
+| `КПП` | requisite `RQ_KPP` | Verified generic API field; company only if applicable |
+| `КодПоОКПО` | requisite `RQ_OKPO` | Optional, verify applicability |
+| `Покупатель` | eligibility gate, not a CRM field | Only buyer=true considered |
+| `DeletionMark`, `Недействителен` | suppress new import; future lifecycle policy | Never auto-delete CRM records |
+| `ЮридическоеФизическоеЛицо` | company versus contact decision | Enum values not yet inspected; do not infer |
+| `ФИО` | contact `NAME`, `SECOND_NAME`, `LAST_NAME` | Splitting name is NOT validated; avoid automatic split |
+| `DataVersion` | possible `ORIGIN_VERSION` | Only after verifying semantics |
+| `КонтактнаяИнформация` | company/contact `PHONE`, `EMAIL` multi-fields | Interpret `Тип` and `Вид_Key` before mapping |
+
+**Contact table**: composite identity `Ref_Key+LineNumber`; candidate content fields
+`Тип`, `Вид_Key`, `Представление`, `Значение`, `АдресЭП`,
+`НомерТелефона`, `Город`, `Регион`, `Страна`, `ДействуетС`.
+No row content inspected, so email/phone/address subtype logic remains TBD.
+
+### Required minimum, user-confirmed 15 Oct 2026
+
+**Organization-specific mapping MUST include BOTH where eligible for organization transfer**:
+1. `НаименованиеПолное` from 1C as Bitrix24 requisite `RQ_COMPANY_FULL_NAME` (and preferably visible company title `TITLE`).
+2. `ИНН` from 1C as Bitrix24 requisite `RQ_INN`.
+
+Bitrix API field `RQ_COMPANY_NAME` is **short** organization name; do not use it as the full name.
+Full-name and INN completeness are release gates: no automatic write of organizations
+with either field missing until a specific exception workflow is approved.
+Complete locally verified audit: 1,912 of 6,433 active buyers had both fields
+nonblank after whitespace trimming. The count covers ALL buyer types.
+An OData string filter `НаименованиеПолное ne ''` caused HTTP 500;
+a 65-page LOCAL-only scan is the accepted alternative for this test.
+No inference about organization readiness is permitted before classifying
+`ЮридическоеФизическоеЛицо`.
+
+Counterparty type has now been observed and counted exactly: `ЮридическоеЛицо`
+1,941, `ФизическоеЛицо` 4,486, and 6 other/unclassified out of 6,433 eligible.
+Natural persons remain in scope **with no mandatory INN**, even if they buy rarely.
+Keep the 6 unclassified records in a review queue, not silently discarded.
+
+Source: https://apidocs.bitrix24.com/api-reference/crm/requisites/universal/crm-requisite-fields.html
+
+### Scope and safety
+- Ignore non-buyer-only suppliers by default; buyer=true and supplier=true is eligible unless business rules exclude it.
+- Eligibility for initial analysis: `Покупатель eq true and DeletionMark eq false and Недействителен eq false`.
+- Metadata confirms these properties exist; counts & actual flag values must be verified on TEST 1C.
+- Existing CRM duplicates and matched external IDs must be reviewed before any write.
+- Use TEST-specific origin namespace; never merge TEST identities into production without explicit mapping.
+- `MspBitrix24Bridge` remains SAFE_IDLE with no Bitrix24 network requests.
+- Preserve stable GUID on source identity; do not match solely by names or INN.
+- `КонтактноеЛицо_Key` is only a link; not a proven standalone CRM contact.
+- Do not transfer DOB, document identity info, or raw bank details during first phase.
+
+Official documentation:
+- https://apidocs.bitrix24.com/api-reference/crm/companies/crm-company-fields.html
+- https://apidocs.bitrix24.com/api-reference/crm/contacts/crm-contact-fields.html
+- https://apidocs.bitrix24.com/api-reference/crm/requisites/universal/crm-requisite-add.html
+- https://apidocs.bitrix24.com/api-reference/crm/universal/object-fields.html
+- 1C OData `$count` with `$filter`: https://1c-dn.com/download-trial/files/guides/developer_guide.pdf
+
+## Buyer type sample, confirmed on SRV (15 Oct 2026)
+- Read-only 100-row sample, 100 unique GUIDs, 2 distinct literal category values:
+  `ЮридическоеЛицо` 61, `ФизическоеЛицо` 39.
+- These are first 100 by GUID, **NOT a random population sample** and
+  cannot be extrapolated to 6,433.
+- Sample contained no record export, write or Bitrix API call.
+- Next evaluate OData `$count` filters for each exact class and for legal
+  entities with nonempty INN; do not filter on long full name (HTTP 500).
+
+## Full category counts, verified SRV 15 Oct 2026
+- Baseline 6,433 eligible active buyers, 1,941 `ЮридическоеЛицо`, 4,486 `ФизическоеЛицо`, 6 other/unclassified.
+- 1,402 legal entities have `ИНН ne ''`; 539 legal entities do not.
+- Category counts from four GET-only OData `$count` calls; no row export and no writes.
+- Do not extrapolate full-name completeness (1,912 all-type both-field count) to legal-only subset.
+- The 6 other/unclassified require separate investigation; sole criterion `ЮридическоеЛицо` may also
+  omit businesses that are individual entrepreneurs, so finalize entity mapping later.
+
+## User clarification: all active customers are needed (15 Oct 2026)
+
+This is a binding **scope requirement** for future integration, not a live-activation request.
+Customers include both `ЮридическоеЛицо` and `ФизическоеЛицо`, regardless of purchase frequency.
+Missing INN **must not** exclude a natural person; individuals can be occasional buyers.
+The earlier legal-only test was too narrowly positioned as the next milestone.
+It is at most an optional diagnostic of company-field completeness and cannot
+replace or block the full customer-universe integration.
+
+Reference policy: [CUSTOMER_SCOPE_POLICY.md](CUSTOMER_SCOPE_POLICY.md).
+
+## Next gate
+Design and test a **unified** read-only customer index on physical SRV for all
+currently eligible 6,433 buyers (1,941 legal, 4,486 natural persons and 6
+pending classification), keeping a stable `Ref_Key` identity and type.
+Show aggregate-only completeness by category; do not require INN for natural persons.
+Inspect name sources (`Description`, `ФИО`, `НаименованиеПолное`) and category
+exceptions safely. Then define Bitrix24 company/contact mapping after checking
+portal presets and existing records. Do not turn on synchronization or alter
+the SAFE_IDLE system service until separately authorized.
+No changes to system bridge or existing MSP tasks.

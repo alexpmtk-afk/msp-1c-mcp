@@ -1,0 +1,311 @@
+name: Bitrix24 bridge standalone bootstrap checks
+on:
+  pull_request:
+    paths:
+      - 'integrations/msp-bitrix24-bridge/**'
+      - '.github/workflows/bitrix24-bridge-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safety contracts (offline)
+        shell: pwsh
+        run: python -m unittest discover -s integrations/msp-bitrix24-bridge/tests -p "test_*.py" -v
+      - name: Windows PowerShell parse (native PS2 is separately gated)
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          Get-ChildItem 'integrations/msp-bitrix24-bridge/bin' -Filter '*.ps1' | ForEach-Object {
+            $source=[IO.File]::ReadAllText($_.FullName,[Text.Encoding]::UTF8)
+            $errs=$null
+            $null=[System.Management.Automation.PSParser]::Tokenize($source,[ref]$errs)
+            if($errs -and $errs.Count -gt 0){foreach($parseErr in $errs){Write-Output ('PS_PARSE_DIAGNOSTIC='+$_.Name+'|'+$parseErr.Message+'|'+$parseErr.Token.StartLine)};throw ('PARSE_FAILED: '+$_.Name)}
+            if(-not $source.StartsWith('#requires -version 2')){throw ('PS2_DECLARATION_MISSING: '+$_.Name)}
+            Write-Output ('PARSE_PASS='+$_.Name)
+          }
+      - name: Windows PowerShell ACL flags constructor regression
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $sid=New-Object Security.Principal.SecurityIdentifier -ArgumentList 'S-1-5-19'
+          $rights=[Security.AccessControl.FileSystemRights]::ReadAndExecute
+          $inherit=[Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+          $rule=New-Object Security.AccessControl.FileSystemAccessRule -ArgumentList @($sid,$rights,$inherit,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
+          if($rule.IdentityReference.Value -ne 'S-1-5-19'){throw 'ACL_FLAG_CONSTRUCTOR_MISMATCH'}
+          Write-Output 'ACL_SEPARATE_INHERITANCE_FLAGS=PASS'
+      - name: Pinned SHA256 portable source bytes, force LF
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $files=@('bin/bridge.ps1','bin/install-system.ps1',
+                   'bin/smoke-system.ps1','bin/enable-system.ps1',
+                   'bin/status.ps1','bin/resume-system.ps1','bin/diagnose-runtime.ps1',
+                   'bin/repair-file-acl.ps1','bin/inspect-customers-metadata.ps1',
+                   'bin/inspect-customers-schema.ps1','bin/inspect-customers-counts.ps1',
+                   'bin/inspect-customers-required-counts.ps1',
+                   'bin/diagnose-customer-string-filters.ps1','bin/pilot-customers-local-10.ps1',
+                   'bin/scan-customers-required-fields.ps1','bin/pilot-buyer-types-local-100.ps1',
+                   'bin/count-buyer-classes.ps1','bin/scan-legal-required-fields.ps1',
+                   'bin/preflight-srv-customer-store.ps1',
+                   'bin/inventory-srv-sqlite-runtime.ps1',
+                   'bin/pilot-create-sqlite-store.ps1',
+                   'bin/audit-machine-owned-customer-chain.ps1',
+                   'bin/smoke-customer-store-service.ps1','config/collector.ini',
+                   'bin/install-machine-customer-store.ps1',
+                   'bin/diagnose-machine-store-install-failure.ps1',
+                   'bin/diagnose-machine-store-tls-block.ps1',
+                   'bin/resume-machine-customer-store.ps1',
+                   'bin/resume-machine-customer-store-from-zip.ps1',
+                   'bin/resume-machine-customer-store-from-schema.ps1',
+                   'bin/diagnose-customer-store-schema-failure.ps1',
+                   'bin/repair-customer-store-schema-path.ps1',
+                   'bin/probe-onec-service-readonly.ps1',
+                   'bin/provision-onec-service-credential.ps1',
+                   'bin/pilot-machine-customer-store-10.ps1',
+                   'bin/run-customer-store-pilot10.ps1',
+                   'bin/initial-load-customers-6433.ps1',
+                   'bin/run-customer-store-initial-6433.ps1',
+                   'bin/accept-initial-load-6433-and-cleanup.ps1',
+                   'bin/survey-exchange-plan-metadata-service.ps1',
+                   'bin/survey-exchange-plan-metadata-service-v2.ps1',
+                   'bin/run-exchange-plan-survey.ps1',
+                   'bin/build-bitrix-search-index.ps1',
+                   'bin/query-bitrix-search-index.ps1',
+                   'bin/run-bitrix-search-index-setup.ps1',
+                   'bin/bitrix-search-outbound-once.ps1',
+                   'bin/stage-bitrix-outbound-code.ps1',
+                   'bin/probe-bitrix-worker-runtime-service.ps1',
+                   'bin/run-bitrix-worker-runtime-smoke.ps1',
+                   'bin/probe-bitrix-json1-service-v2.ps1',
+                   'bin/run-bitrix-json1-service-v2.ps1',
+                   'bin/stage-bitrix-json1-worker-inactive.ps1',
+                   'bin/probe-bitrix-json1-installed-service.ps1',
+                   'bin/run-bitrix-json1-installed-service-audit.ps1',
+                   'bin/probe-bitrix-direct-https-service.ps1',
+                   'bin/run-bitrix-direct-https-service.ps1',
+                   'bin/probe-bitrix-direct-crm-readonly.ps1',
+                   'bin/probe-bitrix-direct-contact-readonly.ps1',
+                   'bin/smoke-bitrix-direct-synthetic-company.ps1',
+                   'bin/probe-bitrix-direct-requisite-presets-readonly.ps1',
+                   'bin/list-bitrix-direct-requisite-preset-details.ps1',
+                   'bin/probe-bitrix-company-preset-fields-readonly.ps1',
+                   'bin/enroll-bitrix-direct-webhook.ps1',
+                   'bin/diagnose-bitrix-webhook-enrollment-acl.ps1',
+                   'bin/enroll-bitrix-direct-webhook-v2.ps1',
+                   'bin/enroll-bitrix-direct-webhook-v3.ps1',
+                   'bin/probe-bitrix-enrolled-webhook-api-readonly.ps1',
+                   'bin/probe-bitrix-localservice-dpapi-offline.ps1',
+                   'bin/run-bitrix-localservice-dpapi-once.ps1',
+                   'bin/probe-bitrix-localservice-api-readonly.ps1',
+                   'bin/run-bitrix-localservice-api-readonly-once.ps1',
+                   'bin/probe-bitrix-localservice-api-readonly-v2.ps1',
+                   'bin/run-bitrix-localservice-api-readonly-v2-once.ps1',
+                   'bin/export-bitrix-real-customers-csv.ps1',
+                   'bin/transfer-real-test-newbase-company01.ps1',
+                   'bin/reconcile-newbase-company03-readonly.ps1',
+                   'bin/complete-newbase-company03-requisite-once.ps1',
+                   'bin/import-newbase-companies-batch-v1.ps1',
+                   'bin/refresh-newbase-source-v2.ps1',
+                   'bin/msp-newbase-bitrix-core-v2.ps1',
+                   'bin/count-newbase-active-v2.ps1',
+                   'bin/pump-newbase-bitrix-batch-v2.ps1',
+                   'bin/msp-newbase-auto-tick-v2.ps1',
+                   'bin/install-newbase-auto-v2.ps1',
+                   'config/bridge.ini')
+          foreach($f in $files){
+            $path=Join-Path 'integrations/msp-bitrix24-bridge' $f
+            [byte[]]$bytes=[IO.File]::ReadAllBytes($path)
+            if([Array]::IndexOf($bytes,[byte]13) -ge 0){
+              throw ("CR_BYTE_IN_PINNED_FILE="+$f)
+            }
+            $sha=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+            Write-Output "STAGE_HASH=$f|$sha"
+            Write-Output "STAGE_BYTES=$f|$($bytes.Length)"
+          }
+          $sqlFile='integrations/msp-bitrix24-bridge/schema/customer-store.sql'
+          Write-Output ('SCHEMA_SHA256='+(Get-FileHash -Algorithm SHA256 $sqlFile).Hash.ToLowerInvariant())
+
+      - name: Verify LF SQL raw GitHub SHA256
+        shell: pwsh
+        run: |
+          $path='integrations/msp-bitrix24-bridge/schema/customer-store.sql'
+          $data=[IO.File]::ReadAllBytes($path)
+          if([Array]::IndexOf($data,[byte]13) -ge 0){throw 'SQL_SCHEMA_MUST_BE_LF_ONLY'}
+          $hash=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+          if($hash -ne '50748aada5273f60a8056cb1358334cf3fe3c221b67ca8766c8d18a9003b30a3'){throw 'SQL_RAW_SCHEMA_HASH_MISMATCH'}
+          Write-Output ('SQL_RAW_SCHEMA_HASH='+$hash)
+
+      - name: Actual Windows SQLite dot-read forward slash acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $url='https://www.sqlite.org/2023/sqlite-tools-win32-x86-3430200.zip'
+          $zip=Join-Path $env:RUNNER_TEMP 'sqlite-tools-win32-x86-3430200.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $hash=(Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          if($hash -ne 'fae9efccf4469ca69be5d418fc088593cdb86e07a1b211bdb85463591a923b02'){throw 'SQLITE_ZIP_HASH_MISMATCH'}
+          $out=Join-Path $env:RUNNER_TEMP 'msp-sqlite-acceptance'
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $out
+          $exe=Get-ChildItem $out -Recurse -Filter sqlite3.exe | Select-Object -First 1 -ExpandProperty FullName
+          if(-not $exe){throw 'SQLITE_CLI_MISSING'}
+          $schema=(Resolve-Path 'integrations/msp-bitrix24-bridge/schema/customer-store.sql').Path.Replace('\','/')
+          $readCommand='.read '+$schema
+          $result=@(& $exe -batch -bail ':memory:' $readCommand 2>&1)
+          if($LASTEXITCODE -ne 0){throw ('SQLITE_DOT_READ_FAILED: '+($result -join ' '))}
+          Write-Output 'SQLITE_WIN_DOT_READ_FORWARD_SLASH=PASS'
+
+      - name: Native PowerShell real SQLite first-batch import regression
+        shell: pwsh
+        run: python integrations/msp-bitrix24-bridge/tests/smoke_initial_import_first_batch_windows.py
+
+      - name: Real Windows SQLite 6433 UPSERT plus rollback acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $binRoot=Join-Path $env:RUNNER_TEMP 'msp-sqlite-acceptance'
+          $exe=Get-ChildItem -LiteralPath $binRoot -Recurse -Filter sqlite3.exe | Select-Object -First 1 -ExpandProperty FullName
+          if(-not $exe){throw 'REAL_SQLITE_CLI_MISSING'}
+          $db=Join-Path $env:RUNNER_TEMP 'msp-sqlite-synthetic-6433.db'
+          if([IO.File]::Exists($db)){throw 'SYNTHETIC_DB_COLLISION'}
+          $schema=(Resolve-Path 'integrations/msp-bitrix24-bridge/schema/customer-store.sql').Path.Replace('\','/')
+          $null=& $exe -batch -bail $db ('.read '+$schema)
+          if($LASTEXITCODE -ne 0){throw 'SQLITE_SCHEMA_NOT_APPLIED'}
+          function Feed-SQL([string]$text){
+            $psi=New-Object Diagnostics.ProcessStartInfo
+            $psi.FileName=$exe
+            $psi.Arguments='-batch -bail "'+$db+'"'
+            $psi.UseShellExecute=$false
+            $psi.RedirectStandardInput=$true
+            $psi.RedirectStandardOutput=$true
+            $psi.RedirectStandardError=$true
+            $proc=New-Object Diagnostics.Process
+            $proc.StartInfo=$psi
+            try{
+              if(-not $proc.Start()){throw 'SQLITE_PROCESS_START_FAILED'}
+              $proc.StandardInput.Write($text)
+              $proc.StandardInput.Close()
+              $stdout=$proc.StandardOutput.ReadToEnd()
+              $stderr=$proc.StandardError.ReadToEnd()
+              if(-not $proc.WaitForExit(20000)){$proc.Kill();throw 'SQLITE_TIMEOUT'}
+              return @{Code=$proc.ExitCode;Out=$stdout;Err=$stderr}
+            }finally{$proc.Close()}
+          }
+          $ten=New-Object Text.StringBuilder
+          [void]$ten.AppendLine('BEGIN;')
+          for($i=1;$i -le 10;$i++){
+            $guid=('{0:x8}-0000-0000-0000-000000000000' -f $i)
+            [void]$ten.AppendLine("INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES ('$guid','PERSON',1,0,0,'2026-10-15T00:00:00Z',0);")
+          }
+          [void]$ten.AppendLine('COMMIT;')
+          $r=Feed-SQL $ten.ToString()
+          if($r.Code -ne 0){throw ('SQLITE_TEN_SETUP_FAIL: '+$r.Err)}
+          $builder=New-Object Text.StringBuilder
+          [void]$builder.AppendLine('BEGIN IMMEDIATE;')
+          for($i=1;$i -le 6433;$i++){
+            $guid=('{0:x8}-0000-0000-0000-000000000000' -f $i)
+            [void]$builder.AppendLine("INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES ('$guid','PERSON',1,0,0,'2026-10-15T00:00:00Z',0) ON CONFLICT(onec_guid) DO UPDATE SET onec_type=excluded.onec_type,updated_at_utc=excluded.updated_at_utc;")
+          }
+          [void]$builder.AppendLine('CREATE TEMP TABLE accept_count (n INTEGER NOT NULL CHECK(n=6433));')
+          [void]$builder.AppendLine('INSERT INTO accept_count SELECT count(*) FROM customers;')
+          [void]$builder.AppendLine('COMMIT;')
+          $r=Feed-SQL $builder.ToString()
+          if($r.Code -ne 0){throw ('SQLITE_6433_UPSERT_FAIL: '+$r.Err)}
+          $count=& $exe -batch -bail $db "SELECT count(*) || ':' || count(DISTINCT onec_guid) FROM customers;"
+          if($LASTEXITCODE -ne 0 -or ($count -join '').Trim() -ne '6433:6433'){throw 'SQLITE_6433_COUNTS_BAD'}
+          $bad="BEGIN IMMEDIATE;INSERT INTO customers(onec_guid,onec_type,buyer,deletion_mark,invalid,updated_at_utc,needs_review) VALUES ('ffffffff-ffff-ffff-ffff-ffffffffffff','PERSON',1,0,0,'2026-10-15T00:00:00Z',0);CREATE TEMP TABLE reject_count (n INTEGER NOT NULL CHECK(n=6433));INSERT INTO reject_count SELECT count(*) FROM customers;COMMIT;"
+          $fail=Feed-SQL $bad
+          if($fail.Code -eq 0){throw 'NEGATIVE_COUNT_ACCEPTANCE_MUST_FAIL'}
+          $post=& $exe -batch -bail $db 'SELECT count(*) FROM customers;'
+          if($LASTEXITCODE -ne 0 -or ($post -join '').Trim() -ne '6433'){throw 'FAILED_TRANSACTION_NOT_ROLLED_BACK'}
+          $quick=& $exe -batch -bail $db 'PRAGMA quick_check;'
+          if(($quick -join '').Trim() -ne 'ok'){throw 'SQLITE_AFTER_ROLLBACK_CORRUPT'}
+          Write-Output 'SQLITE_REAL_WINDOWS_6433_UPSERT=PASS'
+          Write-Output 'SQLITE_REAL_WINDOWS_FAILED_TRANSACTION_ROLLBACK=PASS'
+
+      - name: PowerShell numeric category tuple regression
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          [int]$legalCount=1941
+          [int]$personCount=4486
+          [int]$reviewCount=6
+          $formatted=('{0}:{1}:{2}' -f $legalCount,$personCount,$reviewCount)
+          if($formatted -ne '1941:4486:6'){throw 'CATEGORY_TUPLE_FORMAT_FAILED'}
+          Write-Output 'CATEGORY_TUPLE_FORMAT=PASS'
+
+      - name: Windows SQLite search FTS5 trigram and Russian mixed-case test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $binRoot=Join-Path $env:RUNNER_TEMP 'msp-sqlite-acceptance'
+          $exe=Get-ChildItem -LiteralPath $binRoot -Recurse -Filter sqlite3.exe | Select-Object -First 1 -ExpandProperty FullName
+          if(-not $exe){throw 'MISSING_REAL_WINDOWS_SQLITE'}
+          $db=Join-Path $env:RUNNER_TEMP 'msp-search-fts5-test.db'
+          if([IO.File]::Exists($db)){throw 'FTS_TEST_DB_COLLISION'}
+          $q=@'
+          CREATE TABLE customers(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);
+          INSERT INTO customers VALUES('00000001-0000-0000-0000-000000000000','LEGAL','ООО Ромашка','Общество Ромашка','', '7701001112',1,0,0,0);
+          INSERT INTO customers VALUES('00000002-0000-0000-0000-000000000000','PERSON','Петров Иван','','Петров Иван','',1,0,0,0);
+          INSERT INTO customers VALUES('00000003-0000-0000-0000-000000000000','REVIEW','Елена Сидорова','','','',1,0,0,1);
+          CREATE VIRTUAL TABLE customer_search_v1 USING fts5(onec_guid UNINDEXED,name_short,name_full,person_name,inn,tokenize='trigram');
+          INSERT INTO customer_search_v1 SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers;
+          '@
+          $psi=New-Object Diagnostics.ProcessStartInfo
+          $psi.FileName=$exe
+          $psi.Arguments='-batch -bail "'+$db+'"'
+          $psi.UseShellExecute=$false
+          $psi.RedirectStandardInput=$true
+          $psi.RedirectStandardOutput=$true
+          $psi.RedirectStandardError=$true
+          $p=[Diagnostics.Process]::Start($psi)
+          $p.StandardInput.Write($q)
+          $p.StandardInput.Close()
+          $o=$p.StandardOutput.ReadToEnd()
+          $e=$p.StandardError.ReadToEnd()
+          $p.WaitForExit()
+          if($p.ExitCode -ne 0){throw ('FTS5_TRIGRAM_SETUP_FAIL '+$e)}
+          function SearchTest([string]$term,[string]$kind){
+            $match='"'+$term.Replace('"','""')+'"'
+            $hex=[BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($match)).Replace('-','')
+            $sql="SELECT count(*) FROM customer_search_v1 JOIN customers c ON c.onec_guid=customer_search_v1.onec_guid WHERE customer_search_v1 MATCH CAST(X'"+$hex+"' AS TEXT) AND "+$kind+";"
+            $result=& $exe -readonly -batch -bail $db $sql
+            if($LASTEXITCODE -ne 0){throw 'FTS_QUERY_FAILED'}
+            return ($result -join '').Trim()
+          }
+          if((SearchTest 'РОМ' "c.onec_type IN ('LEGAL','REVIEW')") -ne '1'){throw 'CYRILLIC_CASEFOLD_COMPANY_FAILED'}
+          if((SearchTest 'пет' "c.onec_type IN ('PERSON','REVIEW')") -ne '1'){throw 'CYRILLIC_CASEFOLD_CONTACT_FAILED'}
+          if((SearchTest 'сид' "c.onec_type IN ('PERSON','REVIEW')") -ne '1'){throw 'UNKNOWN_CONTACT_SHOULD_BE_SEARCHABLE'}
+          if((SearchTest 'сид' "c.onec_type IN ('LEGAL','REVIEW')") -ne '1'){throw 'UNKNOWN_COMPANY_SHOULD_BE_SEARCHABLE'}
+          # Validate JSON UTF-8 payload returned as ASCII-safe hex.
+          $match='"ром"'
+          $hex=[BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($match)).Replace('-','')
+          $stmt="SELECT hex(CAST(json_group_array(json_object('id',x.onec_guid,'name',x.name,'sourceType',x.onec_type,'needsReview',x.needs_review)) AS BLOB)) FROM (SELECT c.onec_guid,c.onec_type,c.needs_review,coalesce(nullif(c.name_short,''),nullif(c.name_full,''),nullif(c.person_name,''),'') AS name FROM customer_search_v1 JOIN customers c ON c.onec_guid=customer_search_v1.onec_guid WHERE customer_search_v1 MATCH CAST(X'"+$hex+"' AS TEXT) AND c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND c.onec_type IN ('LEGAL','REVIEW') ORDER BY c.onec_guid LIMIT 20) AS x;"
+          $raw=(& $exe -readonly -batch -bail $db $stmt) -join ''
+          if($LASTEXITCODE -ne 0 -or $raw -notmatch '^[0-9A-F]+$'){throw 'JSON_HEX_QUERY_FAILED'}
+          $bytes=New-Object byte[] ($raw.Length/2)
+          for($i=0;$i -lt $bytes.Length;$i++){$bytes[$i]=[Convert]::ToByte($raw.Substring($i*2,2),16)}
+          $json=[Text.Encoding]::UTF8.GetString($bytes)
+          $items=@($json | ConvertFrom-Json)
+          if($items.Count -ne 1 -or $items[0].name -ne 'ООО Ромашка' -or $items[0].sourceType -ne 'LEGAL'){throw 'UTF8_JSON_LOOKUP_FAILED'}
+          Write-Output 'BITRIX_LOCAL_SEARCH_UTF8_JSON=PASS'
+          $backup=Join-Path $env:RUNNER_TEMP 'msp-search-index-backup-test.db'
+          if([IO.File]::Exists($backup)){throw 'BACKUP_TEST_COLLISION'}
+          $backupCmd='.backup "'+$backup.Replace('\','/')+'"'
+          $output=@(& $exe -readonly -batch -bail $db $backupCmd 2>&1)
+          if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($backup)){throw 'FTS_BACKUP_FAILED'}
+          $cnt=(& $exe -readonly -batch -bail $backup 'SELECT count(*) FROM customers;') -join ''
+          $chk=(& $exe -readonly -batch -bail $backup 'PRAGMA quick_check;') -join ''
+          if($cnt.Trim() -ne '3' -or $chk.Trim() -ne 'ok'){throw 'BACKUP_VERIFY_FAILED'}
+          Write-Output 'SQLITE_WINDOWS_BACKUP_VERIFY=PASS'
+          Write-Output 'SQLITE_REAL_WINDOWS_FTS5_CYRILLIC_TRIGRAM=PASS'
+
+      - name: Bitrix24 secure relay Python contract tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s integrations/msp-bitrix24-bridge/bitrix_relay/bitrix_relay_tests -v
