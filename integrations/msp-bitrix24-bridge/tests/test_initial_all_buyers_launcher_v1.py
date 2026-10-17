@@ -9,8 +9,8 @@ class InitialLauncher(unittest.TestCase):
   for needle in (
     "#requires -version 2", "S-1-5-19", "S-1-5-19",
     "MspNewBaseInitialImportV1", "TASK_HAS_TRIGGERS",
-    "5431a074f62a46adf4e6efa0f46a2cce1c6e6180",
-    "1a80a305db4c5fa136198212c3ca8dc0e49285a5d691014cfcdd05dc36691434",
+    "567a25e294d5995a33642a229c52721b6bf9c609",
+    "52d8d1e140273761cda8f157a440aca31c36567ca8b09a4d27cb277798596c8e",
     "6d6d1c385c0dc648310772fce86be7936bb30cbafb3790c5ae48cc4fcbc8e852",
     "NewTask(0)", "RegisterTaskDefinition",
     "SOURCE_SNAPSHOT_NOT_6433", "6433:1941:4486:6",
