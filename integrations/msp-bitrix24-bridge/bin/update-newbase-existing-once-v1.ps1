@@ -47,7 +47,7 @@ function ReadRequisite([int]$ReqId,[int]$CrmId,[string]$Name,[string]$Full,[stri
  return $all
 }
 function Done([string]$Guid,[string]$Stamp,[int]$Id,[int]$Type){
- $sql="BEGIN IMMEDIATE;INSERT INTO msp_auto_map(onec_guid,crm_id,entity_kind,mapped_utc) VALUES ('"+$Guid+"',"+$Id+","+$Type+",datetime('now')) ON CONFLICT(onec_guid) DO UPDATE SET crm_id=excluded.crm_id,entity_kind=excluded.entity_kind,mapped_utc=excluded.mapped_utc;DELETE FROM msp_auto_outbox WHERE onec_guid='"+$Guid+"' AND change_kind='UPDATE_REQUIRED' AND changed_utc="+(Lit $Stamp)+";DELETE FROM msp_auto_ops WHERE onec_guid='"+$Guid+"' AND operation='UPDATE_SENT' AND crm_id="+$Id+";COMMIT;"
+ $sql="BEGIN IMMEDIATE;DELETE FROM msp_auto_outbox WHERE onec_guid='"+$Guid+"' AND change_kind='UPDATE_REQUIRED' AND changed_utc="+(Lit $Stamp)+";CREATE TEMP TABLE _ack_assert(n INTEGER NOT NULL CHECK(n=1));INSERT INTO _ack_assert SELECT changes();INSERT INTO msp_auto_map(onec_guid,crm_id,entity_kind,mapped_utc) VALUES ('"+$Guid+"',"+$Id+","+$Type+",datetime('now')) ON CONFLICT(onec_guid) DO UPDATE SET crm_id=excluded.crm_id,entity_kind=excluded.entity_kind,mapped_utc=excluded.mapped_utc;DELETE FROM msp_auto_ops WHERE onec_guid='"+$Guid+"' AND operation='UPDATE_SENT' AND crm_id="+$Id+";COMMIT;"
  $null=Query $sql
 }
 try{
@@ -117,9 +117,9 @@ try{
   Need (([IO.File]::ReadAllText($approval,[Text.Encoding]::ASCII).Trim()) -eq ('APPROVE_TEST_NEWBASE_GUID='+$OnecGuid+';ALLOW_ONE_UPDATE=YES')) 'APPROVAL_NOT_MATCHED'
   Need (Stable $OnecGuid $stamp) 'SOURCE_CHANGED_BEFORE_WRITE'
   $phase='CRM_APPLY'
+  $null=Query "CREATE TABLE IF NOT EXISTS msp_auto_ops(onec_guid TEXT PRIMARY KEY,operation TEXT NOT NULL,crm_id INTEGER NOT NULL,entity_kind TEXT NOT NULL,created_utc TEXT NOT NULL);CREATE TABLE IF NOT EXISTS msp_auto_map(onec_guid TEXT PRIMARY KEY,crm_id INTEGER NOT NULL,entity_kind INTEGER NOT NULL,mapped_utc TEXT NOT NULL);"
   $changed=($itemState -eq 'DIFF' -or -not $reqMatch)
   if($changed){
-   $null=Query "CREATE TABLE IF NOT EXISTS msp_auto_ops(onec_guid TEXT PRIMARY KEY,operation TEXT NOT NULL,crm_id INTEGER NOT NULL,entity_kind TEXT NOT NULL,created_utc TEXT NOT NULL);"
    SqlStatus $OnecGuid 'UPDATE_SENT' ([string]$id) $category
    if($itemState -eq 'DIFF'){
     $field=if($kind -eq 4){'title'}else{'name'}
