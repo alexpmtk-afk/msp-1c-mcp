@@ -4,11 +4,18 @@
 param([string]$ExpectedComputerName='SRV',[int]$MaxRows=20)
 $ErrorActionPreference='Stop'
 $root='C:\ProgramData\MspCustomerStore';$script:root=$root;$phase='PRECHECK'
-$script:created=0;$script:linked=0;$script:held=0;$script:confirmed=0;$script:uncertain=0
+$script:created=0;$script:linked=0;$script:held=0;$script:confirmed=0;$script:uncertain=0;$script:updateRequired=0
 . (Join-Path $root 'bin\msp-newbase-bitrix-core-v2.ps1')
-function Hold([string]$Guid,[string]$Reason){
- $null=Query ("UPDATE msp_auto_outbox SET change_kind='HELD' WHERE onec_guid='"+$Guid+"';")
+function Hold([string]$Guid,[string]$ExpectedStamp,[string]$Reason){
+ if($ExpectedStamp -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{7})?Z$'){Fail 'SOURCE_STAMP_INVALID'}
+ $null=Query ("UPDATE msp_auto_outbox SET change_kind='HELD' WHERE onec_guid='"+$Guid+"' AND change_kind='UPSERT' AND changed_utc="+(Lit $ExpectedStamp)+";")
  $script:held++
+}
+function NeedsUpdate([string]$Guid,[string]$ExpectedStamp){
+ if($ExpectedStamp -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{7})?Z$'){Fail 'SOURCE_STAMP_INVALID'}
+ # Matching origin ID proves identity, not field equality. Do not drop this event.
+ $null=Query ("UPDATE msp_auto_outbox SET change_kind='UPDATE_REQUIRED' WHERE onec_guid='"+$Guid+"' AND change_kind='UPSERT' AND changed_utc="+(Lit $ExpectedStamp)+";")
+ $script:updateRequired++
 }
 function Entity([string]$Kind){if($Kind -eq 'LEGAL'){return 4};if($Kind -eq 'PERSON'){return 3};Fail 'TYPE_UNKNOWN'}
 function Guard([string]$Value){if($Value.Length -gt 160 -or $Value.Length -eq 0){return $false};return $true}
@@ -43,7 +50,7 @@ try{
  $schema="CREATE TABLE IF NOT EXISTS msp_auto_map(onec_guid TEXT PRIMARY KEY,crm_id INTEGER NOT NULL,entity_kind INTEGER NOT NULL,mapped_utc TEXT NOT NULL);CREATE TABLE IF NOT EXISTS msp_auto_ops(onec_guid TEXT PRIMARY KEY,operation TEXT NOT NULL,crm_id INTEGER NOT NULL,entity_kind TEXT NOT NULL,created_utc TEXT NOT NULL);"
  $null=Query $schema
  $phase='SOURCE_PENDING_ROWS'
- $q="SELECT c.onec_guid||'|'||c.onec_type||'|'||hex(CAST(coalesce(nullif(trim(c.name_short),''),trim(c.name_full),'') AS BLOB))||'|'||hex(CAST(coalesce(trim(c.name_full),'') AS BLOB))||'|'||hex(CAST(coalesce(nullif(trim(c.person_name),''),nullif(trim(c.name_full),''),trim(c.name_short),'') AS BLOB))||'|'||hex(CAST(coalesce(trim(c.inn),'') AS BLOB)) FROM msp_auto_outbox o JOIN customers c ON c.onec_guid=o.onec_guid WHERE o.change_kind='UPSERT' AND c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND c.needs_review=0 AND c.onec_type IN ('LEGAL','PERSON') AND NOT EXISTS(SELECT 1 FROM msp_auto_ops p WHERE p.onec_guid=o.onec_guid) ORDER BY o.onec_guid LIMIT "+$MaxRows+";"
+ $q="SELECT c.onec_guid||'|'||c.onec_type||'|'||hex(CAST(coalesce(nullif(trim(c.name_short),''),trim(c.name_full),'') AS BLOB))||'|'||hex(CAST(coalesce(trim(c.name_full),'') AS BLOB))||'|'||hex(CAST(coalesce(nullif(trim(c.person_name),''),nullif(trim(c.name_full),''),trim(c.name_short),'') AS BLOB))||'|'||hex(CAST(coalesce(trim(c.inn),'') AS BLOB))||'|'||hex(CAST(o.changed_utc AS BLOB)) FROM msp_auto_outbox o JOIN customers c ON c.onec_guid=o.onec_guid WHERE o.change_kind='UPSERT' AND c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND c.needs_review=0 AND c.onec_type IN ('LEGAL','PERSON') AND NOT EXISTS(SELECT 1 FROM msp_auto_ops p WHERE p.onec_guid=o.onec_guid) ORDER BY o.onec_guid LIMIT "+$MaxRows+";"
  $lines=Query $q
  if($lines.Length -eq 0){
   'PENDING_ELIGIBLE_ITEMS=0'
@@ -53,17 +60,17 @@ try{
  $rows=New-Object Collections.ArrayList
  foreach($line in ($lines -split '\r?\n')){
   $v=$line.Split('|')
-  if($v.Length -ne 6){Fail 'SOURCE_ROW_SHAPE'}
+  if($v.Length -ne 7){Fail 'SOURCE_ROW_SHAPE'}
   $g=$v[0]
   if($g -notmatch '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){Fail 'SOURCE_GUID_SHAPE'}
   $kind=$v[1];$entity=Entity $kind
-  $name=Unhex $v[2];$full=Unhex $v[3];$person=Unhex $v[4];$inn=Unhex $v[5]
-  if($kind -eq 'LEGAL' -and -not (Guard $name)){Hold $g 'NAME';continue}
-  if($kind -eq 'PERSON' -and -not (Guard $person)){Hold $g 'PERSON';continue}
-  if($inn.Length -gt 0 -and $inn -notmatch '^(?:[0-9]{10}|[0-9]{12})$' -and $kind -eq 'LEGAL'){Hold $g 'INN';continue}
+  $name=Unhex $v[2];$full=Unhex $v[3];$person=Unhex $v[4];$inn=Unhex $v[5];$sourceStamp=Unhex $v[6]
+  if($kind -eq 'LEGAL' -and -not (Guard $name)){Hold $g $sourceStamp 'NAME';continue}
+  if($kind -eq 'PERSON' -and -not (Guard $person)){Hold $g $sourceStamp 'PERSON';continue}
+  if($inn.Length -gt 0 -and $inn -notmatch '^(?:[0-9]{10}|[0-9]{12})$' -and $kind -eq 'LEGAL'){Hold $g $sourceStamp 'INN';continue}
   if($full.Length -eq 0){$full=$name}
-  if($full.Length -gt 256){Hold $g 'FULL';continue}
-  $row=New-Object PSObject -Property @{guid=$g;kind=$kind;entity=$entity;name=$name;full=$full;person=$person;inn=$inn;crmId=0;existing=$false}
+  if($full.Length -gt 256){Hold $g $sourceStamp 'FULL';continue}
+  $row=New-Object PSObject -Property @{guid=$g;kind=$kind;entity=$entity;name=$name;full=$full;person=$person;inn=$inn;sourceStamp=$sourceStamp;crmId=0;existing=$false}
   [void]$rows.Add($row)
  }
  if($rows.Count -eq 0){'HELD='+$script:held;'RESULT=PASS;STAGE=NEWBASE_CRM_BATCH_V2';exit 0}
@@ -107,7 +114,7 @@ try{
     if(@('INVALID','MULTIPLE','PAGING','MISSING','ERROR') -contains $innExisting){Fail 'INN_SCREEN_UNCERTAIN'}
    }
    if($nameExisting -eq 'NONE' -and $innExisting -eq 'NONE'){[void]$safe.Add($item)}
-   else{Hold $item.guid 'CRM_POSSIBLE_DUPLICATE'}
+   else{Hold $item.guid $item.sourceStamp 'CRM_POSSIBLE_DUPLICATE'}
   }
  }
  $phase='BATCH_COMPANY_CONTACT_ADD'
@@ -165,19 +172,21 @@ try{
     $rid=CmdResult $send $item.cmdReq ''
     if($rid -notmatch '^[1-9][0-9]{0,9}$'){Fail 'CREATED_REQUISITE_UNCONFIRMED'}
    }
-   MarkDone $item.guid $item.crmId $item.entity
+   MarkDone $item.guid $item.crmId $item.entity $item.sourceStamp
    $script:created++;$script:confirmed++
   }
  }
- $phase='EXISTING_ORIGIN_MAPPING'
+ $phase='EXISTING_ORIGIN_REQUIRES_UPDATE'
  foreach($item in $rows){
   if(-not $item.existing){continue}
-  MarkDone $item.guid $item.crmId $item.entity
-  $script:linked++;$script:confirmed++
+  # An origin match alone does not prove the latest customer fields reached CRM.
+  # Keep an explicit local update obligation; never acknowledge this UPSERT.
+  NeedsUpdate $item.guid $item.sourceStamp
  }
  'NEWBASE_BATCH_SOURCE='+$rows.Count
  'CREATED_AND_VERIFIED='+$script:created
- 'EXISTING_BY_ORIGIN='+$script:linked
+ 'EXISTING_BY_ORIGIN_CONFIRMED='+$script:linked
+ 'EXISTING_REQUIRES_UPDATE='+$script:updateRequired
  'HELD_POSSIBLE_DUPLICATES='+$script:held
  'UNRESOLVED_WRITES='+$script:uncertain
  'OUTBOX_PROGRESS_PERSISTED=YES'
