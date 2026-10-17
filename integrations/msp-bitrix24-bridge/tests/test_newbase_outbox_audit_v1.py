@@ -19,7 +19,7 @@ class AuditOutbox(unittest.TestCase):
         s=self.source
         for token in ("#requires -version 2", "-readonly -batch -bail",
                       "PRAGMA quick_check", "msp_auto_map", "msp_auto_ops",
-                      "UPDATE_REQUIRED", "HELＤ" if False else "HELD",
+                      "UPDATE_REQUIRED", "HELD",
                       "ONEC_REQUESTS=0", "BITRIX_REQUESTS=0",
                       "CUSTOMER_DATA_EXPORTED=0", "SQLITE_INTEGRITY",
                       "RESULT=PASS;STAGE=NEWBASE_BITRIX_OUTBOX_READONLY_AUDIT"):
