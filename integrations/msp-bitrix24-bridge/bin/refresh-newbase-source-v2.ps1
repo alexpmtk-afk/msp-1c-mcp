@@ -146,7 +146,7 @@ try{
  if($expected -lt 100 -or $expected -gt 200000){Fail 'SOURCE_COUNT_UNEXPECTED'}
  $phase='SOURCE_ALL_PAGES'
  $sql=New-Object Text.StringBuilder
- $stamp=[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+ $stamp=[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ')
  [void]$sql.AppendLine('BEGIN IMMEDIATE;')
  [void]$sql.AppendLine('CREATE TEMP TABLE _incoming(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);')
  $seen=@{};$fetched=0;$pages=0;$legalCount=0;$personCount=0;$reviewCount=0
