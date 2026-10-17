@@ -195,9 +195,6 @@ try{
   'S4_REQUEST_ELAPSED_MS='+$elapsedMs
   'RESULT=FAIL;STAGE=SRV_ONEC_EXCHANGE_METADATA_SURVEY_V3;GATE='+$gate+';PHASE='+$phase
   exit 1
-}catch{}
-  'RESULT=FAIL;STAGE=SRV_ONEC_EXCHANGE_METADATA_SURVEY_V3;GATE='+$gate+';PHASE='+$phase
-  exit 1
 }catch{
   $gate='RUNTIME_ERROR'
   if($_.Exception.Message -match '^S4_([A-Z0-9_]+)$'){$gate=$Matches[1]}
