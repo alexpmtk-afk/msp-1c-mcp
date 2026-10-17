@@ -51,6 +51,18 @@ function Rows([string]$Data){
  }
  return ,$list
 }
+function Details($Item){
+ # Visible information from existing TEST source, never invented data.
+ $text='Source=1C NewBase; Type='+$Item.category
+ if($Item.kind -eq 4){
+  if($Item.full.Trim().Length -gt 0){$text+='; FullName='+$Item.full}
+  if($Item.inn.Trim().Length -gt 0){$text+='; INN='+$Item.inn}
+ }else{
+  $text+='; Name='+$Item.title
+ }
+ if($text.Length -gt 1600){Fail 'DETAILS_TOO_LARGE'}
+ return $text
+}
 function Extract([string]$Reply,[int]$I,[string]$Path){
  $key='k'+$I
  $p="'$.result.result."+$key+$Path+"'"
@@ -164,6 +176,7 @@ try{
    foreach($item in $new){
     $field=if($item.kind -eq 3){'name'}else{'title'}
     $cmd='crm.item.add?entityTypeId='+$item.kind+'&fields['+$field+']='+(Url $item.title)+'&fields[originatorId]=MSP_ONEC_NEWBASE&fields[originId]='+$item.guid
+    $cmd+='&fields[comments]='+(Url (Details $item))
     [void]$commands.Add($cmd)
    }
    $reply=Batch @($commands.ToArray())
