@@ -241,10 +241,11 @@ try{
  $inflight=SqlRead 'SELECT count(*) FROM msp_initial_inflight;'
  $gaps=SqlRead 'SELECT count(*) FROM customers c WHERE c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND NOT EXISTS(SELECT 1 FROM msp_initial_map m WHERE m.onec_guid=c.onec_guid);'
  $reviews=SqlRead 'SELECT count(*) FROM msp_initial_details_review;'
+ $names=SqlRead "SELECT count(*) FROM msp_initial_details_review WHERE detail_state IN ('NAME_MISMATCH','NAME_AND_COMMENTS_MISMATCH');"
  if($done -eq '6433' -and $inflight -eq '0' -and $gaps -eq '0'){
   $status=if($reviews -eq '0'){'PASS'}else{'PASS_WITH_FIELD_REVIEW'}
   SaveStatus ('STATUS='+$status+';MAPPED=6433;TARGET=6433;FIELDS_REVIEW='+$reviews+';NAMES_REVIEW='+$names+';SOURCE=TEST_NEWBASE;AUTO_UPDATE=OFF;ONEC_WRITES=0')
-  'TOTAL_IN_CRM_IDENTITY_AND_NAME_VERIFIED=6433'
+  'TOTAL_IN_CRM_ORIGIN_IDENTITY_VERIFIED=6433'
   'CRM_FIELDS_REQUIRE_REVIEW='+$reviews
   'CRM_NAMES_REQUIRE_REVIEW='+$names
   'RESULT=PASS;STAGE=NEWBASE_ALL_BUYERS_INITIAL_CRM_IMPORT_V4'
@@ -255,7 +256,7 @@ try{
   'CRM_NAMES_REQUIRE_REVIEW='+$names
   'CRM_UNRESOLVED_INFLIGHT='+$inflight
   'CRM_NOT_YET_MAPPED='+$gaps
-  'RESULT=PARTIAL;STAGE=NEWBASE_ALL_BUYERS_INITIAL_CRM_IMPORT_V2'
+  'RESULT=PARTIAL;STAGE=NEWBASE_ALL_BUYERS_INITIAL_CRM_IMPORT_V4'
  }
 }catch{
  $gate='RUNTIME_ERROR'
