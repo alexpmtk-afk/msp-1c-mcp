@@ -127,7 +127,7 @@ function Verify($Items,$Ids){
   $want=HexUtf8 (Details $Items[$i])
   $sql="SELECT CASE WHEN json_valid(doc)<>1 THEN 'INVALID' WHEN hex(CAST(coalesce(json_extract(doc,"+$path+"),'') AS BLOB))='"+$want+"' THEN 'MATCH' ELSE 'DIFF' END FROM j;"
   $details=SqlJson $answer $sql
-  if($details -notin @('MATCH','DIFF')){Fail 'CRM_COMMENTS_READ_INVALID'}
+  if(@('MATCH','DIFF') -notcontains $details){Fail 'CRM_COMMENTS_READ_INVALID'}
   [void]$review.Add($details)
  }
  return ,$review
