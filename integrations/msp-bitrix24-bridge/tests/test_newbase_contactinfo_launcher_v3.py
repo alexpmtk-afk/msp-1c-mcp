@@ -17,7 +17,7 @@ class LauncherV3(unittest.TestCase):
     "9dfd2a10cf67e91cb23ecfcfa5420d8f21ac1f58fcdbaa1d1d3e82f4e8c96040",
     "6433:6433:0","AUTO_UPDATE=OFF",
     "PHONE_METADATA_READONLY_V3_ACCEPTED",
-    "PHONE_METADATA_READONLY_V3_AWAITING_RECEIPT"):
+    "PHONE_METADATA_READONLY_V3_AWAITING_RECEIPT","catch [IO.IOException]"):
    self.assertIn(x,s)
   for x in ("DeleteTask(","Triggers.Create","Remove-Item","crm.item.add?",
             "crm.item.update?","D:\\DATA\\WorkBase"):
