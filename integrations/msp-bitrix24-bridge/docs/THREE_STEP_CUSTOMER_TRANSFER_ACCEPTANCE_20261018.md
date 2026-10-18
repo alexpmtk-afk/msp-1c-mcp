@@ -14,8 +14,7 @@
 
 ## Task 1 — Complete and reconcile initial 6,433
 
-Existing `MspNewBaseInitialImportV4` is single-run, no triggers. The latest user-provided result was
-`STATUS=RUNNING;MAPPED=1195;TARGET=6433;FIELDS_REVIEW=540;TASK_STATE=4`, with a subsequently queried local database count of `MAPPED=1196;INFLIGHT=9;FIELDS_REVIEW=541;NAMES_REVIEW=36`.
+Existing `MspNewBaseInitialImportV4` is single-run, no triggers. User-provided later final V4 observation: `TASK_STATE=3`, status reports `ERROR_ID=NEWBASE_CURL_FAILED;MAPPED=5245;TARGET=6433`; independent SQLite read `SOURCE_ACTIVE=6433;MAPPED=5245;INFLIGHT=0;GAPS=1188;FIELDS_REVIEW=1867;NAMES_REVIEW=105`. Thus V4 stopped, not complete. V5 worker and guarded one-time launcher are being prepared; V5 must not be reported deployed until real SRV receipts confirm.
 **Do not assume the current count or completion.** Get a fresh read-only SRV receipt.
 
 Acceptance: `MAPPED=SOURCE_ACTIVE`, no unresolved inflight, no missed active customers, no duplicate CRM origin matches, positive full Bitrix count/backread. Keep field-review items explicitly open. If V4 hits the six-hour task limit, resume from durable local map with an inspected, fail-closed continuation; never replay uncertain adds.
