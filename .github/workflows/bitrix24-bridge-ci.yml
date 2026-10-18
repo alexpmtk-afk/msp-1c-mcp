@@ -164,6 +164,10 @@ jobs:
         shell: pwsh
         run: python integrations/msp-bitrix24-bridge/tests/smoke_initial_import_first_batch_windows.py
 
+      - name: V3 native recovery of 15 buyers and two comments reviews (offline)
+        shell: pwsh
+        run: python integrations/msp-bitrix24-bridge/tests/smoke_initial_import_v3_reconcile_windows.py
+
       - name: Real Windows SQLite 6433 UPSERT plus rollback acceptance
         shell: pwsh
         run: |
