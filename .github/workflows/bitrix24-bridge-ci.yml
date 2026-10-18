@@ -168,6 +168,10 @@ jobs:
         shell: pwsh
         run: python integrations/msp-bitrix24-bridge/tests/smoke_initial_import_v3_reconcile_windows.py
 
+      - name: V4 native reconciliation of 15 cards with one name mismatch and two comment differences
+        shell: pwsh
+        run: python integrations/msp-bitrix24-bridge/tests/smoke_initial_import_v4_reconcile_windows.py
+
       - name: Real Windows SQLite 6433 UPSERT plus rollback acceptance
         shell: pwsh
         run: |
