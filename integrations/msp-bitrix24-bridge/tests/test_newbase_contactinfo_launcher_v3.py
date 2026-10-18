@@ -13,7 +13,7 @@ class LauncherV3(unittest.TestCase):
     "PHONE_V3_SAFE_RETRY_GATE=PASS",
     "customer-phone-contactinfo-metadata-v3.txt",
     "probe-newbase-contactinfo-metadata-readonly-v3.ps1",
-    "6ed341258210ad224f81db7149e61d2cb6befb8",
+    "6ed341258210ad224f81db714f6c78c83a98cba3",
     "9dfd2a10cf67e91cb23ecfcfa5420d8f21ac1f58fcdbaa1d1d3e82f4e8c96040",
     "6433:6433:0","AUTO_UPDATE=OFF",
     "PHONE_METADATA_READONLY_V3_ACCEPTED",
