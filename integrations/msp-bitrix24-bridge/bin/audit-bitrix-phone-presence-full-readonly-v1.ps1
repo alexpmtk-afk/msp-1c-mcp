@@ -49,7 +49,7 @@ function AuditBatch([string]$Reply,[object[]]$Records){
   $p='$.result.result.k'+$i+'.item'
   $ip="'"+$p+"'";$fm="'"+$p+".fm'"
   $ep="'$.result.result_error.k"+$i+"'"
-  $sql="SELECT CASE WHEN json_type(doc,"+$ep+") IS NOT NULL THEN 'REST_ERROR' WHEN json_type(doc,"+$ip+")<>'object' THEN 'ITEM_NOT_OBJECT' WHEN coalesce(CAST(json_extract(doc,'"+$p+".id') AS TEXT),'')<>'"+$id+"' THEN 'ID_MISMATCH' WHEN coalesce(CAST(json_extract(doc,'"+$p+".originId') AS TEXT),'')<>'"+$guid+"' THEN 'ORIGIN_MISMATCH' WHEN coalesce(CAST(json_extract(doc,'"+$p+".originatorId') AS TEXT),'')<>'MSP_ONEC_NEWBASE' THEN 'ORIGINATOR_MISMATCH' WHEN json_type(doc,"+$fm+")<>'array' THEN 'FM_NOT_ARRAY' ELSE 'OK|'||(SELECT count(*) FROM json_each(doc,"+$fm+") WHERE upper(coalesce(json_extract(value,'$.typeId'),''))='PHONE' AND length(trim(coalesce(json_extract(value,'$.value'),'')))>0) END FROM j"
+  $sql="SELECT CASE WHEN json_type(doc,"+$ep+") IS NOT NULL THEN 'REST_ERROR' WHEN coalesce(json_type(doc,"+$ip+"),'missing')<>'object' THEN 'ITEM_NOT_OBJECT' WHEN coalesce(CAST(json_extract(doc,'"+$p+".id') AS TEXT),'')<>'"+$id+"' THEN 'ID_MISMATCH' WHEN coalesce(CAST(json_extract(doc,'"+$p+".originId') AS TEXT),'')<>'"+$guid+"' THEN 'ORIGIN_MISMATCH' WHEN coalesce(CAST(json_extract(doc,'"+$p+".originatorId') AS TEXT),'')<>'MSP_ONEC_NEWBASE' THEN 'ORIGINATOR_MISMATCH' WHEN coalesce(json_type(doc,"+$fm+"),'missing')<>'array' THEN 'FM_NOT_ARRAY' ELSE 'OK|'||(SELECT count(*) FROM json_each(doc,"+$fm+") WHERE upper(coalesce(json_extract(value,'$.typeId'),''))='PHONE' AND length(trim(coalesce(json_extract(value,'$.value'),'')))>0) END FROM j"
   [void]$pieces.Add($sql)
  }
  $results=SqlJson $Reply ([string]::Join(' UNION ALL ',[string[]]$pieces.ToArray()))
