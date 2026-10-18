@@ -82,7 +82,9 @@ try{
  $verified=$false
  for($i=0;$i -lt 90;$i++){
   if([IO.File]::Exists($status)){
-   $receipt=@([IO.File]::ReadAllLines($status,[Text.Encoding]::ASCII))
+   $receipt=@()
+   try{$receipt=@([IO.File]::ReadAllLines($status,[Text.Encoding]::ASCII))}
+   catch [IO.IOException]{Start-Sleep -Milliseconds 200;continue}
    if($receipt.Length -gt 0 -and $receipt[0] -match '^UTC=[^;]+;STATUS=PASS;SOURCE=TEST_NEWBASE;'){
     foreach($line in $receipt){Write-Output $line}
     $verified=$true
