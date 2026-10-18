@@ -50,10 +50,10 @@ try{
  if([IO.Directory]::Exists($dir)){StopSafe 'STAGING_ALREADY_EXISTS'}
  [void][IO.Directory]::CreateDirectory($dir)
  $worker=Join-Path $dir 'audit-bitrix-phone-presence-full-readonly-v1.ps1'
- $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/82774daa55266e468cd2cd592806cbfa2fbcb15b/integrations/msp-bitrix24-bridge/bin/audit-bitrix-phone-presence-full-readonly-v1.ps1'
+ $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/ed0bbcdf3b1eb63229c7fe0b3e5aabd5db9a384c/integrations/msp-bitrix24-bridge/bin/audit-bitrix-phone-presence-full-readonly-v1.ps1'
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --output $worker $url
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($worker)){StopSafe 'DOWNLOAD_FAILED'}
- if((Sha256 $worker) -ne '9ee34849b7062e8d0b319b76f62c74a3231281e75aafb86c83f0058bc711546d'){StopSafe 'WORKER_HASH_MISMATCH'}
+ if((Sha256 $worker) -ne '8bac5c0d9b187ddf1697e3c2751071f1712b49167418829b9de42da1e3c51c9e'){StopSafe 'WORKER_HASH_MISMATCH'}
  $errors=$null
  $null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($worker,[Text.Encoding]::ASCII),[ref]$errors)
  if($errors -and $errors.Count -gt 0){StopSafe 'WORKER_PS2_PARSE_FAILED'}
