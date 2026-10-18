@@ -1,5 +1,6 @@
 """Read-only contact-info metadata survey: safety and no private-data export."""
 from pathlib import Path
+import hashlib
 import unittest
 class ContactMeta(unittest.TestCase):
  @classmethod
@@ -19,6 +20,7 @@ class ContactMeta(unittest.TestCase):
                  "NotifyChangesReceived(", "SelectChanges(", "Insert INTO customers", "crm.item.add?"):
    self.assertNotIn(denied,s)
   self.assertNotIn("\r",s)
+  print("PHONE_METADATA_WORKER_SHA256="+hashlib.sha256((Path(__file__).resolve().parents[1]/"bin"/"probe-newbase-contactinfo-metadata-readonly-v1.ps1").read_bytes()).hexdigest())
  def test_metadata_output_is_schema_only(self):
   s=self.s
   self.assertIn("FIELD='+ (SafeName",s)
