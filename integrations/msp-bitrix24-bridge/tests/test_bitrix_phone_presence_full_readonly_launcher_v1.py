@@ -12,8 +12,8 @@ class FullPhonePresenceLauncher(unittest.TestCase):
     "bitrix-phone-existing-fields-probe-v1.status","customer-phone-snapshot-v2.status",
     "bitrix-phone-presence-audit-v1.status","MspBitrixPhonePresenceFullReadOnlyV1",
     "S-1-5-19","ExecutionTimeLimit='PT4H'",
-    "82774daa55266e468cd2cd592806cbfa2fbcb15b",
-    "9ee34849b7062e8d0b319b76f62c74a3231281e75aafb86c83f0058bc711546d",
+    "ed0bbcdf3b1eb63229c7fe0b3e5aabd5db9a384c",
+    "8bac5c0d9b187ddf1697e3c2751071f1712b49167418829b9de42da1e3c51c9e",
     "WORKER_PS2_PARSE_FAILED","TRIGGERS_PRESENT",
     "FULL_AUDIT_TASK=STARTED","CRM_MODE=READ_ONLY","CRM_WRITES=0",
     "ONEC_WRITES=0","CUSTOMERS_DB_WRITES=0","PHONE_DB_WRITES=0"):
