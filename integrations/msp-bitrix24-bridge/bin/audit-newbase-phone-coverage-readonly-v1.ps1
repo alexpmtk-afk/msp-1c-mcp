@@ -119,7 +119,7 @@ try{
    if($null -eq $props){Fail 'PROPERTIES_MISSING'}
    $g=(Field $props 'Ref_Key').Trim().ToLowerInvariant()
    $line=(Field $props 'LineNumber').Trim()
-   if($g -notmatch '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$' -or $line -notmatch '^[0-9]{1,9}){Fail 'CONTACT_KEY_INVALID'}
+   if($g -notmatch '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$' -or $line -notmatch '^[0-9]{1,9}$'){Fail 'CONTACT_KEY_INVALID'}
    $key=$g+':'+$line
    if($seen.ContainsKey($key)){Fail 'PAGING_DUPLICATE_KEY'}
    $seen[$key]=$true
