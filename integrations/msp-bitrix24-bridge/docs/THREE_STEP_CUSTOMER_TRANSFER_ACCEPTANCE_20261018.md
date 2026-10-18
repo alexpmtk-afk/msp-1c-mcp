@@ -15,20 +15,20 @@
 ## Task 1 — Complete and reconcile initial 6,433
 
 Existing `MspNewBaseInitialImportV4` is single-run, no triggers. The latest user-provided result was
-`STATUS=RUNNING;MAPPED=165;TARGET=6433;FIELDS_REVIEW=63;INFLIGHT=0;TASK_STATE=4`.
+`STATUS=RUNNING;MAPPED=1195;TARGET=6433;FIELDS_REVIEW=540;TASK_STATE=4`, with a subsequently queried local database count of `MAPPED=1196;INFLIGHT=9;FIELDS_REVIEW=541;NAMES_REVIEW=36`.
 **Do not assume the current count or completion.** Get a fresh read-only SRV receipt.
 
 Acceptance: `MAPPED=SOURCE_ACTIVE`, no unresolved inflight, no missed active customers, no duplicate CRM origin matches, positive full Bitrix count/backread. Keep field-review items explicitly open. If V4 hits the six-hour task limit, resume from durable local map with an inspected, fail-closed continuation; never replay uncertain adds.
 
 ## Task 2 — Field completeness and correctness
 
-Current `customer-store.sql` and `refresh-newbase-source-v2.ps1` include `name_short,name_full,person_name,inn`, **not phone**. First discover the actual phone source and its relation to counterparties from TEST OData metadata; do not invent `Catalog_Контрагенты.Phone` or assume contact-info lookup. Add nullable phone fields in a migration with database backup and backread acceptance. Use only confirmed 1C phone values.
+Current `customer-store.sql` and `refresh-newbase-source-v2.ps1` include `name_short,name_full,person_name,inn`, **not phone**. The existing project review confirms TEST OData exposes a `Catalog_Контрагенты_КонтактнаяИнформация` table part (`docs/NATIVE_BUYER_CHANGE_TRIGGER_S4_V2.md`); its exact columns, type codes, linkage and meaningful phone contents have NOT yet been verified. Inspect real TEST OData metadata and read-only aggregates before implementing the phone extraction. Do not invent `Catalog_Контрагенты.Phone` or assume phone storage and ownership. Add nullable phone fields in a migration with database backup and backread acceptance. Use only confirmed 1C phone values.
 
 Existing initial import puts INN in comments. Confirm CRM requisites and preset, use `crm.requisite.list/add/update` with readback to map real INN and legal full name. Use Bitrix24 `fm` native phone fields with readback. Protect pre-existing user-entered values: define ownership and conflict handling, do not overwrite unrelated data. Ensure names/field review queues reach an understood final state. At minimum test examples of each LEGAL, PERSON, and REVIEW.
 
 ## Task 3 — Daily ongoing changes (not a second initial import)
 
-The existing `refresh-newbase-source-v2.ps1` has full-source scan and local `msp_auto_outbox` detection, but the existing `pump-newbase-bitrix-batch-v2.ps1` only creates new entities; it marks existing ones `UPDATE_REQUIRED` rather than applying source changes. `msp-newbase-auto-tick-v2.ps1` can rescan each 15 minutes and is not equivalent to a single morning run. Do **not** enable `install-newbase-auto-v2.ps1` without repair and validation.
+The existing `refresh-newbase-source-v2.ps1` has full-source scan and local `msp_auto_outbox` detection, but the existing `pump-newbase-bitrix-batch-v2.ps1` only creates new entities; it marks existing ones `UPDATE_REQUIRED` rather than applying source changes. A separate `update-newbase-existing-once-v1.ps1` is already implemented and offline-tested for ONE existing GUID with optional explicitly approved update of CRM item and company requisite; it is NOT installed, bulk-accepted or automation-ready (`docs/ONE_BUYER_UPDATE_ACCEPTANCE_V1.md`). Reuse its tested identity/ownership/backread conditions rather than inventing a competing update path. `msp-newbase-auto-tick-v2.ps1` can rescan each 15 minutes and is not equivalent to a single morning run. Do **not** enable `install-newbase-auto-v2.ps1` without repair and validation.
 
 Use one daily time, e.g. 08:30 SRV local, to read complete active 1C buyers, atomically refresh durable SQLite, compare by GUID/fields, and enqueue only NEW/CHANGED. Existing Bitrix CRM cards are updated by ID, new GUIDs created once. Keep per-record confirmed state; survive network errors and resume without duplicates; distinguish REMOVED / disabled without automatic destructive CRM deletion. Update target phone/requisite fields only after ownership checks.
 
