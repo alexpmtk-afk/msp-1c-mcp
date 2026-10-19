@@ -38,8 +38,18 @@ try{
  if($errors -and $errors.Count -gt 0){Fail 'WORKER_PS2_PARSE_FAILED'}
  $bat=Join-Path $dir 'start-diagnostic.cmd'
  $ps=Join-Path $env:windir 'System32\WindowsPowerShell\v1.0\powershell.exe'
- $lines=@('@echo off','setlocal','"'+$ps+'" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$worker+'" -ExpectedComputerName SRV > "'+$stdout+'" 2>&1','set "RC=%ERRORLEVEL%"','echo TASK_ACTION_EXIT=%RC%>>"'+$stdout+'"','exit /b %RC%')
- [IO.File]::WriteAllLines($bat,$lines,[Text.Encoding]::ASCII)
+ $line=('"'+$ps+'" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$worker+'" -ExpectedComputerName SRV > "'+$stdout+'" 2>&1')
+ $rcLine='echo TASK_ACTION_EXIT=%RC%>>"'+$stdout+'"'
+ $lines=New-Object 'System.Collections.Generic.List[string]'
+ [void]$lines.Add('@echo off')
+ [void]$lines.Add('setlocal')
+ [void]$lines.Add($line)
+ [void]$lines.Add('set "RC=%ERRORLEVEL%"')
+ [void]$lines.Add($rcLine)
+ [void]$lines.Add('exit /b %RC%')
+ [IO.File]::WriteAllLines($bat,$lines.ToArray(),[Text.Encoding]::ASCII)
+ $actual=[IO.File]::ReadAllLines($bat,[Text.Encoding]::ASCII)
+ if($actual.Length -ne 6 -or $actual[2] -ne $line -or $actual[4] -ne $rcLine){Fail 'CMD_LINE_INTEGRITY_FAILED'}
  'DIAGNOSTIC_WORKER_HASH=PASS'
  $phase='REGISTER'
  $service=(New-Object Security.Principal.SecurityIdentifier -ArgumentList 'S-1-5-19').Translate([Security.Principal.NTAccount]).Value
