@@ -41,11 +41,11 @@ try{
  if([IO.Directory]::Exists($dir)){Gate 'STAGING_EXISTS'}
  [void][IO.Directory]::CreateDirectory($dir)
  $worker=Join-Path $dir 'discover-newbase-new-buyers-v2.ps1'
- $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/e21b6b2b84d3295ad831feb89e31f9e4bf5c7e0f/integrations/msp-bitrix24-bridge/bin/discover-newbase-new-buyers-v1.ps1'
+ $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/6d05b9dc332d9f8b03cab4dac10ab9036fad6cb6/integrations/msp-bitrix24-bridge/bin/discover-newbase-new-buyers-v1.ps1'
  $curl=Join-Path $root 'bin\curl.exe';$ca=Join-Path $root 'config\curl-ca-bundle.crt'
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --output $worker $url
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($worker)){Gate 'DOWNLOAD_FAILED'}
- if((Hash $worker) -ne '38e4768ee1b203f84fc468638b77f8942b318dd75c1df5a2f9060939e7f30ed4'){Gate 'WORKER_HASH_MISMATCH'}
+ if((Hash $worker) -ne '593114f7fd322e5b92030bbedae66bd125016dbd8931fce4b2a314680b5313eb'){Gate 'WORKER_HASH_MISMATCH'}
  if(([IO.File]::GetAttributes($worker) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Gate 'WORKER_REPARSE_DENIED'}
  $err=$null;$null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($worker,[Text.Encoding]::UTF8),[ref]$err)
  if($err -and $err.Count -gt 0){Gate 'PS2_PARSE_FAILED'}
