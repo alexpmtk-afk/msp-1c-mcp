@@ -9,7 +9,7 @@ $main=Join-Path $root 'data\customers.db'
 $source=Join-Path $root 'data\phone-source-newbase-v1.sqlite'
 $exe=Join-Path $root 'bin\sqlite3.exe'
 $status=Join-Path $root 'state\customer-unified-phones-v1.status'
-$backup=Join-Path $root 'backups\customers.before-phone-unify-v1.sqlite'
+$backup=Join-Path $root 'data\customers.before-phone-unify-v1.sqlite.bak'
 function Fail([string]$Code){throw ('UNIFY_PHONE_'+$Code)}
 function Sql([string]$Database,[string]$Statement,[bool]$Readonly){
  $info=New-Object Diagnostics.ProcessStartInfo
