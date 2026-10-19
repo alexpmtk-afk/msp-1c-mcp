@@ -34,11 +34,11 @@ try{
  if([IO.Directory]::Exists($dir)){StopSafe 'STAGING_ALREADY_EXISTS'}
  [void][IO.Directory]::CreateDirectory($dir)
  $worker=Join-Path $dir 'msp-bitrix-phone-sync-worker-v1.ps1'
- $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/8f9e8e355410f6e8d9ee70ba254f489d577b9182/integrations/msp-bitrix24-bridge/bin/msp-bitrix-phone-sync-worker-v1.ps1'
+ $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/4d5ab0976b9813953ba035aaefcdb787888ba10e/integrations/msp-bitrix24-bridge/bin/msp-bitrix-phone-sync-worker-v1.ps1'
  $curl=Join-Path $root 'bin\curl.exe';$ca=Join-Path $root 'config\curl-ca-bundle.crt'
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --output $worker $url
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($worker)){StopSafe 'DOWNLOAD_FAILED'}
- if((Sha256 $worker) -ne 'cbc07e9fc2f7ab3be63a6ae637fb1bfbad5f8efeb028e0ad9b500e66bc408a8c'){StopSafe 'WORKER_HASH_MISMATCH'}
+ if((Sha256 $worker) -ne 'c5abd1eb2fbc5ca710b852f8f6e8034c84d1ff3ff9a7a135d5a7c12c47f5e02a'){StopSafe 'WORKER_HASH_MISMATCH'}
  $e=$null;$null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($worker,[Text.Encoding]::ASCII),[ref]$e)
  if($e -and $e.Count -gt 0){StopSafe 'PS2_PARSE_FAILED'}
  'BITRIX_PHONE_PILOT_WORKER_VERIFIED=PASS'
