@@ -220,21 +220,10 @@ try{
  'RESULT=PASS;STAGE=MSP_NEWBUYER_DISCOVERY_V1'
 }catch{
  $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^DISCOVERY_([A-Z0-9_]+){$gate=$Matches[1]}
+ if($_.Exception.Message -match '^DISCOVERY_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  'RESULT=FAIL;STAGE=MSP_NEWBUYER_DISCOVERY_V1;GATE='+$gate+';PHASE='+$phase
  'NO_SILENT_PARTIAL_COMMIT=YES'
  'CRM_WRITES=0';'ONEC_WRITES=0';'AUTO_UPDATE=OFF'
- exit 1
-}finally{
- if($hasLock){$mutex.ReleaseMutex()}
- if($null -ne $mutex){$mutex.Dispose()}
- if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
- if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
- if($null -ne $secure){$secure.Dispose()}
-}
-){$gate=$Matches[1]}
- 'RESULT=FAIL;STAGE=MSP_NEWBUYER_DISCOVERY_V1;GATE='+$gate+';PHASE='+$phase
- 'NO_SILENT_PARTIAL_COMMIT=YES'
  exit 1
 }finally{
  if($hasLock){$mutex.ReleaseMutex()}
