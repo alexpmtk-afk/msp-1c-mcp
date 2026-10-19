@@ -37,8 +37,8 @@ class DiscoveryV2(unittest.TestCase):
   for token in ("MspNewBuyerDiscoveryV2","MspNewBuyerDiscoveryV1",
                 "MspNewBuyerDiagnosticV1","PRIOR_TASK_RUNNING","PT15M",
                 "Triggers.Count -ne 0","msp-newbuyer-discovery-v2.status",
-                "38e4768ee1b203f84fc468638b77f8942b318dd75c1df5a2f9060939e7f30ed4",
-                "e21b6b2b84d3295ad831feb89e31f9e4bf5c7e0f",
+                "593114f7fd322e5b92030bbedae66bd125016dbd8931fce4b2a314680b5313eb",
+                "6d05b9dc332d9f8b03cab4dac10ab9036fad6cb6",
                 "6433:6433:6433:0","SAFE_IDLE","NoProfile","LOCAL"):
    if token=="LOCAL":continue
    self.assertIn(token,LAUNCHER,token)
