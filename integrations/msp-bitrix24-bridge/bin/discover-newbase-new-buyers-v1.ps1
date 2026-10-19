@@ -119,8 +119,8 @@ try{
   if(([IO.File]::GetAttributes($f) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Fail 'REPARSE_DENIED'}
  }
  if((Sql $exe $db 'PRAGMA quick_check;') -ne 'ok'){Fail 'SQLITE_INTEGRITY'}
- $map=Sql $exe $db "SELECT count(*)||':'||count(DISTINCT onec_guid)||':'||count(DISTINCT crm_id) FROM msp_initial_map;"
- if($map -ne '6433:6433:6433'){Fail 'BASELINE_MAPPING_INVALID'}
+ $map=Sql $exe $db "SELECT count(*)||':'||count(DISTINCT onec_guid)||':'||(SELECT count(*) FROM (SELECT entity_kind,crm_id FROM msp_initial_map GROUP BY entity_kind,crm_id))||':'||coalesce(sum(CASE WHEN entity_kind NOT IN (3,4) OR entity_kind IS NULL OR crm_id IS NULL OR crm_id<1 THEN 1 ELSE 0 END),0) FROM msp_initial_map;"
+ if($map -ne '6433:6433:6433:0'){Fail 'BASELINE_MAPPING_INVALID'}
  $prior=Sql $exe $db 'SELECT count(*) FROM customers;'
  if($prior -notmatch '^[0-9]{4,8}$' -or [int]$prior -lt 6433){Fail 'BASELINE_SOURCE_INVALID'}
  $config=Join-Path $root 'config\collector.ini'
