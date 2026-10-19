@@ -40,8 +40,8 @@ try{
  # Task Scheduler on this SRV exposes LOCAL SERVICE as a short account name.
  # Accept only its known SID/full/short spellings AND require a service-account logon.
  $taskUser=([string]$task.Definition.Principal.UserId).Trim()
- $allowed=@('S-1-5-19','LOCAL SERVICE',$service)
- if($taskUser -cnotin $allowed -or [int]$task.Definition.Principal.LogonType -ne 5 -or [int]$task.Definition.Principal.RunLevel -ne 0){Gate 'TASK_IDENTITY_CHANGED'}
+ $validServiceAccount=($taskUser -ceq 'S-1-5-19' -or $taskUser -ceq 'LOCAL SERVICE' -or $taskUser -ceq $service)
+ if(-not $validServiceAccount -or [int]$task.Definition.Principal.LogonType -ne 5 -or [int]$task.Definition.Principal.RunLevel -ne 0){Gate 'TASK_IDENTITY_CHANGED'}
  if($task.Definition.Actions.Count -ne 1){Gate 'TASK_ACTION_COUNT_CHANGED'}
  $action=$task.Definition.Actions.Item(1)
  if($action.Path -ne $cmdexe -or $action.Arguments -ne ('/d /c "'+$bat+'"')){Gate 'TASK_ACTION_CHANGED'}
