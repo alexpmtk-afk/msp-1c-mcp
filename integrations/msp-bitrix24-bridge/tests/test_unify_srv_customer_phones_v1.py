@@ -18,6 +18,9 @@ class UnifyPhoneSource(unittest.TestCase):
    "SOURCE_JOIN_NOT_ACCEPTED", "ALREADY_ATTEMPTED",
    "PRAGMA quick_check;", "BEGIN IMMEDIATE;", "COMMIT;",
    "count(DISTINCT onec_guid)", "COUNT", "4032", "36", "4068",
+   "INN_OR_NAME_COVERAGE_INVALID", "BACKUP_INN_NAME_MISMATCH",
+   "INN_NAME_CONTENT_CHANGED", "INN_NAMES_EXACT_BACKREAD=PASS",
+   "inn,name_short,name_full,person_name",
    "BITRIX_WRITES=0", "ONEC_WRITES=0", "AUTO_UPDATE=OFF", "PII_EXPORTED=0"):
    self.assertIn(item,s)
   for forbidden in (
@@ -57,5 +60,8 @@ class UnifyPhoneSource(unittest.TestCase):
     self.assertEqual(db.execute("SELECT count(*),count(DISTINCT onec_guid),sum(format_review) FROM msp_customer_phone").fetchone(),(4068,4067,36))
     self.assertEqual(db.execute("SELECT count(*) FROM customers WHERE name_short NOT LIKE 'Buyer %'").fetchone()[0],0)
     self.assertEqual(db.execute("PRAGMA quick_check").fetchone()[0],"ok")
+    db.execute("ATTACH DATABASE ? AS before",("file:"+str(main.resolve()).replace("\\","/")+"?mode=ro",)) if False else None
+    self.assertEqual(db.execute("SELECT count(*) FROM customers WHERE trim(coalesce(inn,''))<>''").fetchone()[0],4067)
+    self.assertEqual(db.execute("SELECT count(*) FROM customers WHERE coalesce(name_short,'')<>''").fetchone()[0],4067)
 
 if __name__=="__main__":unittest.main()
