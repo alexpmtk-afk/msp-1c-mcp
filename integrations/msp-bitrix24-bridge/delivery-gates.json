@@ -42,12 +42,27 @@
     "name_and_inn_fields": {
       "state": "NOT_DONE",
       "reviewed_complete": false,
-      "receipt": null
+      "receipt": null,
+      "note": "Local source INN and names verified exactly unchanged: 1925 populated INN, 6433 buyer names. Native CRM fields remain NOT_DONE."
     },
     "daily_sync": {
       "state": "OFF",
       "actual_runs": 0,
       "receipt": null
+    },
+    "unified_local_database": {
+      "state": "ACCEPTED_ON_SRV",
+      "receipt": "SRV 2026-10-19T05:22:25Z STATUS=PASS; TASK_STATE=3;TASK_LAST_RESULT=0; SQLITE quick_check=ok; INN_NAME_DIFFERENCES=0",
+      "buyers": 6433,
+      "mapped_buyers": 6433,
+      "buyers_with_name": 6433,
+      "buyers_with_inn": 1925,
+      "phone_rows": 4068,
+      "phone_buyers": 4067,
+      "phone_review": 36,
+      "phone_candidates": 4032,
+      "backup": "VERIFIED",
+      "original_customer_fields_unmodified": true
     }
   },
   "required_acceptance": {
