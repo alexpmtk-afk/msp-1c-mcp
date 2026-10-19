@@ -1,6 +1,6 @@
 """Regression gates for local-only unification of confirmed SRV buyer/phone SQLite records."""
 from pathlib import Path
-import unittest,sqlite3,tempfile
+import unittest,sqlite3,tempfile,hashlib
 from contextlib import closing
 P=Path(__file__).resolve().parents[1]/"bin"/"unify-srv-customer-phones-v1.ps1"
 
@@ -27,6 +27,7 @@ class UnifyPhoneSource(unittest.TestCase):
    "RegisterTaskDefinition", "Set-ScheduledTask"):
    self.assertNotIn(forbidden,s)
   self.assertNotIn("\r",s)
+  print("CUSTOMER_PHONE_UNIFY_WORKER_SHA256="+hashlib.sha256(P.read_bytes()).hexdigest())
  def test_sqlite_atomic_merge_and_review(self):
   with tempfile.TemporaryDirectory() as d:
    main=Path(d)/"main.sqlite"
