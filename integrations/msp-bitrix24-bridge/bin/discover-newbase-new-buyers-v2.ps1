@@ -222,17 +222,7 @@ try{
  'RESULT=PASS;STAGE=MSP_NEWBUYER_DISCOVERY_V2'
 }catch{
  $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^DISCOVERY_([A-Z0-9_]+)STAGE=MSP_NEWBUYER_DISCOVERY_V2;GATE='+$gate+';PHASE='+$phase
- 'NO_SILENT_PARTIAL_COMMIT=YES'
- 'CRM_WRITES=0';'ONEC_WRITES=0';'AUTO_UPDATE=OFF'
- exit 1
-}finally{
- if($hasLock){$mutex.ReleaseMutex()}
- if($null -ne $mutex){$mutex.Dispose()}
- if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
- if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
- if($null -ne $secure){$secure.Dispose()}
-}){$gate=$Matches[1]}
+ if($_.Exception.Message -match '^DISCOVERY_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  try{[IO.File]::WriteAllText($status,('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=FAIL;PHASE='+$phase+';GATE='+$gate+';ONEC_WRITES=0;CRM_WRITES=0;AUTO_UPDATE=OFF;PII_EXPORTED=0'),[Text.Encoding]::ASCII)}catch{}
  'RESULT=FAIL;STAGE=MSP_NEWBUYER_DISCOVERY_V2;GATE='+$gate+';PHASE='+$phase
  'NO_SILENT_PARTIAL_COMMIT=YES'
