@@ -31,6 +31,7 @@ class PhoneWorkerTests(unittest.TestCase):
   db.execute("INSERT INTO msp_bitrix_phone_queue VALUES ('guid',99,4,'PENDING',NULL)")
   preflight=db.execute("SELECT crm_id,entity_kind,state FROM msp_bitrix_phone_queue WHERE onec_guid='guid'").fetchone()
   self.assertEqual(preflight,(99,4,"PENDING"))
+  db.commit()
   db.execute("BEGIN IMMEDIATE")
   db.execute("UPDATE msp_bitrix_phone_queue SET state='INTENT' WHERE onec_guid='guid' AND crm_id=99 AND entity_kind=4 AND state='PENDING'")
   self.assertEqual(db.execute("SELECT changes()").fetchone()[0],1)
