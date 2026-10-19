@@ -17,8 +17,8 @@ class PhoneLaunchers(unittest.TestCase):
  def test_real_single_company_pilot_launcher(self):
   p=ROOT/"start-bitrix-phone-pilot-v1.ps1";s=p.read_text("ascii")
   for v in ("MspBitrixPhonePilotV1","MspBitrixPhoneQueueV1",
-    "cbc07e9fc2f7ab3be63a6ae637fb1bfbad5f8efeb028e0ad9b500e66bc408a8c",
-    "8f9e8e355410f6e8d9ee70ba254f489d577b9182",
+    "c5abd1eb2fbc5ca710b852f8f6e8034c84d1ff3ff9a7a135d5a7c12c47f5e02a",
+    "4d5ab0976b9813953ba035aaefcdb787888ba10e",
     "6d6d1c385c0dc648310772fce86be7936bb30cbafb3790c5ae48cc4fcbc8e852",
     "-Mode Pilot -MaxCards 1","PILOT_ALREADY_ATTEMPTED","PILOT_STATUS_FILE",
     "QUEUE_NOT_ACCEPTED","QUEUE_TASK_NOT_PASS","TASK_CONCURRENT",
