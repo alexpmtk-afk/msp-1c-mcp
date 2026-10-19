@@ -31,7 +31,7 @@ class UnifyPhoneSource(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    main=Path(d)/"main.sqlite"
    src=Path(d)/"source.sqlite"
-   with closing(sqlite3.connect(main)) as db:
+   with closing(sqlite3.connect(main, uri=True)) as db:
     db.execute("CREATE TABLE customers(onec_guid TEXT PRIMARY KEY, buyer INTEGER,invalid INTEGER,deletion_mark INTEGER,name_short TEXT,inn TEXT)")
     db.execute("CREATE TABLE msp_initial_map(onec_guid TEXT PRIMARY KEY,crm_id INTEGER,entity_kind INTEGER)")
     for k in range(4067):
@@ -46,7 +46,7 @@ class UnifyPhoneSource(unittest.TestCase):
      db.execute("INSERT INTO phone_source VALUES (?,?,?,'TEST_NEWBASE')",(f"guid-{k:06}",1,value))
     db.execute("INSERT INTO phone_source VALUES (?,?,?,'TEST_NEWBASE')",("guid-004066",2,"+79990000001"))
     db.commit()
-   with closing(sqlite3.connect(main)) as db:
+   with closing(sqlite3.connect(main, uri=True)) as db:
     db.execute("PRAGMA foreign_keys=ON")
     db.execute("ATTACH DATABASE ? AS ph",(src.resolve().as_uri()+"?mode=ro",))
     db.execute("BEGIN IMMEDIATE")
