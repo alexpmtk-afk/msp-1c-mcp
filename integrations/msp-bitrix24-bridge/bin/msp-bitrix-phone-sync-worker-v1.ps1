@@ -147,6 +147,6 @@ try{
  exit 1
 }finally{
  if($locked){$lock.ReleaseMutex()}
- if($null -ne $lock){$lock.Dispose()}
+ if($null -ne $lock){$lock.Close()}
  $script:base=$null;$before=$null;$after=$null;$writeReply=$null;$raw=$null
 }
