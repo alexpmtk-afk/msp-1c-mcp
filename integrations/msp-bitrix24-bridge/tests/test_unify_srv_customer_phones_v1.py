@@ -11,7 +11,7 @@ class UnifyPhoneSource(unittest.TestCase):
    "#requires -version 2", "PS2_X64_REQUIRED", "LOCAL_SERVICE_ONLY",
    "customers.db", "phone-source-newbase-v1.sqlite",
    "msp_initial_map", "customer-phone-snapshot-v2.status",
-   "customers.before-phone-unify-v1.sqlite",
+   "customers.before-phone-unify-v1.sqlite.bak",
    "msp_customer_phone", "format_review", "PRIMARY KEY(onec_guid,line_number)",
    "FOREIGN KEY(onec_guid) REFERENCES customers(onec_guid)",
    "BACKUP_MAIN", "BACKUP_NOT_OK", "BACKREAD_MAIN",
