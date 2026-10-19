@@ -1,6 +1,7 @@
 """Regression gates for local-only unification of confirmed SRV buyer/phone SQLite records."""
 from pathlib import Path
 import unittest,sqlite3,tempfile
+from contextlib import closing
 P=Path(__file__).resolve().parents[1]/"bin"/"unify-srv-customer-phones-v1.ps1"
 
 class UnifyPhoneSource(unittest.TestCase):
@@ -30,22 +31,24 @@ class UnifyPhoneSource(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    main=Path(d)/"main.sqlite"
    src=Path(d)/"source.sqlite"
-   with sqlite3.connect(main) as db:
+   with closing(sqlite3.connect(main)) as db:
     db.execute("CREATE TABLE customers(onec_guid TEXT PRIMARY KEY, buyer INTEGER,invalid INTEGER,deletion_mark INTEGER,name_short TEXT,inn TEXT)")
     db.execute("CREATE TABLE msp_initial_map(onec_guid TEXT PRIMARY KEY,crm_id INTEGER,entity_kind INTEGER)")
     for k in range(4067):
      guid=f"guid-{k:06}"
      db.execute("INSERT INTO customers VALUES (?,1,0,0,?,?)",(guid,"Buyer "+str(k),"INN "+str(k)))
      db.execute("INSERT INTO msp_initial_map VALUES (?,?,4)",(guid,k+1))
-   with sqlite3.connect(src) as db:
+    db.commit()
+   with closing(sqlite3.connect(src)) as db:
     db.execute("CREATE TABLE phone_source(onec_guid TEXT,line_number INTEGER,phone_number TEXT,source TEXT,PRIMARY KEY(onec_guid,line_number))")
     for k in range(4067):
      value="invalid" if k<36 else "+79990000000"
      db.execute("INSERT INTO phone_source VALUES (?,?,?,'TEST_NEWBASE')",(f"guid-{k:06}",1,value))
     db.execute("INSERT INTO phone_source VALUES (?,?,?,'TEST_NEWBASE')",("guid-004066",2,"+79990000001"))
-   with sqlite3.connect(main) as db:
+    db.commit()
+   with closing(sqlite3.connect(main)) as db:
     db.execute("PRAGMA foreign_keys=ON")
-    db.execute("ATTACH DATABASE ? AS ph",("file:"+str(src)+"?mode=ro",))
+    db.execute("ATTACH DATABASE ? AS ph",(src.resolve().as_uri()+"?mode=ro",))
     db.execute("BEGIN IMMEDIATE")
     db.execute("CREATE TABLE msp_customer_phone(onec_guid TEXT NOT NULL,line_number INTEGER NOT NULL,phone_number TEXT NOT NULL,source TEXT NOT NULL,format_review INTEGER NOT NULL CHECK(format_review IN (0,1)),PRIMARY KEY(onec_guid,line_number),FOREIGN KEY(onec_guid) REFERENCES customers(onec_guid))")
     db.execute("INSERT INTO msp_customer_phone SELECT onec_guid,line_number,phone_number,source,CASE WHEN phone_number GLOB '*[^0-9+() ./-]*' THEN 1 ELSE 0 END FROM ph.phone_source")
