@@ -23,8 +23,8 @@ try{
  foreach($f in @('ACTIVE=0','ONEC_READ=0','DELTA_READ=0','BITRIX=0')){
   if($flags -notmatch ('(?m)^'+[regex]::Escape($f)+'\s*$')){Gate 'NOT_SAFE_IDLE'}
  }
- $map=& $exe -readonly -batch -bail $db "SELECT count(*)||':'||count(DISTINCT onec_guid)||':'||count(DISTINCT crm_id) FROM msp_initial_map;"
- if($LASTEXITCODE -ne 0 -or [string]$map -ne '6433:6433:6433'){Gate 'MAPPING_GATE_FAILED'}
+ $map=& $exe -readonly -batch -bail $db "SELECT count(*)||':'||count(DISTINCT onec_guid)||':'||(SELECT count(*) FROM (SELECT entity_kind,crm_id FROM msp_initial_map GROUP BY entity_kind,crm_id))||':'||coalesce(sum(CASE WHEN entity_kind NOT IN (3,4) OR entity_kind IS NULL OR crm_id IS NULL OR crm_id<1 THEN 1 ELSE 0 END),0) FROM msp_initial_map;"
+ if($LASTEXITCODE -ne 0 -or [string]$map -ne '6433:6433:6433:0'){Gate 'MAPPING_GATE_FAILED'}
  $integrity=& $exe -readonly -batch -bail $db 'PRAGMA quick_check;'
  if($LASTEXITCODE -ne 0 -or [string]$integrity -ne 'ok'){Gate 'SQLITE_INTEGRITY'}
  $sched=New-Object -ComObject Schedule.Service;$sched.Connect();$folder=$sched.GetFolder('\')
@@ -40,11 +40,11 @@ try{
  if([IO.Directory]::Exists($dir)){Gate 'STAGING_EXISTS'}
  [void][IO.Directory]::CreateDirectory($dir)
  $worker=Join-Path $dir 'discover-newbase-new-buyers-v1.ps1'
- $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/0b3c6c329635c3cfe381b20dbe33ea7f2c0d3531/integrations/msp-bitrix24-bridge/bin/discover-newbase-new-buyers-v1.ps1'
+ $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/a9d6c6c1ce737af81cb47438db03cd29aa6d028f/integrations/msp-bitrix24-bridge/bin/discover-newbase-new-buyers-v1.ps1'
  $curl=Join-Path $root 'bin\curl.exe';$ca=Join-Path $root 'config\curl-ca-bundle.crt'
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --output $worker $url
  if($LASTEXITCODE -ne 0 -or -not [IO.File]::Exists($worker)){Gate 'DOWNLOAD_FAILED'}
- if((Hash $worker) -ne 'f64efc2e524263e6c64cc0aed68289b6ae92f803e76b0e754cb2799a30ffe69b'){Gate 'WORKER_HASH_MISMATCH'}
+ if((Hash $worker) -ne '6630af6daec00430d7587f51f26c5960f15dcc25aaf313ffc208cbfa7c13130f'){Gate 'WORKER_HASH_MISMATCH'}
  if(([IO.File]::GetAttributes($worker) -band [IO.FileAttributes]::ReparsePoint) -ne 0){Gate 'WORKER_REPARSE_DENIED'}
  $err=$null;$null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($worker,[Text.Encoding]::UTF8),[ref]$err)
  if($err -and $err.Count -gt 0){Gate 'PS2_PARSE_FAILED'}
