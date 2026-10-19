@@ -10,7 +10,7 @@ class TestNewBuyerDiscoveryV1(unittest.TestCase):
     def test_source_read_only_and_no_legacy_outbox(self):
         s = WORKER.read_text("utf-8")
         for token in ("#requires -version 2", "SOURCE_COUNT_BEFORE", "SOURCE_COUNT_AFTER",
-                      "msp_initial_map", "6433:6433:6433", "SOURCE_NEW_GUID_DIFF",
+                      "msp_initial_map", "6433:6433:6433:0", "SOURCE_NEW_GUID_DIFF",
                       "SQLITE_NEW_ONLY_COMMIT", "LEFT JOIN customers",
                       "msp_newbuyer_queue", "HELD_TYPE", "PENDING",
                       "CHECK(n BETWEEN 0 AND 20)", "SQLITE_BACKREAD",
@@ -36,14 +36,14 @@ class TestNewBuyerDiscoveryV1(unittest.TestCase):
             CREATE TABLE customers(onec_guid TEXT PRIMARY KEY, onec_type TEXT, name_short TEXT, name_full TEXT,
                 person_name TEXT, inn TEXT, buyer INTEGER, deletion_mark INTEGER, invalid INTEGER,
                 source_version TEXT, updated_at_utc TEXT, needs_review INTEGER);
-            CREATE TABLE msp_initial_map(onec_guid TEXT PRIMARY KEY, crm_id INTEGER UNIQUE, entity_kind INTEGER);
+            CREATE TABLE msp_initial_map(onec_guid TEXT PRIMARY KEY, crm_id INTEGER, entity_kind INTEGER, UNIQUE(entity_kind,crm_id));
             CREATE TABLE customer_search_v1(onec_guid TEXT, name_short TEXT, name_full TEXT, person_name TEXT, inn TEXT);
             """)
             for i in range(6):
                 guid=f"g{i}"
                 db.execute("INSERT INTO customers VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     (guid,"LEGAL",f"Old {i}","", "",None,1,0,0,None,"prior",0))
-                db.execute("INSERT INTO msp_initial_map VALUES (?,?,?)",(guid,100+i,4))
+                db.execute("INSERT INTO msp_initial_map VALUES (?,?,?)",(guid,100 if i==5 else 100+i,3 if i==5 else 4))
                 db.execute("INSERT INTO customer_search_v1 VALUES (?,?,?,?,?)",(guid,f"Old {i}","","",""))
             db.commit()
             incoming=[
@@ -65,6 +65,9 @@ class TestNewBuyerDiscoveryV1(unittest.TestCase):
                 SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM _new;
             """)
             self.assertEqual(db.execute("SELECT count(*) FROM msp_initial_map").fetchone()[0],6)
+            self.assertEqual(db.execute("SELECT count(DISTINCT crm_id) FROM msp_initial_map").fetchone()[0],5)
+            typed_count=db.execute("SELECT count(*) FROM (SELECT entity_kind,crm_id FROM msp_initial_map GROUP BY entity_kind,crm_id)").fetchone()[0]
+            self.assertEqual(typed_count,6)
             self.assertEqual(db.execute("SELECT count(*) FROM customers").fetchone()[0],8)
             self.assertEqual(db.execute("SELECT state FROM msp_newbuyer_queue WHERE onec_guid='new-legal'").fetchone()[0],"PENDING")
             self.assertEqual(db.execute("SELECT state FROM msp_newbuyer_queue WHERE onec_guid='new-review'").fetchone()[0],"HELD_TYPE")
