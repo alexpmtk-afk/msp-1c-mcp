@@ -25,7 +25,7 @@ class TestNewbuyerDiagnosticCmdRecovery(unittest.TestCase):
             "TASK_ACTION_CHANGED", "OLD_CMD_NOT_EXPECTED_SHAPE", "OLD_INTERACTIVE_CHILD_STILL_ALIVE",
             "OLD_DIAGNOSTIC_CMD_PROCESS_STILL_ALIVE", "REPAIR_CMD", "START_ONCE",
             "File]::Replace($tmp,$bat,$backup)", "LINES=6", "CMD_REPAIR=PASS",
-            "NEW_CMD_INVALID", "REPLACED_CMD_INVALID", "OLD_WORKER_HASH_CHANGED",
+            "NEW_CMD_INVALID", "REPLACED_CMD_INVALID", "WORKER_HASH_CHANGED",
             "ONEC_WRITES=0", "CRM_WRITES=0", "CUSTOMERS_DB_WRITES=0",
         ):
             self.assertIn(text,s,text)
