@@ -1,5 +1,5 @@
 #requires -version 2
-# Repeatable TEST NewBase scan; only NEW source GUIDs go into an isolated local queue.
+# Repeatable TEST NewBase scan; only NEW source GUIDs go into isolated local queue.
 # OData GET only; bounded SQLite insert of new buyers; no Bitrix writes.
 # Buyer names, GUIDs, INN and request payloads never leave physical SRV.
 param([string]$ExpectedComputerName='SRV')
@@ -122,7 +122,11 @@ try{
  $map=Sql $exe $db "SELECT count(*)||':'||count(DISTINCT onec_guid)||':'||count(DISTINCT crm_id) FROM msp_initial_map;"
  if($map -ne '6433:6433:6433'){Fail 'BASELINE_MAPPING_INVALID'}
  $prior=Sql $exe $db 'SELECT count(*) FROM customers;'
- if($prior -notmatch '^[0-9]{4,8}
+ if($prior -notmatch '^[0-9]{4,8}$' -or [int]$prior -lt 6433){Fail 'BASELINE_SOURCE_INVALID'}
+ $config=Join-Path $root 'config\collector.ini'
+ if(-not [IO.File]::Exists($config)){Fail 'SAFE_IDLE_CONFIG_MISSING'}
+ $flags=[IO.File]::ReadAllText($config,[Text.Encoding]::ASCII)
+ foreach($f in @('ACTIVE=0','ONEC_READ=0','DELTA_READ=0','BITRIX=0')){if($flags -notmatch ('(?m)^'+[regex]::Escape($f)+'\s*$')){Fail 'NOT_SAFE_IDLE'}}
  $phase='SOURCE_AUTH'
  Add-Type -AssemblyName System.Security
  $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-OnecTest-OData-v1')
@@ -216,7 +220,7 @@ try{
  'RESULT=PASS;STAGE=MSP_NEWBUYER_DISCOVERY_V1'
 }catch{
  $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^AUTO_([A-Z0-9_]+)$'){$gate=$Matches[1]}
+ if($_.Exception.Message -match '^DISCOVERY_([A-Z0-9_]+){$gate=$Matches[1]}
  'RESULT=FAIL;STAGE=MSP_NEWBUYER_DISCOVERY_V1;GATE='+$gate+';PHASE='+$phase
  'NO_SILENT_PARTIAL_COMMIT=YES'
  'CRM_WRITES=0';'ONEC_WRITES=0';'AUTO_UPDATE=OFF'
@@ -228,201 +232,8 @@ try{
  if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
  if($null -ne $secure){$secure.Dispose()}
 }
- -or [int]$prior -lt 6433){Fail 'BASELINE_SOURCE_INVALID'}
- $config=Join-Path $root 'config\collector.ini'
- if(-not [IO.File]::Exists($config)){Fail 'SAFE_IDLE_CONFIG_MISSING'}
- $flags=[IO.File]::ReadAllText($config,[Text.Encoding]::ASCII)
- foreach($f in @('ACTIVE=0','ONEC_READ=0','DELTA_READ=0','BITRIX=0')){if($flags -notmatch ('(?m)^'+[regex]::Escape($f)+'\s*
- $phase='SOURCE_AUTH'
- Add-Type -AssemblyName System.Security
- $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-OnecTest-OData-v1')
- $encrypted=[IO.File]::ReadAllBytes($secret)
- $plain=[Security.Cryptography.ProtectedData]::Unprotect($encrypted,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
- if($plain.Length -lt 2 -or $plain.Length -gt 1024 -or ($plain.Length % 2) -ne 0){Fail 'PASSWORD_DECRYPT_UNEXPECTED'}
- $secure=New-Object Security.SecureString
- for($i=0;$i -lt $plain.Length;$i+=2){$secure.AppendChar([char][BitConverter]::ToUInt16($plain,$i))}
- $secure.MakeReadOnly();[Array]::Clear($plain,0,$plain.Length);$plain=$null
- $script:credential=New-Object Management.Automation.PSCredential -ArgumentList @('MCP_OData_ReadOnly',$secure)
- $table=[regex]::Unescape('\u041a\u043e\u043d\u0442\u0440\u0430\u0433\u0435\u043d\u0442\u044b')
- $buyer=[regex]::Unescape('\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c')
- $invalid=[regex]::Unescape('\u041d\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u0435\u043d')
- $full=[regex]::Unescape('\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435\u041f\u043e\u043b\u043d\u043e\u0435')
- $inn=[regex]::Unescape('\u0418\u041d\u041d')
- $typ=[regex]::Unescape('\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u0424\u0438\u0437\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e')
- $fio=[regex]::Unescape('\u0424\u0418\u041e')
- $legal=[regex]::Unescape('\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e')
- $person=[regex]::Unescape('\u0424\u0438\u0437\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e')
- $filter=$buyer+' eq true and DeletionMark eq false and '+$invalid+' eq false'
- $fields='Ref_Key,Description,'+$full+','+$inn+','+$typ+','+$fio
- $script:base='http://127.0.0.1:8085/NewBase/odata/standard.odata/Catalog_'+$table
- $phase='SOURCE_COUNT_BEFORE'
- $expected=Count $filter
- if($expected -lt 100 -or $expected -gt 200000){Fail 'SOURCE_COUNT_UNEXPECTED'}
- $phase='SOURCE_ALL_PAGES'
- $sql=New-Object Text.StringBuilder
- $stamp=[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ')
- [void]$sql.AppendLine('BEGIN IMMEDIATE;')
- [void]$sql.AppendLine('CREATE TEMP TABLE _incoming(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);')
- $seen=@{};$fetched=0;$pages=0;$legalCount=0;$personCount=0;$reviewCount=0
- while($fetched -lt $expected){
-  if($pages -ge 3000){Fail 'PAGE_LIMIT'}
-  $batch=@(Page $filter $fetched 100 $fields)
-  if($batch.Count -lt 1 -or $batch.Count -gt 100 -or ($fetched+$batch.Count) -gt $expected){Fail 'PAGE_SIZE_CHANGED'}
-  foreach($entry in $batch){
-   $props=$entry.SelectSingleNode("./*[local-name()='content']/*[local-name()='properties']")
-   if($null -eq $props){Fail 'PROPERTIES_MISSING'}
-   $g=([string](Field $props 'Ref_Key')).Trim().ToLowerInvariant()
-   if($g -notmatch '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){Fail 'GUID_INVALID'}
-   if($seen.ContainsKey($g)){Fail 'DUPLICATE_GUID'}
-   $seen[$g]=$true
-   $short=[string](Field $props 'Description');$long=[string](Field $props $full)
-   $tax=[string](Field $props $inn);$personName=[string](Field $props $fio)
-   $rawType=[string](Field $props $typ)
-   if($rawType -eq $legal){$category='LEGAL';$legalCount++}
-   elseif($rawType -eq $person){$category='PERSON';$personCount++}
-   else{$category='REVIEW';$reviewCount++}
-   $query="INSERT INTO _incoming VALUES ('"+$g+"','"+$category+"',"+(Literal $short)+","+(Literal $long)+","+(Literal $personName)+","+(Literal $tax)+",1,0,0,"+([int]($category -eq 'REVIEW'))+");"
-   [void]$sql.AppendLine($query)
-   if($sql.Length -gt 60000000){Fail 'TRANSACTION_TOO_LARGE'}
-  }
-  $fetched+=$batch.Count;$pages++
- }
- $phase='SOURCE_COUNT_AFTER'
- if((Count $filter) -ne $expected){Fail 'COUNT_CHANGED_DURING_SCAN'}
- if($seen.Count -ne $expected -or ($legalCount+$personCount+$reviewCount) -ne $expected){Fail 'SCAN_INCOMPLETE'}
- $phase='SQLITE_ATOMIC_COMMIT'
- [void]$sql.AppendLine('CREATE TABLE IF NOT EXISTS msp_auto_outbox(onec_guid TEXT PRIMARY KEY,changed_utc TEXT NOT NULL,change_kind TEXT NOT NULL);')
- [void]$sql.AppendLine('CREATE TABLE IF NOT EXISTS msp_auto_scan_runs(id INTEGER PRIMARY KEY,scan_utc TEXT NOT NULL,source_rows INTEGER NOT NULL,new_or_changed INTEGER NOT NULL,missing_buyer INTEGER NOT NULL);')
- $comparison="c.onec_guid IS NULL OR c.onec_type IS NOT i.onec_type OR c.name_short IS NOT i.name_short OR c.name_full IS NOT i.name_full OR c.person_name IS NOT i.person_name OR coalesce(c.inn,'') IS NOT coalesce(i.inn,'') OR c.buyer IS NOT 1 OR c.invalid IS NOT 0 OR c.deletion_mark IS NOT 0 OR c.needs_review IS NOT i.needs_review"
- [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','UPSERT' FROM _incoming WHERE NOT EXISTS (SELECT 1 FROM msp_auto_scan_runs) AND 1=1 ON CONFLICT(onec_guid) DO NOTHING;")
- [void]$sql.AppendLine("CREATE TEMP TABLE _changed AS SELECT i.onec_guid FROM _incoming i LEFT JOIN customers c ON c.onec_guid=i.onec_guid WHERE "+$comparison+";")
- [void]$sql.AppendLine("CREATE TEMP TABLE _missing AS SELECT c.onec_guid FROM customers c WHERE c.buyer=1 AND NOT EXISTS (SELECT 1 FROM _incoming i WHERE i.onec_guid=c.onec_guid);")
- [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','UPSERT' FROM _changed WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET changed_utc=excluded.changed_utc,change_kind=excluded.change_kind;")
- [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','REMOVED' FROM _missing WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET changed_utc=excluded.changed_utc,change_kind=excluded.change_kind;")
- [void]$sql.AppendLine("INSERT INTO customers(onec_guid,onec_type,name_short,name_full,person_name,inn,buyer,deletion_mark,invalid,source_version,updated_at_utc,needs_review) SELECT onec_guid,onec_type,name_short,name_full,person_name,inn,1,0,0,NULL,'"+$stamp+"',needs_review FROM _incoming WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET onec_type=excluded.onec_type,name_short=excluded.name_short,name_full=excluded.name_full,person_name=excluded.person_name,inn=excluded.inn,buyer=1,deletion_mark=0,invalid=0,updated_at_utc=excluded.updated_at_utc,needs_review=excluded.needs_review WHERE customers.onec_type IS NOT excluded.onec_type OR customers.name_short IS NOT excluded.name_short OR customers.name_full IS NOT excluded.name_full OR customers.person_name IS NOT excluded.person_name OR coalesce(customers.inn,'') IS NOT coalesce(excluded.inn,'') OR customers.buyer IS NOT 1 OR customers.invalid IS NOT 0 OR customers.deletion_mark IS NOT 0 OR customers.needs_review IS NOT excluded.needs_review;")
- [void]$sql.AppendLine("UPDATE customers SET buyer=0,updated_at_utc='"+$stamp+"' WHERE onec_guid IN (SELECT onec_guid FROM _missing);")
- [void]$sql.AppendLine('DELETE FROM customer_search_v1;')
- [void]$sql.AppendLine("INSERT INTO customer_search_v1(onec_guid,name_short,name_full,person_name,inn) SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers WHERE buyer=1 AND deletion_mark=0 AND invalid=0;")
- [void]$sql.AppendLine("INSERT INTO msp_auto_scan_runs(scan_utc,source_rows,new_or_changed,missing_buyer) SELECT '"+$stamp+"',"+$expected+",(SELECT count(*) FROM _changed),(SELECT count(*) FROM _missing);")
- [void]$sql.AppendLine('CREATE TEMP TABLE _check(n INTEGER NOT NULL CHECK(n='+$expected+'));')
- [void]$sql.AppendLine('INSERT INTO _check SELECT count(*) FROM customers WHERE buyer=1 AND deletion_mark=0 AND invalid=0;')
- [void]$sql.AppendLine('COMMIT;')
- $null=Sql $exe $db $sql.ToString()
- if((Sql $exe $db 'PRAGMA quick_check;') -ne 'ok'){Fail 'BACKREAD_INTEGRITY'}
- $aggregate=Sql $exe $db "SELECT source_rows||':'||new_or_changed||':'||missing_buyer FROM msp_auto_scan_runs ORDER BY id DESC LIMIT 1;"
- if($aggregate -match '^([0-9]+):([0-9]+):([0-9]+)$'){$changed=$Matches[2];$removed=$Matches[3]}else{Fail 'BACKREAD_RUN_INVALID'}
- [IO.File]::WriteAllText($status,('UTC='+$stamp+';STATUS=PASS;SOURCE=TEST_NEWBASE;ROWS='+$expected+';CHANGED='+$changed+';REMOVED='+$removed),[Text.Encoding]::ASCII)
- 'TEST_NEWBASE_ROWS='+$expected
- 'SOURCE_CHANGED_OR_NEW='+$changed
- 'NO_LONGER_ACTIVE_BUYERS='+$removed
- 'BITRIX_OUTBOX_PERSISTENT=YES'
- 'SQLITE_ATOMIC_COMMIT=PASS'
- 'NEWBASE_WRITES=NO'
- 'RESULT=PASS;STAGE=MSP_NEWBASE_SOURCE_REFRESH'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^AUTO_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- 'RESULT=FAIL;STAGE=MSP_NEWBASE_SOURCE_REFRESH;GATE='+$gate+';PHASE='+$phase
- 'NO_SILENT_PARTIAL_COMMIT=YES'
- exit 1
-}finally{
- if($hasLock){$mutex.ReleaseMutex()}
- if($null -ne $mutex){$mutex.Dispose()}
- if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
- if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
- if($null -ne $secure){$secure.Dispose()}
-}
-)){Fail 'NOT_SAFE_IDLE'}}
- $phase='SOURCE_AUTH'
- Add-Type -AssemblyName System.Security
- $entropy=[Text.Encoding]::ASCII.GetBytes('MspCustomerStore-OnecTest-OData-v1')
- $encrypted=[IO.File]::ReadAllBytes($secret)
- $plain=[Security.Cryptography.ProtectedData]::Unprotect($encrypted,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
- if($plain.Length -lt 2 -or $plain.Length -gt 1024 -or ($plain.Length % 2) -ne 0){Fail 'PASSWORD_DECRYPT_UNEXPECTED'}
- $secure=New-Object Security.SecureString
- for($i=0;$i -lt $plain.Length;$i+=2){$secure.AppendChar([char][BitConverter]::ToUInt16($plain,$i))}
- $secure.MakeReadOnly();[Array]::Clear($plain,0,$plain.Length);$plain=$null
- $script:credential=New-Object Management.Automation.PSCredential -ArgumentList @('MCP_OData_ReadOnly',$secure)
- $table=[regex]::Unescape('\u041a\u043e\u043d\u0442\u0440\u0430\u0433\u0435\u043d\u0442\u044b')
- $buyer=[regex]::Unescape('\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c')
- $invalid=[regex]::Unescape('\u041d\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u0435\u043d')
- $full=[regex]::Unescape('\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435\u041f\u043e\u043b\u043d\u043e\u0435')
- $inn=[regex]::Unescape('\u0418\u041d\u041d')
- $typ=[regex]::Unescape('\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u0424\u0438\u0437\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e')
- $fio=[regex]::Unescape('\u0424\u0418\u041e')
- $legal=[regex]::Unescape('\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e')
- $person=[regex]::Unescape('\u0424\u0438\u0437\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e')
- $filter=$buyer+' eq true and DeletionMark eq false and '+$invalid+' eq false'
- $fields='Ref_Key,Description,'+$full+','+$inn+','+$typ+','+$fio
- $script:base='http://127.0.0.1:8085/NewBase/odata/standard.odata/Catalog_'+$table
- $phase='SOURCE_COUNT_BEFORE'
- $expected=Count $filter
- if($expected -lt 100 -or $expected -gt 200000){Fail 'SOURCE_COUNT_UNEXPECTED'}
- $phase='SOURCE_ALL_PAGES'
- $sql=New-Object Text.StringBuilder
- $stamp=[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ')
- [void]$sql.AppendLine('BEGIN IMMEDIATE;')
- [void]$sql.AppendLine('CREATE TEMP TABLE _incoming(onec_guid TEXT PRIMARY KEY,onec_type TEXT,name_short TEXT,name_full TEXT,person_name TEXT,inn TEXT,buyer INTEGER,deletion_mark INTEGER,invalid INTEGER,needs_review INTEGER);')
- $seen=@{};$fetched=0;$pages=0;$legalCount=0;$personCount=0;$reviewCount=0
- while($fetched -lt $expected){
-  if($pages -ge 3000){Fail 'PAGE_LIMIT'}
-  $batch=@(Page $filter $fetched 100 $fields)
-  if($batch.Count -lt 1 -or $batch.Count -gt 100 -or ($fetched+$batch.Count) -gt $expected){Fail 'PAGE_SIZE_CHANGED'}
-  foreach($entry in $batch){
-   $props=$entry.SelectSingleNode("./*[local-name()='content']/*[local-name()='properties']")
-   if($null -eq $props){Fail 'PROPERTIES_MISSING'}
-   $g=([string](Field $props 'Ref_Key')).Trim().ToLowerInvariant()
-   if($g -notmatch '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){Fail 'GUID_INVALID'}
-   if($seen.ContainsKey($g)){Fail 'DUPLICATE_GUID'}
-   $seen[$g]=$true
-   $short=[string](Field $props 'Description');$long=[string](Field $props $full)
-   $tax=[string](Field $props $inn);$personName=[string](Field $props $fio)
-   $rawType=[string](Field $props $typ)
-   if($rawType -eq $legal){$category='LEGAL';$legalCount++}
-   elseif($rawType -eq $person){$category='PERSON';$personCount++}
-   else{$category='REVIEW';$reviewCount++}
-   $query="INSERT INTO _incoming VALUES ('"+$g+"','"+$category+"',"+(Literal $short)+","+(Literal $long)+","+(Literal $personName)+","+(Literal $tax)+",1,0,0,"+([int]($category -eq 'REVIEW'))+");"
-   [void]$sql.AppendLine($query)
-   if($sql.Length -gt 60000000){Fail 'TRANSACTION_TOO_LARGE'}
-  }
-  $fetched+=$batch.Count;$pages++
- }
- $phase='SOURCE_COUNT_AFTER'
- if((Count $filter) -ne $expected){Fail 'COUNT_CHANGED_DURING_SCAN'}
- if($seen.Count -ne $expected -or ($legalCount+$personCount+$reviewCount) -ne $expected){Fail 'SCAN_INCOMPLETE'}
- $phase='SQLITE_ATOMIC_COMMIT'
- [void]$sql.AppendLine('CREATE TABLE IF NOT EXISTS msp_auto_outbox(onec_guid TEXT PRIMARY KEY,changed_utc TEXT NOT NULL,change_kind TEXT NOT NULL);')
- [void]$sql.AppendLine('CREATE TABLE IF NOT EXISTS msp_auto_scan_runs(id INTEGER PRIMARY KEY,scan_utc TEXT NOT NULL,source_rows INTEGER NOT NULL,new_or_changed INTEGER NOT NULL,missing_buyer INTEGER NOT NULL);')
- $comparison="c.onec_guid IS NULL OR c.onec_type IS NOT i.onec_type OR c.name_short IS NOT i.name_short OR c.name_full IS NOT i.name_full OR c.person_name IS NOT i.person_name OR coalesce(c.inn,'') IS NOT coalesce(i.inn,'') OR c.buyer IS NOT 1 OR c.invalid IS NOT 0 OR c.deletion_mark IS NOT 0 OR c.needs_review IS NOT i.needs_review"
- [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','UPSERT' FROM _incoming WHERE NOT EXISTS (SELECT 1 FROM msp_auto_scan_runs) AND 1=1 ON CONFLICT(onec_guid) DO NOTHING;")
- [void]$sql.AppendLine("CREATE TEMP TABLE _changed AS SELECT i.onec_guid FROM _incoming i LEFT JOIN customers c ON c.onec_guid=i.onec_guid WHERE "+$comparison+";")
- [void]$sql.AppendLine("CREATE TEMP TABLE _missing AS SELECT c.onec_guid FROM customers c WHERE c.buyer=1 AND NOT EXISTS (SELECT 1 FROM _incoming i WHERE i.onec_guid=c.onec_guid);")
- [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','UPSERT' FROM _changed WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET changed_utc=excluded.changed_utc,change_kind=excluded.change_kind;")
- [void]$sql.AppendLine("INSERT INTO msp_auto_outbox(onec_guid,changed_utc,change_kind) SELECT onec_guid,'"+$stamp+"','REMOVED' FROM _missing WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET changed_utc=excluded.changed_utc,change_kind=excluded.change_kind;")
- [void]$sql.AppendLine("INSERT INTO customers(onec_guid,onec_type,name_short,name_full,person_name,inn,buyer,deletion_mark,invalid,source_version,updated_at_utc,needs_review) SELECT onec_guid,onec_type,name_short,name_full,person_name,inn,1,0,0,NULL,'"+$stamp+"',needs_review FROM _incoming WHERE 1=1 ON CONFLICT(onec_guid) DO UPDATE SET onec_type=excluded.onec_type,name_short=excluded.name_short,name_full=excluded.name_full,person_name=excluded.person_name,inn=excluded.inn,buyer=1,deletion_mark=0,invalid=0,updated_at_utc=excluded.updated_at_utc,needs_review=excluded.needs_review WHERE customers.onec_type IS NOT excluded.onec_type OR customers.name_short IS NOT excluded.name_short OR customers.name_full IS NOT excluded.name_full OR customers.person_name IS NOT excluded.person_name OR coalesce(customers.inn,'') IS NOT coalesce(excluded.inn,'') OR customers.buyer IS NOT 1 OR customers.invalid IS NOT 0 OR customers.deletion_mark IS NOT 0 OR customers.needs_review IS NOT excluded.needs_review;")
- [void]$sql.AppendLine("UPDATE customers SET buyer=0,updated_at_utc='"+$stamp+"' WHERE onec_guid IN (SELECT onec_guid FROM _missing);")
- [void]$sql.AppendLine('DELETE FROM customer_search_v1;')
- [void]$sql.AppendLine("INSERT INTO customer_search_v1(onec_guid,name_short,name_full,person_name,inn) SELECT onec_guid,name_short,name_full,person_name,coalesce(inn,'') FROM customers WHERE buyer=1 AND deletion_mark=0 AND invalid=0;")
- [void]$sql.AppendLine("INSERT INTO msp_auto_scan_runs(scan_utc,source_rows,new_or_changed,missing_buyer) SELECT '"+$stamp+"',"+$expected+",(SELECT count(*) FROM _changed),(SELECT count(*) FROM _missing);")
- [void]$sql.AppendLine('CREATE TEMP TABLE _check(n INTEGER NOT NULL CHECK(n='+$expected+'));')
- [void]$sql.AppendLine('INSERT INTO _check SELECT count(*) FROM customers WHERE buyer=1 AND deletion_mark=0 AND invalid=0;')
- [void]$sql.AppendLine('COMMIT;')
- $null=Sql $exe $db $sql.ToString()
- if((Sql $exe $db 'PRAGMA quick_check;') -ne 'ok'){Fail 'BACKREAD_INTEGRITY'}
- $aggregate=Sql $exe $db "SELECT source_rows||':'||new_or_changed||':'||missing_buyer FROM msp_auto_scan_runs ORDER BY id DESC LIMIT 1;"
- if($aggregate -match '^([0-9]+):([0-9]+):([0-9]+)$'){$changed=$Matches[2];$removed=$Matches[3]}else{Fail 'BACKREAD_RUN_INVALID'}
- [IO.File]::WriteAllText($status,('UTC='+$stamp+';STATUS=PASS;SOURCE=TEST_NEWBASE;ROWS='+$expected+';CHANGED='+$changed+';REMOVED='+$removed),[Text.Encoding]::ASCII)
- 'TEST_NEWBASE_ROWS='+$expected
- 'SOURCE_CHANGED_OR_NEW='+$changed
- 'NO_LONGER_ACTIVE_BUYERS='+$removed
- 'BITRIX_OUTBOX_PERSISTENT=YES'
- 'SQLITE_ATOMIC_COMMIT=PASS'
- 'NEWBASE_WRITES=NO'
- 'RESULT=PASS;STAGE=MSP_NEWBASE_SOURCE_REFRESH'
-}catch{
- $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^AUTO_([A-Z0-9_]+)$'){$gate=$Matches[1]}
- 'RESULT=FAIL;STAGE=MSP_NEWBASE_SOURCE_REFRESH;GATE='+$gate+';PHASE='+$phase
+){$gate=$Matches[1]}
+ 'RESULT=FAIL;STAGE=MSP_NEWBUYER_DISCOVERY_V1;GATE='+$gate+';PHASE='+$phase
  'NO_SILENT_PARTIAL_COMMIT=YES'
  exit 1
 }finally{
