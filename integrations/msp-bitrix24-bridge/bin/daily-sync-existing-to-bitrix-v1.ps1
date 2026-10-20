@@ -67,7 +67,10 @@ try{
  $guid=$OnecGuid
  $receipt=Join-Path $root 'state\msp-newbase-daily-0745-v1.status'
  Need ([IO.File]::Exists($receipt)) 'SOURCE_RECEIPT_MISSING'
- Need ([IO.File]::ReadAllText($receipt,[Text.Encoding]::ASCII) -match 'STATUS=PASS;SOURCE=TEST_NEWBASE') 'SOURCE_NOT_TEST_NEWBASE'
+ $receiptText=[IO.File]::ReadAllText($receipt,[Text.Encoding]::ASCII)
+ Need ($receiptText -match '^UTC=([^;]+);STATUS=PASS;SOURCE=TEST_NEWBASE;') 'SOURCE_NOT_TEST_NEWBASE'
+ $sourceDay=[DateTime]::Parse($Matches[1],[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::AdjustToUniversal).ToLocalTime().Date
+ Need ($sourceDay -eq [DateTime]::Now.Date) 'SOURCE_RECEIPT_NOT_TODAY'
  $mutex=New-Object Threading.Mutex -ArgumentList @($false,'Global\MspNewbaseBitrixUpdateOnceV1')
  $locked=$false
  if(-not $mutex.WaitOne(0,$false)){Fail 'WORKER_BUSY'};$locked=$true
