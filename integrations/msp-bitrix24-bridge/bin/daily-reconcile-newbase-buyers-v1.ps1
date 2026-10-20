@@ -249,17 +249,7 @@ try{
  'RESULT=PASS;STAGE=MSP_DAILY_0745_LOCAL_V1'
  }catch{
  $gate='RUNTIME_ERROR'
- if($_.Exception.Message -match '^AUTO_([A-Z0-9_]+)
- 'NO_SILENT_PARTIAL_COMMIT=YES'
- exit 1
-}finally{
- if($hasLock){$mutex.ReleaseMutex()}
- if($null -ne $mutex){$mutex.Dispose()}
- if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
- if($null -ne $encrypted){[Array]::Clear($encrypted,0,$encrypted.Length)}
- if($null -ne $secure){$secure.Dispose()}
-}
-){$gate=$Matches[1]}
+ if($_.Exception.Message -match '^AUTO_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  try{[IO.File]::WriteAllText($status,('UTC='+[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')+';STATUS=FAIL;SOURCE=TEST_NEWBASE;PHASE='+$phase+';GATE='+$gate+';CRM_WRITES=0;ONEC_WRITES=0'),[Text.Encoding]::ASCII)}catch{}
  'RESULT=FAIL;STAGE=MSP_DAILY_0745_V1;GATE='+$gate+';PHASE='+$phase
  'NO_SILENT_PARTIAL_COMMIT=YES'
