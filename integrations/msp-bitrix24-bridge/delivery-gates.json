@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "purpose": "Prevent test-only success being mistaken for completed 1C to Bitrix24 customer synchronization",
+  "source": "TEST_NEWBASE",
+  "mode": "AUTO_UPDATE_OFF",
+  "checks": {
+    "mapped_buyers": {
+      "state": "EVIDENCE_WITH_REVIEW",
+      "target": 6433,
+      "accepted": 6433,
+      "receipt": "SRV 2026-10-18 initial V5 PASS_WITH_FIELD_REVIEW",
+      "field_reviews": 2254,
+      "name_reviews": 123
+    },
+    "source_phones": {
+      "state": "ACCEPTED_SOURCE_ONLY",
+      "rows": 4068,
+      "buyers": 4067,
+      "format_candidates": 4032,
+      "review_rows": 36,
+      "receipt": "SRV 2026-10-18 phone snapshot V2 PASS; SQLite quick_check ok"
+    },
+    "crm_phone_readonly_audit": {
+      "state": "ACCEPTED_READ_ONLY",
+      "checked": 4067,
+      "with_phone": 0,
+      "empty_phone": 4067,
+      "receipt": "SRV 2026-10-18 20:43:38Z PASS; no CRM writes"
+    },
+    "crm_phone_one_card_pilot": {
+      "state": "NOT_DONE",
+      "cards_updated": 0,
+      "phones_backread_verified": 0,
+      "receipt": null
+    },
+    "crm_phone_bulk_backfill": {
+      "state": "NOT_DONE",
+      "cards_updated": 0,
+      "phones_backread_verified": 0,
+      "receipt": null
+    },
+    "name_and_inn_fields": {
+      "state": "NOT_DONE",
+      "reviewed_complete": false,
+      "receipt": null,
+      "note": "Local source INN and names verified exactly unchanged: 1925 populated INN, 6433 buyer names. Native CRM fields remain NOT_DONE."
+    },
+    "daily_sync": {
+      "state": "OFF",
+      "actual_runs": 0,
+      "receipt": null
+    },
+    "unified_local_database": {
+      "state": "ACCEPTED_ON_SRV",
+      "receipt": "SRV 2026-10-19T05:22:25Z STATUS=PASS; TASK_STATE=3;TASK_LAST_RESULT=0; SQLITE quick_check=ok; INN_NAME_DIFFERENCES=0",
+      "buyers": 6433,
+      "mapped_buyers": 6433,
+      "buyers_with_name": 6433,
+      "buyers_with_inn": 1925,
+      "phone_rows": 4068,
+      "phone_buyers": 4067,
+      "phone_review": 36,
+      "phone_candidates": 4032,
+      "backup": "VERIFIED",
+      "original_customer_fields_unmodified": true
+    }
+  },
+  "required_acceptance": {
+    "phone_pilot": "One real existing mapped Bitrix card has one PHONE added and independently backread under the same source identity; no duplicate customer",
+    "phone_bulk": "All eligible source phone rows accounted for as confirmed CRM backread, approved exclusions, or explicit unresolved failures; no retries after uncertain writes; non-phone multifields unchanged",
+    "names_and_inn": "Full name/INN in intended native CRM fields, with discrepancy report and approved handling; comments alone are not accepted",
+    "daily_sync": "One controlled TEST NewBase change propagates to existing CRM ID; one newly created TEST source customer is created exactly once; retries do not duplicate; production 1C untouched"
+  },
+  "overall": "INCOMPLETE"
+}
