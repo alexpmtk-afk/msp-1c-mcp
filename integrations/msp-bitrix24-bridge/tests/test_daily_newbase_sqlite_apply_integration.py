@@ -28,9 +28,9 @@ def sql_statement(prefix: str, expected: int | None = None) -> str:
     if "(Literal $stamp)" in expr:
         # PS2 constructs SQL from double-quoted literals separated by Literal($stamp).
         chunks = re.findall(r'"([^"]*)"', expr)
-        if len(chunks) != 2:
+        if len(chunks) != expr.count("(Literal $stamp)") + 1:
             raise AssertionError(f"unrecognized dynamic SQL for {prefix}")
-        result = chunks[0] + "'" + STAMP + "'" + chunks[1]
+        result = ("'" + STAMP + "'").join(chunks)
     elif "$expected" in expr:
         if expected is None:
             raise AssertionError("missing expected count")
