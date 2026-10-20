@@ -1,5 +1,6 @@
 #requires -version 2
 # Daily 07:45 TEST NewBase full reconcile, SEPARATE from existing new-buyer 30m/5m tasks.
+# Low-load contract: max one page GET at a time, 750 ms pacing, no automatic retry, <= 100 rows/page.
 # Preview by default; -Apply needs explicit local consent and writes ONLY SRV SQLite.
 # Removed 1C buyers become locally inactive. Never delete CRM cards or history.
 # Read-only OData GET, atomic local SQLite commit, no customer data in stdout.
@@ -58,8 +59,8 @@ function Request([string]$Uri){
   $r.AllowAutoRedirect=$false
   $r.Credentials=$script:credential.GetNetworkCredential()
   $r.PreAuthenticate=$true
-  $r.Timeout=30000
-  $r.ReadWriteTimeout=30000
+  $r.Timeout=90000
+  $r.ReadWriteTimeout=90000
   return $r
 }
 function Count([string]$Filter){
@@ -109,7 +110,7 @@ function Page([string]$Filter,[int]$Skip,[int]$Take,[string]$Fields){
 $mutex=New-Object Threading.Mutex -ArgumentList @($false,'Global\MspNewbaseSnapshotScanV1')
 $hasLock=$false
 try{
- if(-not $mutex.WaitOne(0,$false)){Fail 'SOURCE_SCAN_ALREADY_RUNNING'}
+ if(-not $mutex.WaitOne(600000,$false)){Fail 'SOURCE_SCAN_BUSY_AFTER_10MIN'}
  $hasLock=$true
  if($env:COMPUTERNAME -ne $ExpectedComputerName){Fail 'WRONG_HOST'}
  if($PSVersionTable.PSVersion.Major -ne 2 -or [IntPtr]::Size -ne 8){Fail 'PS2_X64_REQUIRED'}
@@ -180,8 +181,10 @@ try{
    if($sql.Length -gt 60000000){Fail 'TRANSACTION_TOO_LARGE'}
   }
   $fetched+=$batch.Count;$pages++
+  if($fetched -lt $expected){Start-Sleep -Milliseconds 750}
  }
  $phase='SOURCE_COUNT_AFTER'
+ Start-Sleep -Milliseconds 750
  if((Count $filter) -ne $expected){Fail 'COUNT_CHANGED_DURING_SCAN'}
  if($seen.Count -ne $expected -or ($legalCount+$personCount+$reviewCount) -ne $expected){Fail 'SCAN_INCOMPLETE'}
  $phase='PREVIEW_DIFF'
@@ -189,7 +192,10 @@ try{
  [void]$sql.AppendLine('CREATE TEMP TABLE _new AS SELECT i.* FROM _incoming i LEFT JOIN customers c ON c.onec_guid=i.onec_guid WHERE c.onec_guid IS NULL;')
  [void]$sql.AppendLine('CREATE TEMP TABLE _changed AS SELECT i.onec_guid FROM _incoming i JOIN customers c ON c.onec_guid=i.onec_guid WHERE '+$compare+';')
  [void]$sql.AppendLine('CREATE TEMP TABLE _missing AS SELECT c.onec_guid FROM customers c WHERE c.buyer=1 AND c.deletion_mark=0 AND c.invalid=0 AND NOT EXISTS(SELECT 1 FROM _incoming i WHERE i.onec_guid=c.onec_guid);')
- $preview=Sql $exe $db ($sql.ToString()+"SELECT (SELECT count(*) FROM _new)||':'||(SELECT count(*) FROM _changed)||':'||(SELECT count(*) FROM _missing);"+[Environment]::NewLine+'ROLLBACK;')
+ $previewScript=$sql.ToString()
+ if(-not $previewScript.StartsWith('BEGIN IMMEDIATE;')){Fail 'PREVIEW_TXN_UNEXPECTED'}
+ $previewScript='BEGIN;'+$previewScript.Substring('BEGIN IMMEDIATE;'.Length)
+ $preview=Sql $exe $db ($previewScript+"SELECT (SELECT count(*) FROM _new)||':'||(SELECT count(*) FROM _changed)||':'||(SELECT count(*) FROM _missing);"+[Environment]::NewLine+'ROLLBACK;')
  if($preview -notmatch '^([0-9]{1,6}):([0-9]{1,6}):([0-9]{1,6})$'){Fail 'PREVIEW_INVALID'}
  $new=[int]$Matches[1];$changed=[int]$Matches[2];$removed=[int]$Matches[3]
  if($new -gt 20){Fail 'TOO_MANY_NEW'}
@@ -199,6 +205,8 @@ try{
  'NEW='+$new
  'MODIFIED='+$changed
  'REMOVED_OR_INACTIVE='+$removed
+ 'ODATA_REQUESTS='+(2+$pages)
+ 'ODATA_PAGE_SIZE=100;PAGE_PACING_MS=750;RETRIES=0'
  'MODE='+$(if($Apply){'APPLY_LOCAL'}else{'READONLY'})
  if(-not $Apply){
   'SQLITE_WRITES=0';'CRM_WRITES=0';'ONEC_WRITES=0'
