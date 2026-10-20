@@ -56,6 +56,9 @@ try{
  Need ($PSVersionTable.PSVersion.Major -eq 2 -and [IntPtr]::Size -eq 8) 'PS2_X64_REQUIRED'
  Need ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq 'S-1-5-19') 'LOCAL_SERVICE_ONLY'
  if($OnecGuid -ne ''){Need ($OnecGuid -match '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$') 'GUID_INVALID'}
+ $table=Query "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='msp_daily_queue';"
+ Need (@('0','1') -contains $table) 'DAILY_QUEUE_SCHEMA_INVALID'
+ if($table -eq '0'){'QUEUE_PENDING=0';'CRM_WRITES=0';'RESULT=PASS;STAGE=MSP_DAILY_CRM_IDLE_V1';exit 0}
  $bad=Query "SELECT coalesce(sum(state IN ('INTENT','UNCERTAIN')),0) FROM msp_daily_queue;"
  Need ($bad -eq '0') 'PRIOR_AMBIGUITY'
  if($OnecGuid -eq ''){$OnecGuid=Query "SELECT onec_guid FROM msp_daily_queue WHERE kind='UPDATE' AND state='PENDING' ORDER BY source_utc,onec_guid LIMIT 1;"}
@@ -117,7 +120,7 @@ try{
   if(-not $Apply){
    'CRM_WRITES=0'
    'LOCAL_WRITES=0'
-   'RESULT=PASS;STAGE=NEWBASE_EXISTING_UPDATE_DRYRUN_V1'
+   'RESULT=PASS;STAGE=MSP_DAILY_CRM_DRYRUN_V1'
    exit 0
   }
   $phase='CHECK_EXPLICIT_APPROVAL'
@@ -157,7 +160,7 @@ try{
   'BACKREAD=PASS'
   'SOURCE_EVENT_ACK=EXACT_VERSION'
   'ONEC_WRITES=0'
-  'RESULT=PASS;STAGE=NEWBASE_EXISTING_UPDATE_APPLY_V1'
+  'RESULT=PASS;STAGE=MSP_DAILY_CRM_APPLY_V1'
  }finally{
   if($locked){$mutex.ReleaseMutex()}
   if($null -ne $mutex){$mutex.Dispose()}
@@ -166,7 +169,7 @@ try{
  $gate='RUNTIME_ERROR'
  if($_.Exception.Message -match '^NEWBASE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  'CRM_WRITE_ATTEMPTS='+$script:writes
- 'RESULT=FAIL;STAGE=NEWBASE_EXISTING_UPDATE_V1;GATE='+$gate+';PHASE='+$phase
+ 'RESULT=FAIL;STAGE=MSP_DAILY_CRM_V1;GATE='+$gate+';PHASE='+$phase
  if($intent -and $guid -match '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$'){
    try{$null=Query ("UPDATE msp_daily_queue SET state='UNCERTAIN' WHERE onec_guid='"+$guid+"' AND state='INTENT';")}catch{}
   }
