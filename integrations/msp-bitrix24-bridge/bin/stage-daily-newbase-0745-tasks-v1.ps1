@@ -101,16 +101,29 @@ try{
   $t=$folder.GetTask($name)
   Need ([int]$t.State -eq 3 -and -not $t.Definition.Triggers.Item(1).Enabled) 'TASK_NOT_PAUSED'
  }
+ $phase='REPORT_VERIFIED'
  'STAGING=PASS'
  'SOURCE_TIME=07:45;ENABLED=NO'
  'CRM_START=08:00;INTERVAL=PT5M;ENABLED=NO'
- 'SERVER_TIMEZONE='+[TimeZoneInfo]::Local.Id
+ 'SERVER_UTC_OFFSET='+(Get-Date -Format 'zzz')
  'EXECUTION=LOCAL_SERVICE'
  'CURRENT_NEWBUYER_AUTO=UNCHANGED'
  'ONEC_WRITES=0';'CRM_WRITES=0';'SQLITE_WRITES=0'
  'RESULT=PASS;STAGE=MSP_DAILY_0745_PAUSED_V1'
 }catch{
- $gate='RUNTIME_ERROR';if($_.Exception.Message -match '^DAILY_STAGE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
+ $reason=$_.Exception
+ $gate='RUNTIME_ERROR';if($reason.Message -match '^DAILY_STAGE_([A-Z0-9_]+)
+ if($null -ne $folder){
+  foreach($name in $created){try{$folder.DeleteTask($name,0)}catch{}}
+ }
+ 'RESULT=FAIL;STAGE=MSP_DAILY_0745_PAUSED_V1;PHASE='+$phase+';GATE='+$gate
+ 'EXCEPTION_TYPE='+$type+';HRESULT='+$hr
+ 'AUTO_ENABLED=NO'
+ exit 1
+}
+){$gate=$Matches[1]}
+ $hr='UNKNOWN';try{$hr=('{0:X8}' -f ($reason.HResult -band 0xffffffff))}catch{}
+ $type=$reason.GetType().Name
  if($null -ne $folder){
   foreach($name in $created){try{$folder.DeleteTask($name,0)}catch{}}
  }
