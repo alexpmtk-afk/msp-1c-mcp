@@ -11,6 +11,7 @@ SOURCE = (BIN / "daily-reconcile-newbase-buyers-v1.ps1").read_text(encoding="utf
 WORKER = (BIN / "daily-sync-existing-to-bitrix-v1.ps1").read_text(encoding="utf-8")
 STAGE = (BIN / "stage-daily-newbase-0745-tasks-v1.ps1").read_text(encoding="utf-8")
 UPGRADE = (BIN / "upgrade-daily-0745-lowload-v1.ps1").read_text(encoding="utf-8")
+ACTIVATION = (BIN / "activate-daily-0745-source-only-v1.ps1").read_text(encoding="utf-8")
 
 
 def diff_count(old_rows, new_rows):
@@ -125,6 +126,27 @@ class Daily0745Contracts(unittest.TestCase):
         self.assertNotIn("crm.item.update?", UPGRADE)
         self.assertNotIn("crm.item.delete", UPGRADE)
         self.assertNotIn("NewBase/odata", UPGRADE)
+
+    def test_source_only_activation_contract(self):
+        self.assertIn("SOURCE=TEST_NEWBASE;EVERY_DAY=07:45", ACTIVATION)
+        self.assertIn("SOURCE_TRIGGER_ENABLED=YES;CRM_TRIGGER_ENABLED=NO", ACTIVATION)
+        self.assertIn("DAYTIME_AUTO=UNCHANGED", ACTIVATION)
+        self.assertIn("LOCAL_APPROVAL", ACTIVATION)
+        self.assertIn("DAILY_QUEUE_ALREADY_EXISTS", ACTIVATION)
+        self.assertIn("UNRESOLVED_NEWBUYER", ACTIVATION)
+        self.assertIn("DOUBLE_MAPPED", ACTIVATION)
+        self.assertIn("SOURCE_HASH_CHANGED", ACTIVATION)
+        self.assertIn("BACKUP_DISK_SPACE_LOW", ACTIVATION)
+        self.assertIn("StartWhenAvailable=$false", ACTIVATION)
+        self.assertIn("MultipleInstances=2", ACTIVATION)
+        self.assertIn("AddDays(1).AddHours(7).AddMinutes(45)", ACTIVATION)
+        self.assertIn("'PT6H'", ACTIVATION)
+        self.assertIn("MspNewBuyerDiscoveryAutoV1", ACTIVATION)
+        self.assertIn("MspNewBuyerBitrixAutoV2", ACTIVATION)
+        self.assertIn("LOWLOAD", SOURCE.upper())
+        self.assertNotIn("crm.item.update?", ACTIVATION)
+        self.assertNotIn("NewBase/odata", ACTIVATION)
+        self.assertNotIn("crm.item.add", ACTIVATION)
 
     def test_schedule_is_paused_and_separate(self):
         self.assertIn("MspDailyNewbaseSource0745V1", STAGE)
