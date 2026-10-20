@@ -143,7 +143,7 @@ class Daily0745Contracts(unittest.TestCase):
         self.assertIn("'PT6H'", ACTIVATION)
         self.assertIn("MspNewBuyerDiscoveryAutoV1", ACTIVATION)
         self.assertIn("MspNewBuyerBitrixAutoV2", ACTIVATION)
-        self.assertIn("LOWLOAD", SOURCE.upper())
+        self.assertIn("LOW-LOAD", SOURCE.upper())
         self.assertNotIn("crm.item.update?", ACTIVATION)
         self.assertNotIn("NewBase/odata", ACTIVATION)
         self.assertNotIn("crm.item.add", ACTIVATION)
