@@ -166,6 +166,6 @@ try{
  exit 1
 }finally{
  if($locked){$mt.ReleaseMutex()}
- if($null -ne $mt){$mt.Dispose()}
+ if($null -ne $mt){$mt.Close()}
  $script:base=$null
 }
