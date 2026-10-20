@@ -24,7 +24,10 @@ def sql_statement(prefix: str, expected: int | None = None) -> str:
     matches = [ln.strip() for ln in SOURCE.splitlines() if "AppendLine(" in ln and prefix in ln]
     if len(matches) != 1:
         raise AssertionError(f"ambiguous/missing production SQL for {prefix}: {len(matches)}")
-    expr = matches[0].split("AppendLine(", 1)[1].rsplit(");", 1)[0]
+    expr = matches[0].split("AppendLine(", 1)[1]
+    if not expr.endswith(")"):
+        raise AssertionError(f"unrecognized AppendLine expression {prefix}")
+    expr = expr[:-1]
     if "(Literal $stamp)" in expr:
         # PS2 constructs SQL from double-quoted literals separated by Literal($stamp).
         chunks = re.findall(r'"([^"]*)"', expr)
