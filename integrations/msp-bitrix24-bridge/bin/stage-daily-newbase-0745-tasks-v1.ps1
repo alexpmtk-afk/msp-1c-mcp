@@ -112,22 +112,14 @@ try{
  'RESULT=PASS;STAGE=MSP_DAILY_0745_PAUSED_V1'
 }catch{
  $reason=$_.Exception
- $gate='RUNTIME_ERROR';if($reason.Message -match '^DAILY_STAGE_([A-Z0-9_]+)
- if($null -ne $folder){
-  foreach($name in $created){try{$folder.DeleteTask($name,0)}catch{}}
- }
- 'RESULT=FAIL;STAGE=MSP_DAILY_0745_PAUSED_V1;PHASE='+$phase+';GATE='+$gate
- 'EXCEPTION_TYPE='+$type+';HRESULT='+$hr
- 'AUTO_ENABLED=NO'
- exit 1
-}
-){$gate=$Matches[1]}
+ $gate='RUNTIME_ERROR';if($reason.Message -match '^DAILY_STAGE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  $hr='UNKNOWN';try{$hr=('{0:X8}' -f ($reason.HResult -band 0xffffffff))}catch{}
  $type=$reason.GetType().Name
  if($null -ne $folder){
   foreach($name in $created){try{$folder.DeleteTask($name,0)}catch{}}
  }
  'RESULT=FAIL;STAGE=MSP_DAILY_0745_PAUSED_V1;PHASE='+$phase+';GATE='+$gate
+ 'EXCEPTION_TYPE='+$type+';HRESULT='+$hr
  'AUTO_ENABLED=NO'
  exit 1
 }
