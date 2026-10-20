@@ -10,6 +10,7 @@ BIN = pathlib.Path(__file__).resolve().parents[1] / "bin"
 SOURCE = (BIN / "daily-reconcile-newbase-buyers-v1.ps1").read_text(encoding="utf-8")
 WORKER = (BIN / "daily-sync-existing-to-bitrix-v1.ps1").read_text(encoding="utf-8")
 STAGE = (BIN / "stage-daily-newbase-0745-tasks-v1.ps1").read_text(encoding="utf-8")
+UPGRADE = (BIN / "upgrade-daily-0745-lowload-v1.ps1").read_text(encoding="utf-8")
 
 
 def diff_count(old_rows, new_rows):
@@ -110,6 +111,20 @@ class Daily0745Contracts(unittest.TestCase):
         self.assertIn("crm.requisite.update?", WORKER)
         self.assertNotIn("crm.item.delete", WORKER)
         self.assertNotIn("crm.requisite.delete", WORKER)
+
+    def test_paused_lowload_upgrade_never_calls_onec(self):
+        self.assertIn("MspDailyNewbaseSource0745V1", UPGRADE)
+        self.assertIn("MspDailyNewbaseCrmAutoV1", UPGRADE)
+        self.assertIn("812504af7a69ed13ddc44546ea2c51eb043476e8", UPGRADE)
+        self.assertIn("'PT6H'", UPGRADE)
+        self.assertIn("'PT5M'", UPGRADE)
+        self.assertIn("'SOURCE_TIME=07:45;ENABLED=NO;", UPGRADE)
+        self.assertIn("'DAYTIME_AUTO=UNCHANGED'", UPGRADE)
+        self.assertIn("'ODATA_REQUESTS=0'", UPGRADE)
+        self.assertNotIn("http://127.0.0.1", UPGRADE)
+        self.assertNotIn("crm.item.update?", UPGRADE)
+        self.assertNotIn("crm.item.delete", UPGRADE)
+        self.assertNotIn("NewBase/odata", UPGRADE)
 
     def test_schedule_is_paused_and_separate(self):
         self.assertIn("MspDailyNewbaseSource0745V1", STAGE)
