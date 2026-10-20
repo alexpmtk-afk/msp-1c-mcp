@@ -70,7 +70,7 @@ try{
  $worker=Join-Path $root 'staging\daily-newbase-0745-v1\daily-sync-existing-to-bitrix-v1.ps1'
  foreach($f in @($source,$worker,(Join-Path $root 'bin\sqlite3.exe'),(Join-Path $root 'data\customers.db'),(Join-Path $root 'config\collector.ini'))){VerifyFile $f}
  Need ((GitBlob $source) -eq 'd67c0b7cdc44fa94795ff6bb0283cab8f7a185fc') 'SOURCE_HASH_MISMATCH'
- Need ((GitBlob $worker) -eq '7bd4264af5051ff02152bc8779d323e19e72d149') 'CRM_HASH_MISMATCH'
+ Need ((GitBlob $worker) -eq '9a2bf91dfd0b18bf7f4a917dc3583a6f347d4cb4') 'CRM_HASH_MISMATCH'
  ParseFile $source
  ParseFile $worker
  Need ((ReadDb 'PRAGMA quick_check;') -eq 'ok') 'DB_INTEGRITY'
