@@ -109,7 +109,7 @@ try{
  'RESULT=PASS;STAGE=MSP_NEWBUYER_AUTO_ACTIVATION_V1'
 }catch{
  $reason=$_.Exception
- $gate='RUNTIME_ERROR';if($reason.Message -match '^ACTIVATE_([A-Z0-9_]+)){$gate=$Matches[1]}
+ $gate='RUNTIME_ERROR';if($reason.Message -match '^ACTIVATE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
  $hr='UNKNOWN';try{$hr=('{0:X8}' -f ($reason.HResult -band 0xffffffff))}catch{}
  $errType=$reason.GetType().Name
  $rollbackSource='NOT_NEEDED';$rollbackCrm='NOT_NEEDED'
