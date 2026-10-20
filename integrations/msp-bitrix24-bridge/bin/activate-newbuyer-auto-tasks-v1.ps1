@@ -52,7 +52,7 @@ function Disable([string]$Name){
  if($definition.Triggers.Item(1).Enabled){
   $definition.Triggers.Item(1).Enabled=$false
   $id=(New-Object Security.Principal.SecurityIdentifier -ArgumentList 'S-1-5-19').Translate([Security.Principal.NTAccount]).Value
-  $null=$folder.RegisterTaskDefinition($Name,$definition,2,$id,$null,5,$null)
+  $null=$folder.RegisterTaskDefinition($Name,$definition,4,$id,$null,5,$null)
  }
 }
 try{
@@ -87,11 +87,11 @@ try{
  $task=$folder.GetTask($sourceTask);$definition=$task.Definition
  $definition.Triggers.Item(1).StartBoundary=[DateTime]::Now.AddMinutes(2).ToString('yyyy-MM-ddTHH:mm:ss')
  $definition.Triggers.Item(1).Enabled=$true
- $changed=$true;$null=$folder.RegisterTaskDefinition($sourceTask,$definition,2,$account,$null,5,$null)
+ $changed=$true;$null=$folder.RegisterTaskDefinition($sourceTask,$definition,4,$account,$null,5,$null)
  $task=$folder.GetTask($crmTask);$definition=$task.Definition
  $definition.Triggers.Item(1).StartBoundary=[DateTime]::Now.AddMinutes(5).ToString('yyyy-MM-ddTHH:mm:ss')
  $definition.Triggers.Item(1).Enabled=$true
- $null=$folder.RegisterTaskDefinition($crmTask,$definition,2,$account,$null,5,$null)
+ $null=$folder.RegisterTaskDefinition($crmTask,$definition,4,$account,$null,5,$null)
  $phase='VERIFY_ACTIVATION'
  foreach($n in @($sourceTask,$crmTask)){
   $task=$folder.GetTask($n)
@@ -108,13 +108,20 @@ try{
  'INITIAL_QUEUE_PENDING=0'
  'RESULT=PASS;STAGE=MSP_NEWBUYER_AUTO_ACTIVATION_V1'
 }catch{
- $gate='RUNTIME_ERROR';if($_.Exception.Message -match '^ACTIVATE_([A-Z0-9_]+)$'){$gate=$Matches[1]}
+ $reason=$_.Exception
+ $gate='RUNTIME_ERROR';if($reason.Message -match '^ACTIVATE_([A-Z0-9_]+)){$gate=$Matches[1]}
+ $hr='UNKNOWN';try{$hr=('{0:X8}' -f ($reason.HResult -band 0xffffffff))}catch{}
+ $errType=$reason.GetType().Name
+ $rollbackSource='NOT_NEEDED';$rollbackCrm='NOT_NEEDED'
  if($changed -and $null -ne $folder){
-  try{Disable $sourceTask}catch{}
-  try{Disable $crmTask}catch{}
+  $rollbackSource='FAIL';try{Disable $sourceTask;$rollbackSource='PASS'}catch{}
+  $rollbackCrm='FAIL';try{Disable $crmTask;$rollbackCrm='PASS'}catch{}
  }
  if($createdApproval){try{[IO.File]::Delete($approval)}catch{}}
+ $approvalState='UNKNOWN';try{$approvalState=if([IO.File]::Exists($approval)){'PRESENT'}else{'ABSENT'}}catch{}
  'RESULT=FAIL;STAGE=MSP_NEWBUYER_AUTO_ACTIVATION_V1;PHASE='+$phase+';GATE='+$gate
+ 'EXCEPTION_TYPE='+$errType+';HRESULT='+$hr
+ 'ROLLBACK_SOURCE='+$rollbackSource+';ROLLBACK_CRM='+$rollbackCrm+';APPROVAL='+$approvalState
  'CHECK_BOTH_TRIGGERS_BEFORE_RETRY=YES'
  exit 1
 }
