@@ -86,6 +86,20 @@ class Daily0745Contracts(unittest.TestCase):
         self.assertNotIn("DELETE FROM customers", SOURCE)
         self.assertNotIn("msp_auto_outbox", SOURCE)
 
+    def test_low_load_daily_scan_contract(self):
+        # One GET/page (100 rows) and only two count GETs; no retry loop.
+        self.assertIn("Page $filter $fetched 100 $fields", SOURCE)
+        self.assertIn("Start-Sleep -Milliseconds 750", SOURCE)
+        self.assertIn("'ODATA_REQUESTS='+(2+$pages)", SOURCE)
+        self.assertIn("RETRIES=0", SOURCE)
+        self.assertIn("$mutex.WaitOne(600000,$false)", SOURCE)
+        self.assertIn("SOURCE_SCAN_BUSY_AFTER_10MIN", SOURCE)
+        self.assertIn("$r.Timeout=90000", SOURCE)
+        # Preview should use DEFERRED BEGIN; live local commit keeps IMMEDIATE.
+        self.assertIn("$previewScript='BEGIN;'", SOURCE)
+        self.assertIn("BEGIN IMMEDIATE;", SOURCE)
+        self.assertIn("STATUS=FAIL;SOURCE=TEST_NEWBASE", SOURCE)
+
     def test_separate_crm_worker_safe_contract(self):
         self.assertIn("ALLOW_DAILY_CRM_UPDATE=YES", WORKER)
         self.assertIn("MAX_PER_RUN=1;NO_DELETE=YES", WORKER)
