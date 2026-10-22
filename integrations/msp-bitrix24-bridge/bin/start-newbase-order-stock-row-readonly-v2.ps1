@@ -63,10 +63,10 @@ try{
  'METADATA_V2=ACCEPTED;NO_SOURCE_CHANGES=YES'
  $phase='DOWNLOAD_PINNED_WORKER'
  [void][IO.Directory]::CreateDirectory($folderName)
- $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/2709403eeccbf792d0aeb7523f081333eb28bbfd/integrations/msp-bitrix24-bridge/bin/probe-newbase-order-stock-row-readonly-v2.ps1'
+ $url='https://raw.githubusercontent.com/alexpmtk-afk/msp-1c-mcp/34881b9cff7d698f34e06062e3bae74782ece9e5/integrations/msp-bitrix24-bridge/bin/probe-newbase-order-stock-row-readonly-v2.ps1'
  & $curl -q --fail --silent --show-error --noproxy '*' --tlsv1.2 --tls-max 1.2 --cacert $ca --proto '=https' --max-redirs 0 --connect-timeout 10 --max-time 60 --output $worker $url
  Need ($LASTEXITCODE -eq 0) 'DOWNLOAD_FAILED'
- Need ((GitBlob $worker) -eq 'addac719098d5f83e37fe530bf660000f1f3f739') 'WORKER_HASH_INVALID'
+ Need ((GitBlob $worker) -eq 'a70a812a2d283a7e74a710a9c3065da73b931a2c') 'WORKER_HASH_INVALID'
  $errs=$null
  $null=[Management.Automation.PSParser]::Tokenize([IO.File]::ReadAllText($worker,[Text.Encoding]::UTF8),[ref]$errs)
  Need ($null -eq $errs -or $errs.Count -eq 0) 'PS2_PARSE_INVALID'
