@@ -71,8 +71,10 @@ function Analyze([string]$Body){
  [void]$lines.Add('UNIT_TYPE_CLASS='+(ShortClass $unitType.Value))
  [void]$lines.Add('QTY_CLASS='+(NumericClass $q.Value))
  [void]$lines.Add('PRICE_CLASS='+(NumericClass $price.Value))
- [void]$lines.Add('CHARACTERISTIC_PRESENT='+(Yes ((Field $props ([regex]::Unescape('\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key'))).Value.Trim() -ne '')))
- [void]$lines.Add('VAT_RATE_PRESENT='+(Yes ((Field $props ([regex]::Unescape('\u0421\u0442\u0430\u0432\u043a\u0430\u041d\u0414\u0421_Key'))).Value.Trim() -ne '')))
+ $characteristic=Field $props ([regex]::Unescape('\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key'))
+ [void]$lines.Add('CHARACTERISTIC_PRESENT='+(Yes ($characteristic.Value.Trim() -ne '')))
+ $vat=Field $props ([regex]::Unescape('\u0421\u0442\u0430\u0432\u043a\u0430\u041d\u0414\u0421_Key'))
+ [void]$lines.Add('VAT_RATE_PRESENT='+(Yes ($vat.Value.Trim() -ne '')))
  [void]$lines.Add('RESULT=PASS;STAGE=ONEC_STOCK_ROW_READONLY_V1')
  return ,$lines
 }
