@@ -52,12 +52,12 @@ function Analyze([string]$Body){
  }
  $props=$entries.Item(0).SelectSingleNode("./*[local-name()='content']/*[local-name()='properties']")
  Need ($null -ne $props) 'ATOM_PROPERTIES_MISSING'
- $nom=Field $props 'Номенклатура'
- $typ=Field $props 'Номенклатура_Type'
- $unit=Field $props 'ЕдиницаИзмерения'
- $unitType=Field $props 'ЕдиницаИзмерения_Type'
- $q=Field $props 'Количество'
- $price=Field $props 'Цена'
+ $nom=Field $props ([regex]::Unescape('\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430'))
+ $typ=Field $props ([regex]::Unescape('\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430_Type'))
+ $unit=Field $props ([regex]::Unescape('\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f'))
+ $unitType=Field $props ([regex]::Unescape('\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f_Type'))
+ $q=Field $props ([regex]::Unescape('\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e'))
+ $price=Field $props ([regex]::Unescape('\u0426\u0435\u043d\u0430'))
  $ref=Field $props 'Ref_Key'
  $line=Field $props 'LineNumber'
  Need ($nom.Present -and $typ.Present -and $q.Present -and $price.Present -and $ref.Present -and $line.Present) 'EXPECTED_COLUMN_MISSING'
@@ -71,8 +71,8 @@ function Analyze([string]$Body){
  [void]$lines.Add('UNIT_TYPE_CLASS='+(ShortClass $unitType.Value))
  [void]$lines.Add('QTY_CLASS='+(NumericClass $q.Value))
  [void]$lines.Add('PRICE_CLASS='+(NumericClass $price.Value))
- [void]$lines.Add('CHARACTERISTIC_PRESENT='+(Yes ((Field $props 'Характеристика_Key').Value.Trim() -ne '')))
- [void]$lines.Add('VAT_RATE_PRESENT='+(Yes ((Field $props 'СтавкаНДС_Key').Value.Trim() -ne '')))
+ [void]$lines.Add('CHARACTERISTIC_PRESENT='+(Yes ((Field $props ([regex]::Unescape('\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key'))).Value.Trim() -ne '')))
+ [void]$lines.Add('VAT_RATE_PRESENT='+(Yes ((Field $props ([regex]::Unescape('\u0421\u0442\u0430\u0432\u043a\u0430\u041d\u0414\u0421_Key'))).Value.Trim() -ne '')))
  [void]$lines.Add('RESULT=PASS;STAGE=ONEC_STOCK_ROW_READONLY_V1')
  return ,$lines
 }
@@ -105,8 +105,9 @@ try{
  $secure.MakeReadOnly();[Array]::Clear($plain,0,$plain.Length);$plain=$null
  $cred=New-Object Management.Automation.PSCredential -ArgumentList @('MCP_OData_ReadOnly',$secure)
  $phase='ODATA_GET_ONE_ROW'
- $select='Ref_Key,LineNumber,Номенклатура,Номенклатура_Type,ЕдиницаИзмерения,ЕдиницаИзмерения_Type,Количество,Цена,Характеристика_Key,СтавкаНДС_Key'
- $url='http://127.0.0.1:8085/NewBase/odata/standard.odata/Document_ЗаказПокупателя_Запасы?$top=1&$orderby=Ref_Key%20asc,LineNumber%20asc&$select='+[Uri]::EscapeDataString($select)
+ $select=[regex]::Unescape('Ref_Key,LineNumber,\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430,\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430_Type,\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f,\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f_Type,\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e,\u0426\u0435\u043d\u0430,\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key,\u0421\u0442\u0430\u0432\u043a\u0430\u041d\u0414\u0421_Key')
+ $set=[regex]::Unescape('Document_\u0417\u0430\u043a\u0430\u0437\u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044f_\u0417\u0430\u043f\u0430\u0441\u044b')
+ $url='http://127.0.0.1:8085/NewBase/odata/standard.odata/'+$set+'?$top=1&$orderby=Ref_Key%20asc,LineNumber%20asc&$select='+[Uri]::EscapeDataString($select)
  $req=[Net.HttpWebRequest][Net.WebRequest]::Create($url)
  $req.Method='GET';$req.Accept='application/atom+xml';$req.Proxy=$null;$req.AllowAutoRedirect=$false
  $req.PreAuthenticate=$true;$req.Credentials=$cred.GetNetworkCredential()
