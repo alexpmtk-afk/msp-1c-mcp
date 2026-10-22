@@ -32,8 +32,8 @@ class CustomerOrderStockV2(unittest.TestCase):
         self.assertIn("V1_ROW_TASK_NOT_ACCEPTED",l)
         self.assertIn("V1_RECEIPT_NOT_ACCEPTED",l)
         self.assertIn("MspOnecOrderStockRowReadOnlyV2",l)
-        self.assertIn("a206d53ae5a870610b414c3beae479b8f69b2540",l)
-        self.assertIn("73b55f28593cf0229eb90a5216542b96b30effa2",l)
+        self.assertIn("2709403eeccbf792d0aeb7523f081333eb28bbfd",l)
+        self.assertIn("addac719098d5f83e37fe530bf660000f1f3f739",l)
         self.assertNotIn("DeleteTask(",l)
         for banned in ("$req.Method='POST'", "$req.Method='PATCH'", "DELETE FROM","CREATE TABLE","crm.item.update"):
             self.assertNotIn(banned,w)
