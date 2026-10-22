@@ -31,7 +31,7 @@ function TypeFamily([string]$Val){
  return 'OTHER'
 }
 function ExpectedNomenclature([string]$Val){
- $expected='(^|\.)Catalog_'+[regex]::Unescape('\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430')+'
+ $expected='(^|\.)Catalog_'+[regex]::Unescape('\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430')+'$'
  return (Yes ($Val.Trim() -match $expected))
 }
 function GuidState([string]$Val){
