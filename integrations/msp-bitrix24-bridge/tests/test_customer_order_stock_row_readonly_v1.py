@@ -46,8 +46,8 @@ class StockRowReadOnly(unittest.TestCase):
                        "MspOnecCustomerOrderMetadataReadOnlyV2",
                        "MspOnecOrderStockRowReadOnlyV1",
                        "Triggers.Count -eq 0","WORKER_HASH_INVALID",
-                       "fccaf132456b55812d2b1acce601a96fe8f9d832",
-                       "3912d388445fb69fff3e8f0a129d10498d43cca6"):
+                       "009541704a01c6204d63ec52c540b97a2fbe4759",
+                       "4d66b93862ec6d2cb680c460feacf5559c2011a9"):
             self.assertIn(string,l)
         for denied in ("$req.Method='POST'","$req.Method='PATCH'","RegisterTaskDefinition(",
                        "CREATE TABLE", "DELETE FROM","UPDATE customers",
