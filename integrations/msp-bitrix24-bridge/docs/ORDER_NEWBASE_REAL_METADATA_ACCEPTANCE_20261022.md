@@ -134,3 +134,23 @@
 - Новый статусный файл: `C:\ProgramData\MspCustomerStore\state\bitrix-to-onec-order-header-readonly-v2.txt`.
 
 **Граница безопасности:** никакого OData POST, новых покупателей, изменений CRM, основной базы 1С, произвольных запросов или периодических задач. Далее — read-only сопоставление CRM структуры заявки и товаров, затем offline inbox/маппинг; TEST write только после отдельного разрешения владельца.
+
+## 9. Фактическая приёмка шапки V2 (23.10.2026 12:40:36 UTC, SRV)
+
+Пользователь выполнил автономную V2-проверку на физическом SRV (без скачивания через GitHub из-за DNS timeout) и передал обезличенный текстовый отчёт, экспортированный на рабочий стол:
+`C:\Users\parshin\Desktop\bitrix-to-onec-order-header-readonly-v2.txt`.
+
+Подтверждённые маркеры из отчёта:
+
+- `UTC=2026-10-23T12:40:36Z`; `ATOM_ENTRIES=1`; `ROW_FOUND=YES`.
+- `ORDER_GUID_STATE=NONZERO_GUID`, `ORDER_NUMBER_PRESENT=NONEMPTY`, `DATE_PRESENT=NONEMPTY`, `TOTAL_CLASS=POSITIVE`.
+- `BUYER_GUID_STATE=NONZERO_GUID`, `ORGANIZATION_GUID_STATE=NONZERO_GUID`, `CONTRACT_GUID_STATE=NONZERO_GUID`.
+- `CURRENCY_GUID_STATE=NONZERO_GUID`, `PRICE_TYPE_GUID_STATE=NONZERO_GUID`.
+- **`DELETION_FLAG=FALSE`**, **`POSTED_FLAG=TRUE`**.
+- `VAT_INCLUDED_FLAG=TRUE`, `VAT_COST_FLAG=TRUE`.
+- `ORDER_KIND_SHAPE=OTHER`, `OPERATION_KIND_SHAPE=OTHER`, `ORDER_STATUS_SHAPE=OTHER`, `VAT_MODE_SHAPE=OTHER`.
+- **`RESULT=PASS;STAGE=ONEC_ORDER_HEADER_READONLY_V2`**.
+
+**Вывод:** реальный один непомеченный на удаление документ читается. В отличие от V1, выбранный V2 образец проведён (`Posted=true`). Он пригоден для оценки структуры существующей шапки, но **не доказывает** готовность к созданию непроведённого документа, обязательность выбранных полей или конкретные перечисления. Четыре `OTHER` требуют ограниченного выяснения формата перечислений и не являются доказательством ошибок 1С.
+
+**Следующий этап:** read-only Bitrix24 CRM schema/one chosen test deal и mapping CRM buyer/product IDs ↔ 1C GUID, затем offline validation/inbox. Запись через OData, создание нового агента в планировщике и изменение продуктивной 1С не разрешены этой приёмкой.
