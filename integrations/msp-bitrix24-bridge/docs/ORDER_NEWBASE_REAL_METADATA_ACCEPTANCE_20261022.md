@@ -112,3 +112,25 @@
 `NOMENCLATURE_TYPE_CLASS=OPAQUE_STRING` остаётся в отчёте из-за устаревшего **ASCII-only** классификатора V1; новый классификатор `TYPE_FAMILY` правильно распознаёт русское имя типа. Это не ошибка 1С.
 
 **Достигнуто:** формат товарной строки подтверждён для одной реальной строки, но это не приёмка OData POST. **Следующий ограниченный read-only этап:** исследовать головные реквизиты одного существующего документа `Document_ЗаказПокупателя`, получить исключительно типы/наличие необходимых полей (без ФИО, ИНН, номера, GUID и денежных сумм в отчёте), после чего перейти к проверке CRM схемы и mapping товаров. В рабочей 1С ничего не менять.
+
+## 8. Фактическая приёмка шапки заказа V1 (23.10.2026, SRV)
+
+Получен локальный обезличенный receipt от `MspOnecOrderHeaderReadOnlyV1`:
+
+- `ATOM_ENTRIES=1`, `ROW_FOUND=YES`; `RESULT=PASS;STAGE=ONEC_ORDER_HEADER_READONLY_V1`.
+- `ORDER_GUID_STATE=NONZERO_GUID`, `ORDER_NUMBER_PRESENT=NONEMPTY`, `DATE_PRESENT=NONEMPTY`, `TOTAL_CLASS=POSITIVE`.
+- `BUYER_GUID_STATE=NONZERO_GUID`, `ORGANIZATION_GUID_STATE=NONZERO_GUID`, `CONTRACT_GUID_STATE=NONZERO_GUID`, `CURRENCY_GUID_STATE=NONZERO_GUID`, `PRICE_TYPE_GUID_STATE=NONZERO_GUID`.
+- `POSTED_FLAG=FALSE`, **`DELETION_FLAG=TRUE`**; `VAT_INCLUDED_FLAG=TRUE`, `VAT_COST_FLAG=TRUE`.
+- `ORDER_KIND_SHAPE=OTHER`, `OPERATION_KIND_SHAPE=OTHER`, `ORDER_STATUS_SHAPE=OTHER`, `VAT_MODE_SHAPE=OTHER` — это лишь нераспознанная форма литерала; не подтверждает неверный тип и не раскрывает точное значение.
+
+**Критический вывод:** исходный V1 использовал `$top=1` без фильтра по `DeletionMark`, поэтому он выбрал **помеченный на удаление** документ. Нельзя считать его образцом корректной действующей шапки или утверждать обязательность наблюдаемых реквизитов для всех заказов. PASS означает успешное ограниченное чтение, не готовность к записи. В 1С и CRM ничего не менялось.
+
+### Разработан ограниченный V2 (только код, ещё не исполнялся на SRV)
+
+- Новый `probe-newbase-order-header-readonly-v2.ps1`: **один** OData GET `Document_ЗаказПокупателя?$top=1&$filter=DeletionMark%20eq%20false&$select=...`; не сортирует серверную выборку, не сканирует все документы вручную. Перед `PASS` отдельно требует `DELETION_FLAG=FALSE`.
+- Более точный распознаватель `Enum_...\.Элемент` с Unicode для отчётных категорий, без вывода значений.
+- Новый `start-newbase-order-header-readonly-v2.ps1`: проверяет accepted V1/V2 receipts, отключённые авто-триггеры, запускает одноразовую задачу `MspOnecOrderHeaderReadOnlyV2` под `LOCAL SERVICE` только после явного запуска отдельного launcher. Закрепляет worker за неизменяемым коммитом и Git blob SHA.
+- Offline-тесты `tests/test_order_header_readonly_v2.py`: безопасный контракт, нормальная шапка, помеченная на удаление, пустая выборка, запрет DTD. На физическом Windows SRV ещё не запускались.
+- Новый статусный файл: `C:\ProgramData\MspCustomerStore\state\bitrix-to-onec-order-header-readonly-v2.txt`.
+
+**Граница безопасности:** никакого OData POST, новых покупателей, изменений CRM, основной базы 1С, произвольных запросов или периодических задач. Далее — read-only сопоставление CRM структуры заявки и товаров, затем offline inbox/маппинг; TEST write только после отдельного разрешения владельца.
